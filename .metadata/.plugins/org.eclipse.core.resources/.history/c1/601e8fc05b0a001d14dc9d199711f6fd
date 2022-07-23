@@ -1,0 +1,28 @@
+package com.klayx.asset.rowmapper;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.springframework.jdbc.core.RowMapper;
+
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.SqlAssetReturnsVO;
+
+public class AssetReturnsRowMapper  implements RowMapper<SqlAssetReturnsVO> {
+
+
+	@Override
+	public SqlAssetReturnsVO mapRow(ResultSet rs, int rowNum) throws SQLException {
+		SqlAssetReturnsVO sqlAssetReturnsVO = new SqlAssetReturnsVO();
+		sqlAssetReturnsVO.setId(rs.getBigDecimal("id"));
+		sqlAssetReturnsVO.setAsset_id(rs.getBigDecimal("asset_id"));
+		sqlAssetReturnsVO.setEff_from_date(rs.getTimestamp("eff_from_date"));
+		sqlAssetReturnsVO.setEff_to_date(rs.getTimestamp("eff_to_date"));
+		sqlAssetReturnsVO.setAssetreturnsmaxdate(rs.getDate("assetreturnsmaxdate"));
+		sqlAssetReturnsVO.setAssetreturnskey(rs.getBigDecimal("assetreturnskey"));
+		
+		return sqlAssetReturnsVO;
+	}
+
+
+}

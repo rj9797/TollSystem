@@ -1,0 +1,822 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+public class UniverseStockDetailsByTerminalVO {
+	private Date date;
+	private String ISIN;
+	private String currency;
+	private BigDecimal currencyAppId;
+	private String currencyAppConfigName;
+	private String FactSetTicker;
+	private int analystCount;
+	private int buyCount;
+	private int holdCount;
+	private int sellCount;
+	private Double volatility1YPer;
+	private BigDecimal priceAmt;
+	private BigDecimal targetPriceMeanAmt;
+	private BigDecimal targetPriceMedianAmt;
+	private BigDecimal priceSysCurrencyAmt;
+	private BigDecimal targetPriceSysCurrencyAmt;
+	private BigDecimal marketCapSysCurrencyAmt;
+	private Double forwardDivYield12MPerc;
+	private BigDecimal trailingPriceToBookNbr;
+	private BigDecimal forwardPE12MNbr;
+	private Double forwardROE12MPerc;
+	private BigDecimal forwardEVToEbitda12MNbr;
+	private Double priceChange1DPerc;
+	private Double priceChange1WPerc;
+	private Double priceChange1MPerc;
+	private Double priceChange3MPerc;
+	private Double priceChange6MPerc;
+	private Double priceChange1YPerc;
+	private Double priceChange2YPerc;
+	private Double priceChange3YPerc;
+	private Double priceChange5YPerc;
+	private BigDecimal relativeStrengthIndex14DNbr;
+	private BigDecimal BollBonds20DNbr;
+	private Date effectiveFromDate;
+	private Date effectiveToDate;
+	private BigDecimal _thirdPartyProcessorId1;
+	private BigDecimal _thirdPartyProcessorId2;
+	private int hasError;
+	private List<ErrorVO> errors;
+	private String createdBy;
+	private String uniqueKey;
+	private String username;
+	private BigDecimal overSold;
+	private BigDecimal buyRatings;
+	private BigDecimal sellRatings;
+	private BigDecimal upsideToPriceTarget;
+	
+	
+	
+	
+	
+	public Date getDate() {
+		return date;
+	}
+
+
+
+
+
+	public void setDate(Date date) {
+		this.date = date;
+	}
+
+
+
+
+
+	public String getISIN() {
+		return ISIN;
+	}
+
+
+
+
+
+	public void setISIN(String iSIN) {
+		ISIN = iSIN;
+	}
+
+
+
+
+
+	public String getCurrency() {
+		return currency;
+	}
+
+
+
+
+
+	public void setCurrency(String currency) {
+		this.currency = currency;
+	}
+
+
+
+
+
+	public BigDecimal getCurrencyAppId() {
+		return currencyAppId;
+	}
+
+
+
+
+
+	public void setCurrencyAppId(BigDecimal currencyAppId) {
+		this.currencyAppId = currencyAppId;
+	}
+
+
+
+
+
+	public String getCurrencyAppConfigName() {
+		return currencyAppConfigName;
+	}
+
+
+
+
+
+	public void setCurrencyAppConfigName(String currencyAppConfigName) {
+		this.currencyAppConfigName = currencyAppConfigName;
+	}
+
+
+
+
+
+	public String getFactSetTicker() {
+		return FactSetTicker;
+	}
+
+
+
+
+
+	public void setFactSetTicker(String factSetTicker) {
+		FactSetTicker = factSetTicker;
+	}
+
+
+
+
+
+	public int getAnalystCount() {
+		return analystCount;
+	}
+
+
+
+
+
+	public void setAnalystCount(int analystCount) {
+		this.analystCount = analystCount;
+	}
+
+
+
+
+
+	public int getBuyCount() {
+		return buyCount;
+	}
+
+
+
+
+
+	public void setBuyCount(int buyCount) {
+		this.buyCount = buyCount;
+	}
+
+
+
+
+
+	public int getHoldCount() {
+		return holdCount;
+	}
+
+
+
+
+
+	public void setHoldCount(int holdCount) {
+		this.holdCount = holdCount;
+	}
+
+
+
+
+
+	public int getSellCount() {
+		return sellCount;
+	}
+
+
+
+
+
+	public void setSellCount(int sellCount) {
+		this.sellCount = sellCount;
+	}
+
+
+
+
+
+	public Double getVolatility1YPer() {
+		return volatility1YPer;
+	}
+
+
+
+
+
+	public void setVolatility1YPer(Double volatility1yPer) {
+		volatility1YPer = volatility1yPer;
+	}
+
+
+
+
+
+	public BigDecimal getPriceAmt() {
+		return priceAmt;
+	}
+
+
+
+
+
+	public void setPriceAmt(BigDecimal priceAmt) {
+		this.priceAmt = priceAmt;
+	}
+
+
+
+
+
+	public BigDecimal getTargetPriceMeanAmt() {
+		return targetPriceMeanAmt;
+	}
+
+
+
+
+
+	public void setTargetPriceMeanAmt(BigDecimal targetPriceMeanAmt) {
+		this.targetPriceMeanAmt = targetPriceMeanAmt;
+	}
+
+
+
+
+
+	public BigDecimal getTargetPriceMedianAmt() {
+		return targetPriceMedianAmt;
+	}
+
+
+
+
+
+	public void setTargetPriceMedianAmt(BigDecimal targetPriceMedianAmt) {
+		this.targetPriceMedianAmt = targetPriceMedianAmt;
+	}
+
+
+
+
+
+	public BigDecimal getPriceSysCurrencyAmt() {
+		return priceSysCurrencyAmt;
+	}
+
+
+
+
+
+	public void setPriceSysCurrencyAmt(BigDecimal priceSysCurrencyAmt) {
+		this.priceSysCurrencyAmt = priceSysCurrencyAmt;
+	}
+
+
+
+
+
+	public BigDecimal getTargetPriceSysCurrencyAmt() {
+		return targetPriceSysCurrencyAmt;
+	}
+
+
+
+
+
+	public void setTargetPriceSysCurrencyAmt(BigDecimal targetPriceSysCurrencyAmt) {
+		this.targetPriceSysCurrencyAmt = targetPriceSysCurrencyAmt;
+	}
+
+
+
+
+
+	public BigDecimal getMarketCapSysCurrencyAmt() {
+		return marketCapSysCurrencyAmt;
+	}
+
+
+
+
+
+	public void setMarketCapSysCurrencyAmt(BigDecimal marketCapSysCurrencyAmt) {
+		this.marketCapSysCurrencyAmt = marketCapSysCurrencyAmt;
+	}
+
+
+
+
+
+	public Double getForwardDivYield12MPerc() {
+		return forwardDivYield12MPerc;
+	}
+
+
+
+
+
+	public void setForwardDivYield12MPerc(Double forwardDivYield12MPerc) {
+		this.forwardDivYield12MPerc = forwardDivYield12MPerc;
+	}
+
+
+
+
+
+	public BigDecimal getTrailingPriceToBookNbr() {
+		return trailingPriceToBookNbr;
+	}
+
+
+
+
+
+	public void setTrailingPriceToBookNbr(BigDecimal trailingPriceToBookNbr) {
+		this.trailingPriceToBookNbr = trailingPriceToBookNbr;
+	}
+
+
+
+
+
+	public BigDecimal getForwardPE12MNbr() {
+		return forwardPE12MNbr;
+	}
+
+
+
+
+
+	public void setForwardPE12MNbr(BigDecimal forwardPE12MNbr) {
+		this.forwardPE12MNbr = forwardPE12MNbr;
+	}
+
+
+
+
+
+	public Double getForwardROE12MPerc() {
+		return forwardROE12MPerc;
+	}
+
+
+
+
+
+	public void setForwardROE12MPerc(Double forwardROE12MPerc) {
+		this.forwardROE12MPerc = forwardROE12MPerc;
+	}
+
+
+
+
+
+	public BigDecimal getForwardEVToEbitda12MNbr() {
+		return forwardEVToEbitda12MNbr;
+	}
+
+
+
+
+
+	public void setForwardEVToEbitda12MNbr(BigDecimal forwardEVToEbitda12MNbr) {
+		this.forwardEVToEbitda12MNbr = forwardEVToEbitda12MNbr;
+	}
+
+
+
+
+
+	public Double getPriceChange1DPerc() {
+		return priceChange1DPerc;
+	}
+
+
+
+
+
+	public void setPriceChange1DPerc(Double priceChange1DPerc) {
+		this.priceChange1DPerc = priceChange1DPerc;
+	}
+
+
+
+
+
+	public Double getPriceChange1WPerc() {
+		return priceChange1WPerc;
+	}
+
+
+
+
+
+	public void setPriceChange1WPerc(Double priceChange1WPerc) {
+		this.priceChange1WPerc = priceChange1WPerc;
+	}
+
+
+
+
+
+	public Double getPriceChange1MPerc() {
+		return priceChange1MPerc;
+	}
+
+
+
+
+
+	public void setPriceChange1MPerc(Double priceChange1MPerc) {
+		this.priceChange1MPerc = priceChange1MPerc;
+	}
+
+
+
+
+
+	public Double getPriceChange3MPerc() {
+		return priceChange3MPerc;
+	}
+
+
+
+
+
+	public void setPriceChange3MPerc(Double priceChange3MPerc) {
+		this.priceChange3MPerc = priceChange3MPerc;
+	}
+
+
+
+
+
+	public Double getPriceChange6MPerc() {
+		return priceChange6MPerc;
+	}
+
+
+
+
+
+	public void setPriceChange6MPerc(Double priceChange6MPerc) {
+		this.priceChange6MPerc = priceChange6MPerc;
+	}
+
+
+
+
+
+	public Double getPriceChange1YPerc() {
+		return priceChange1YPerc;
+	}
+
+
+
+
+
+	public void setPriceChange1YPerc(Double priceChange1YPerc) {
+		this.priceChange1YPerc = priceChange1YPerc;
+	}
+
+
+
+
+
+	public Double getPriceChange2YPerc() {
+		return priceChange2YPerc;
+	}
+
+
+
+
+
+	public void setPriceChange2YPerc(Double priceChange2YPerc) {
+		this.priceChange2YPerc = priceChange2YPerc;
+	}
+
+
+
+
+
+	public Double getPriceChange3YPerc() {
+		return priceChange3YPerc;
+	}
+
+
+
+
+
+	public void setPriceChange3YPerc(Double priceChange3YPerc) {
+		this.priceChange3YPerc = priceChange3YPerc;
+	}
+
+
+
+
+
+	public Double getPriceChange5YPerc() {
+		return priceChange5YPerc;
+	}
+
+
+
+
+
+	public void setPriceChange5YPerc(Double priceChange5YPerc) {
+		this.priceChange5YPerc = priceChange5YPerc;
+	}
+
+
+
+
+
+	public BigDecimal getRelativeStrengthIndex14DNbr() {
+		return relativeStrengthIndex14DNbr;
+	}
+
+
+
+
+
+	public void setRelativeStrengthIndex14DNbr(BigDecimal relativeStrengthIndex14DNbr) {
+		this.relativeStrengthIndex14DNbr = relativeStrengthIndex14DNbr;
+	}
+
+
+
+
+
+	public BigDecimal getBollBonds20DNbr() {
+		return BollBonds20DNbr;
+	}
+
+
+
+
+
+	public void setBollBonds20DNbr(BigDecimal bollBonds20DNbr) {
+		BollBonds20DNbr = bollBonds20DNbr;
+	}
+
+
+
+
+
+	public Date getEffectiveFromDate() {
+		return effectiveFromDate;
+	}
+
+
+
+
+
+	public void setEffectiveFromDate(Date effectiveFromDate) {
+		this.effectiveFromDate = effectiveFromDate;
+	}
+
+
+
+
+
+	public Date getEffectiveToDate() {
+		return effectiveToDate;
+	}
+
+
+
+
+
+	public void setEffectiveToDate(Date effectiveToDate) {
+		this.effectiveToDate = effectiveToDate;
+	}
+
+
+
+
+
+	public BigDecimal get_thirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+
+
+
+
+
+	public void set_thirdPartyProcessorId1(BigDecimal _thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = _thirdPartyProcessorId1;
+	}
+
+
+
+
+
+	public BigDecimal get_thirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+
+
+
+
+
+	public void set_thirdPartyProcessorId2(BigDecimal _thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = _thirdPartyProcessorId2;
+	}
+
+
+
+
+
+	public int getHasError() {
+		return hasError;
+	}
+
+
+
+
+
+	public void setHasError(int hasError) {
+		this.hasError = hasError;
+	}
+
+
+
+
+
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+
+
+
+
+
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+
+
+
+
+
+	public String getCreatedBy() {
+		return createdBy;
+	}
+
+
+
+
+
+	public void setCreatedBy(String createdBy) {
+		this.createdBy = createdBy;
+	}
+
+
+
+
+
+	public String getUniqueKey() {
+		return uniqueKey;
+	}
+
+
+
+
+
+	public void setUniqueKey(String uniqueKey) {
+		this.uniqueKey = uniqueKey;
+	}
+
+
+
+
+
+	public String getUsername() {
+		return username;
+	}
+
+
+
+
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+
+
+
+
+	public BigDecimal getOverSold() {
+		return overSold;
+	}
+
+
+
+
+
+	public void setOverSold(BigDecimal overSold) {
+		this.overSold = overSold;
+	}
+
+
+
+
+
+	public BigDecimal getBuyRatings() {
+		return buyRatings;
+	}
+
+
+
+
+
+	public void setBuyRatings(BigDecimal buyRatings) {
+		this.buyRatings = buyRatings;
+	}
+
+
+
+
+
+	public BigDecimal getSellRatings() {
+		return sellRatings;
+	}
+
+
+
+
+
+	public void setSellRatings(BigDecimal sellRatings) {
+		this.sellRatings = sellRatings;
+	}
+
+
+
+
+
+	public BigDecimal getUpsideToPriceTarget() {
+		return upsideToPriceTarget;
+	}
+
+
+
+
+
+	public void setUpsideToPriceTarget(BigDecimal upsideToPriceTarget) {
+		this.upsideToPriceTarget = upsideToPriceTarget;
+	}
+
+
+
+
+
+	@Override
+	public String toString() {
+		return "UniverseStockDetailsByTerminalVO [date=" + date + ", ISIN=" + ISIN + ", currency=" + currency
+				+ ", currencyAppId=" + currencyAppId + ", currencyAppConfigName=" + currencyAppConfigName
+				+ ", FactSetTicker=" + FactSetTicker + ", analystCount=" + analystCount + ", buyCount=" + buyCount
+				+ ", holdCount=" + holdCount + ", sellCount=" + sellCount + ", volatility1YPer=" + volatility1YPer
+				+ ", priceAmt=" + priceAmt + ", targetPriceMeanAmt=" + targetPriceMeanAmt + ", targetPriceMedianAmt="
+				+ targetPriceMedianAmt + ", priceSysCurrencyAmt=" + priceSysCurrencyAmt + ", targetPriceSysCurrencyAmt="
+				+ targetPriceSysCurrencyAmt + ", marketCapSysCurrencyAmt=" + marketCapSysCurrencyAmt
+				+ ", forwardDivYield12MPerc=" + forwardDivYield12MPerc + ", trailingPriceToBookNbr="
+				+ trailingPriceToBookNbr + ", forwardPE12MNbr=" + forwardPE12MNbr + ", forwardROE12MPerc="
+				+ forwardROE12MPerc + ", forwardEVToEbitda12MNbr=" + forwardEVToEbitda12MNbr + ", priceChange1DPerc="
+				+ priceChange1DPerc + ", priceChange1WPerc=" + priceChange1WPerc + ", priceChange1MPerc="
+				+ priceChange1MPerc + ", priceChange3MPerc=" + priceChange3MPerc + ", priceChange6MPerc="
+				+ priceChange6MPerc + ", priceChange1YPerc=" + priceChange1YPerc + ", priceChange2YPerc="
+				+ priceChange2YPerc + ", priceChange3YPerc=" + priceChange3YPerc + ", priceChange5YPerc="
+				+ priceChange5YPerc + ", relativeStrengthIndex14DNbr=" + relativeStrengthIndex14DNbr
+				+ ", BollBonds20DNbr=" + BollBonds20DNbr + ", effectiveFromDate=" + effectiveFromDate
+				+ ", effectiveToDate=" + effectiveToDate + ", _thirdPartyProcessorId1=" + _thirdPartyProcessorId1
+				+ ", _thirdPartyProcessorId2=" + _thirdPartyProcessorId2 + ", hasError=" + hasError + ", errors="
+				+ errors + ", createdBy=" + createdBy + ", uniqueKey=" + uniqueKey + ", username=" + username
+				+ ", overSold=" + overSold + ", buyRatings=" + buyRatings + ", sellRatings=" + sellRatings
+				+ ", upsideToPriceTarget=" + upsideToPriceTarget + "]";
+	}
+	
+	
+	
+}

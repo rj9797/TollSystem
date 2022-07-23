@@ -1,0 +1,1285 @@
+package com.klayx.asset.dao.impl;
+
+import java.math.BigDecimal;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementSetter;
+import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Repository;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IAssetKeyFigureDAO;
+import com.klayx.asset.datasourcemanager.DataSourceManager;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.TenantInfoVO;
+import com.klayx.asset.rowmapper.AssetKeyFigureRowMapper;
+import com.klayx.asset.rowmapper.AssetRowMapper;
+import com.klayx.asset.transactionmanager.CustomTransactional;
+
+@Repository(AssetConstants.ASSETKEYFIGUREDAO)
+@PropertySource({ "classpath:${DBSQLFILE}.properties" })
+public class AssetKeyFigureDAOImpl implements IAssetKeyFigureDAO {
+
+	private static final Logger log = LogManager.getLogger(AssetKeyFigureDAOImpl.class);
+//	@Autowired
+//	DataSource dataSource;
+
+	@Autowired
+	DataSourceManager dataSourceManager;
+
+//	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
+	@Value("${Service_id}")
+	private Long service;
+
+	@Value("${ASSET_KEY_FIGURE_INSERT}")
+	private String AssetKeyFigureInsert;
+
+	@Value("${ASSET_KEY_FIGURE_UPDATE}")
+	private String AssetKeyFigureUpdate;
+
+	@Value("${ASSET_KEY_FIGURE_SELECT_CONDITIONAL}")
+	private String AssetKeyFigureSelectConditional;
+
+	@Value("${ASSET_KEY_FIGURE_SELECT}")
+	private String AssetKeyFigureSelect;
+
+	@Value("${ASSET_KEY_FIGURE_INFO_SELECT}")
+	private String AssetKeyFigureInfoSelect;
+
+	@Value("${CHECK_CATEGORY}")
+	private String CHECK_CATEGORY;
+
+	@Value("${GET_CURRENCY}")
+	private String GET_CURRENCY;
+
+	@Value("${GET_ISIN_CURRENCY}")
+	private String GET_ISIN_CURRENCY;
+
+	@Value("${SELECT_SUBCATAGORY}")
+	private String GET_SUBCATAGORY1;
+
+	@Value("${GET_SUBCATAGORY2}")
+	private String GET_SUBCATAGORY2;
+
+	@Value("${GET_FIRST_LEG_CURRENCY}")
+	private String GET_FIRST_LEG_CURRENCY;
+
+	@Value("${GET_SECOND_LEG_CURRENCY}")
+	private String GET_SECOND_LEG_CURRENCY;
+
+	@Value("${GET_CATEGORY_LIST}")
+	private String GET_CATEGORY_LIST;
+
+	@Value("${ASSET_MASTER_SELECT_QUERY}")
+	private String assetMasterSelectQuery;
+
+	@Value("${GET_ASSET_KEY_FIGURE_WITH_NULL}")
+	private String GET_ASSET_KEY_FIGURE_WITH_NULL;
+
+	@Value("${INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE}")
+	private String INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE;
+
+	@Value("${UPDATE_ASSET_CUSTODIANWISE_LAST_DATE}")
+	private String UPDATE_ASSET_CUSTODIANWISE_LAST_DATE;
+
+	@Value("$GET_ASSET_CUSTODIANWISE_LAST_DATE")
+	private String GET_ASSET_CUSTODIANWISE_LAST_DATE;
+
+	@Value("${GET_TENANT_INFO_URL}")
+	private String getTenantInfoUrl;
+
+	Gson gson = new Gson();
+
+	@CustomTransactional
+	@Override
+	public void addAssetKeyFigures(String tenantCode, List<AssetKeyFigureVO> successVOs, List<JsonObject> totalVOs,
+			String accessToken) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			List<AssetVO> assets = this.getAssets(tenantCode, successVOs);
+			List<AssetKeyFigureVO> insertList = new ArrayList<AssetKeyFigureVO>();
+			List<AssetKeyFigureVO> updateList = new ArrayList<AssetKeyFigureVO>();
+			List<AssetKeyFigureVO> maxDateInsertList = new ArrayList<AssetKeyFigureVO>();
+			List<AssetKeyFigureVO> maxDateUpdateList = new ArrayList<AssetKeyFigureVO>();
+			for (AssetKeyFigureVO assetKeyFigure : successVOs) {
+
+				BigDecimal assetid = new BigDecimal(0);
+
+				for (AssetVO assetVO : assets) {
+
+					BigDecimal currency = (BigDecimal) assetVO.get_currencyAppId();
+					if (currency.equals(assetKeyFigure.get_currencyAppId())
+							&& assetVO.getIsin().equals(assetKeyFigure.getIsin()) && assetVO.getId() != null) {
+
+						assetid = (BigDecimal) assetVO.getId();
+						assetKeyFigure.setAssetID(assetid);
+						break;
+					}
+
+				}
+
+			}
+			Map<String, AssetKeyFigureVO> AssetKeyFigureMap = getAssetKeyFigure(tenantCode, successVOs);
+
+			Map<String, JsonObject> totalVOsMap = new HashMap<>();
+
+			totalVOsMap = totalVOs.parallelStream()
+					.collect(Collectors.toMap(e -> e.get("uniqueKey").getAsString(), Function.identity()));
+
+			// List will contain objects to be removed from SuccessVOs
+			List<AssetKeyFigureVO> successVOsToBeRemoved = new ArrayList<AssetKeyFigureVO>();
+
+			// List will contain objects to be removed from totalVOs
+			// List<JsonObject> objectsToBeRemoved = new ArrayList<>();
+
+			// List will contain objects to be added from totalVOs
+			// List<JsonObject> objectsToBeAdded = new ArrayList<>();
+
+			int flag = 0;
+			BigDecimal tenantId = null;
+			for (AssetKeyFigureVO assetKeyFigureVO : successVOs) {
+
+				if (flag == 0 && assetKeyFigureVO.get_tenantId() == null) {
+					JsonObject obj = new JsonObject();
+					obj.addProperty("tenantCode", tenantCode);
+					TenantInfoVO tenantInfo = null;
+					String tenantInfoAsStr = AssetUtil.syncHttpCall(gson.toJson(obj), getTenantInfoUrl, accessToken);
+					tenantInfo = AssetUtil.fromJSonToObject(tenantInfoAsStr, TenantInfoVO.class);
+					tenantId = tenantInfo.getId();
+					flag = 1;
+				}
+				if (assetKeyFigureVO.get_tenantId() == null) {
+					assetKeyFigureVO.set_tenantId(tenantId);
+				}
+				BigDecimal assetid = assetKeyFigureVO.getAssetID();
+				String assetkey;
+				if (assetKeyFigureVO.get_custodianAppId() != null) {
+					assetkey = assetKeyFigureVO.get_custodianAppId() + "" + assetid;
+				} else {
+					assetkey = assetid.toString();
+				}
+				List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+				if (assetKeyFigureVO != null && assetid != null) {
+
+					if ((assetid!=null && AssetKeyFigureMap.containsKey(assetkey))) {
+						AssetKeyFigureVO DbVO = AssetKeyFigureMap.get(assetkey);
+						Date maxDateDB = DbVO.getEffectiveFromDate();
+						Date effFromDateJson = assetKeyFigureVO.getEffectiveFromDate();
+						if (DbVO != null) {
+							if ((effFromDateJson).compareTo(maxDateDB) > 0) {
+								assetKeyFigureVO.setId(DbVO.getId());
+								insertList.add(assetKeyFigureVO);
+								maxDateUpdateList.add(assetKeyFigureVO);
+							}
+							if ((effFromDateJson).compareTo(maxDateDB) < 0) {
+								assetKeyFigureVO.setId(DbVO.getId());
+								assetKeyFigureVO.setHasError(1);
+								errorVOs.add(AssetUtil.getError("BUSAST41"));
+								assetKeyFigureVO.setErrors(errorVOs);
+
+								successVOsToBeRemoved.add(assetKeyFigureVO);
+
+								totalVOsMap.remove(assetKeyFigureVO.getUniqueKey());
+
+								String assetKeyFigure1 = AssetUtil.fromObjectToJSON(assetKeyFigureVO);
+								JsonObject jsonObject = AssetUtil.fromJSonToObject(assetKeyFigure1, JsonObject.class);
+
+								totalVOsMap.put(assetKeyFigureVO.getUniqueKey(), jsonObject);
+
+//								for(JsonObject assetPrice :totalVOs) {
+//									if((!AssetUtil.jsonNullCheck(assetPrice, "uniqueKey")) && assetKeyFigureVO.getUniqueKey()!=null
+//											&& assetPrice.get("uniqueKey").getAsString().equalsIgnoreCase(assetKeyFigureVO.getUniqueKey())) {
+//
+//										objectsToBeRemoved.add(assetPrice);
+//										
+//										String assetKeyFigure1 = AssetUtil.fromObjectToJSON(assetKeyFigureVO);
+//										JsonObject jsonObject = AssetUtil.fromJSonToObject(assetKeyFigure1, JsonObject.class);
+//
+//										objectsToBeAdded.add(jsonObject);
+//										break;
+//									}
+//								}
+							}
+							if ((effFromDateJson).compareTo(maxDateDB) == 0) {
+								assetKeyFigureVO.setId(DbVO.getId());
+								updateList.add(assetKeyFigureVO);
+								// maxDateInsertList.add(assetKeyFigureVO);
+							}
+						}
+					} else {
+						insertList.add(assetKeyFigureVO);
+						maxDateInsertList.add(assetKeyFigureVO);
+					}
+				}
+			}
+
+			successVOs.removeAll(successVOsToBeRemoved);
+			successVOs.clear();
+
+//			totalVOs.removeAll(objectsToBeRemoved);
+//			objectsToBeRemoved.clear();
+//			
+//			totalVOs.addAll(objectsToBeAdded);
+//			objectsToBeAdded.clear();
+
+			List<JsonObject> tempTotalVOs = new ArrayList<JsonObject>(totalVOsMap.values());
+
+			totalVOs.clear();
+			totalVOs.addAll(tempTotalVOs);
+
+			if (insertList.size() > 0) {
+				addAssetKeyFigure(tenantCode, insertList, AssetKeyFigureMap);
+			}
+			if (updateList.size() > 0) {
+				updateAssetKeyFigure(tenantCode, updateList, AssetKeyFigureMap);
+			}
+			if (maxDateInsertList.size() > 0) {
+//				this.insertIntoAssetCustodianWiseLastDate(tenantCode, maxDateInsertList);
+			}
+			if (maxDateUpdateList.size() > 0) {
+//				this.updateAssetCustodianWiseLastDate(tenantCode, maxDateUpdateList);
+			}
+		} catch (Exception exception) {
+			log.fatal("Error While addAssetKeyFigures ", exception);
+			throw exception;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	private void insertIntoAssetCustodianWiseLastDate(String tenantCode, List<AssetKeyFigureVO> insertList)
+			throws Exception {
+		// TODO Auto-generated method stub
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+			if (insertList.size() > 0) {
+				jdbcTemplate.batchUpdate(INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE, new BatchPreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+						int j = 0;
+						preparedStatement.setBigDecimal(++j, insertList.get(i).get_tenantId());
+						preparedStatement.setLong(++j, service);
+						preparedStatement.setBigDecimal(++j, insertList.get(i).getAssetID());
+						preparedStatement.setString(++j, insertList.get(i).getIsin());
+						preparedStatement.setString(++j, insertList.get(i).get_currencyAppConfigName());
+						preparedStatement.setBigDecimal(++j, insertList.get(i).get_currencyAppId());
+						preparedStatement.setBigDecimal(++j, insertList.get(i).get_custodianAppId());
+						preparedStatement.setString(++j, insertList.get(i).get_custodianAppConfigName());
+						preparedStatement.setBigDecimal(++j, AssetConstants.KEYFIGUREID);
+						preparedStatement.setString(++j, AssetConstants.KEYFIGURECONFIGNAME);
+
+						try {
+							preparedStatement.setTimestamp(++j,
+									AssetUtil.stringToTimestamp(insertList.get(i).getEffectiveFromDate()));
+						} catch (Exception e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+						preparedStatement.setString(++j, insertList.get(i).getUsername());
+					}
+
+					@Override
+					public int getBatchSize() {
+						return insertList.size();
+					}
+				});
+			}
+
+		} catch (Exception e) {
+			// TODO: handle exception
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	private void updateAssetCustodianWiseLastDate(String tenantCode, List<AssetKeyFigureVO> updateList)
+			throws Exception {
+		try {
+			if (log.isDebugEnabled())
+				log.debug("Entering");
+
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+			if (updateList.size() > 0) {
+				int[] updateCount = jdbcTemplate.batchUpdate(UPDATE_ASSET_CUSTODIANWISE_LAST_DATE,
+						new BatchPreparedStatementSetter() {
+							@Override
+							public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+								int j = 0;
+								try {
+									preparedStatement.setTimestamp(++j,
+											AssetUtil.stringToTimestamp(updateList.get(i).getEffectiveFromDate()));
+								} catch (Exception e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+								preparedStatement.setString(++j, updateList.get(i).getUsername());
+								preparedStatement.setString(++j, updateList.get(i).getIsin());
+								preparedStatement.setString(++j, updateList.get(i).get_currencyAppConfigName());
+//					if (updateList.get(i).get_custodianAppConfigName() != null) {
+								preparedStatement.setString(++j, updateList.get(i).get_custodianAppConfigName());
+//					}
+								preparedStatement.setString(++j, AssetConstants.KEYFIGURECONFIGNAME);
+							}
+
+							@Override
+							public int getBatchSize() {
+								return updateList.size();
+							}
+						});
+				List<AssetKeyFigureVO> freshRecordsList = new ArrayList<AssetKeyFigureVO>();
+				for (int i = 0; i < updateCount.length; i++) {
+					if (updateCount[i] == 0) {
+						freshRecordsList.add(updateList.get(i));
+					}
+				}
+				if (freshRecordsList.size() > 0)
+					this.insertIntoAssetCustodianWiseLastDate(tenantCode, freshRecordsList);
+			}
+		} catch (Exception e) {
+			// TODO: handle exception
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@CustomTransactional
+	@Override
+	public void addAssetKeyFigure(String tenantCode, List<AssetKeyFigureVO> request,
+			Map<String, AssetKeyFigureVO> DbMap) throws Exception {
+		// long primaryKey;
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			// final String SQL_QUERY;
+			List<AssetKeyFigureVO> freshInsert = new ArrayList<>();
+			List<AssetKeyFigureVO> updateAndInsert = new ArrayList<>();
+			List<AssetKeyFigureVO> maxDateInsertList = new ArrayList<AssetKeyFigureVO>();
+			for (AssetKeyFigureVO assetKeyFigure : request) {
+				String key;
+				if (assetKeyFigure.get_custodianAppId() != null) {
+					key = assetKeyFigure.get_custodianAppId() + "" + assetKeyFigure.getAssetID();
+				} else {
+					key = assetKeyFigure.getAssetID().toString();
+				}
+				if (!DbMap.containsKey(key)) {
+					freshInsert.add(assetKeyFigure);
+				} else {
+					updateAndInsert.add(assetKeyFigure);
+				}
+			}
+			// KeyHolder keyHolder = new GeneratedKeyHolder();
+			if (freshInsert.size() > 0) {
+				List<AssetKeyFigureVO> reqParam = freshInsert;
+				StringBuilder query1 = new StringBuilder();
+				query1.append(GET_ISIN_CURRENCY);
+				for (int i = 0; i < freshInsert.size(); i++) {
+					if (i == freshInsert.size() - 1) {
+						String last = "(ISIN='" + freshInsert.get(i).getIsin() + "' AND currency_config_name='"
+								+ freshInsert.get(i).get_currencyAppConfigName() + "'))";
+						query1.append(last);
+					} else {
+						String last = "(ISIN='" + freshInsert.get(i).getIsin() + "' AND currency_config_name='"
+								+ freshInsert.get(i).get_currencyAppConfigName() + "') OR ";
+						query1.append(last);
+					}
+				}
+				List<AssetVO> result = jdbcTemplate.query(query1.toString(), new AssetRowMapper());
+
+				List<AssetKeyFigureVO> assetKeyFigureVOs = new ArrayList<AssetKeyFigureVO>();
+				int flag = 0;
+				for (int i = 0; i < reqParam.size(); i++) {
+					flag = 0;
+					for (int j = 0; j < result.size(); j++) {
+						if (result.get(j).getIsin().equals(reqParam.get(i).getIsin())
+								&& reqParam.get(i).get_currencyAppId().equals(result.get(j).get_currencyAppId())) {
+							assetKeyFigureVOs.add(reqParam.get(i));
+							flag = 1;
+							break;
+						}
+					}
+					if (flag == 0) {
+						reqParam.get(i).setHasError(1);
+						List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+						errorVOs.add(AssetUtil.getError("BUSAST32"));
+						reqParam.get(i).setErrors(errorVOs);
+					}
+				}
+
+				// Converting list into Map
+				Map<String, List<AssetKeyFigureVO>> assetKeyFigureMap = new HashMap<String, List<AssetKeyFigureVO>>();
+				for (AssetKeyFigureVO assetKeyFigureVO : assetKeyFigureVOs) {
+					assetKeyFigureMap
+							.computeIfAbsent(assetKeyFigureVO.getIsin() + assetKeyFigureVO.get_currencyAppConfigName()
+									+ assetKeyFigureVO.get_custodianAppConfigName(), k -> new ArrayList<>())
+							.add(assetKeyFigureVO);
+				}
+
+				Iterator<Map.Entry<String, List<AssetKeyFigureVO>>> itr = assetKeyFigureMap.entrySet().iterator();
+
+				while (itr.hasNext()) {
+					Map.Entry<String, List<AssetKeyFigureVO>> entry = itr.next();
+
+					List<AssetKeyFigureVO> assetKeyFigureList = (List<AssetKeyFigureVO>) entry.getValue();
+
+					if (assetKeyFigureList != null && assetKeyFigureList.size() > 0)
+						assetKeyFigureList = assetKeyFigureList.stream()
+								.sorted(Comparator.comparing(AssetKeyFigureVO::getEffectiveFromDate))
+								.collect(Collectors.toList());
+
+					if (assetKeyFigureList != null && assetKeyFigureList.size() > 0) {
+
+						for (int i = 0; i < assetKeyFigureList.size(); i++) {
+							if (i == assetKeyFigureList.size() - 1) {
+								maxDateInsertList.add(assetKeyFigureList.get(i));
+							} else {
+								AssetKeyFigureVO nextAssetKeyFigureVO = assetKeyFigureList.get(i + 1);
+
+								Date effectiveFromDate = nextAssetKeyFigureVO.getEffectiveFromDate();
+
+								Calendar calender = Calendar.getInstance();
+								calender.setTime(effectiveFromDate);
+								calender.add(Calendar.MILLISECOND, -1);
+								Date oneMinuteBefore = calender.getTime();
+
+								// Setting effectiveToDate
+								assetKeyFigureList.get(i).setEffectiveFromTo(oneMinuteBefore);
+							}
+
+						}
+					}
+				}
+
+				if (maxDateInsertList.size() > 0) {
+					this.updateAssetCustodianWiseLastDate(tenantCode, maxDateInsertList);
+				}
+				/**
+				 * NOTE: Please make a note that We are not creating seperate List of
+				 * AssetKeyFigure after above operation. Because whenever we are setting
+				 * effToDate in below code, it is getting updated in list (assetKeyFigureVOs) by
+				 * call by reference.
+				 */
+
+				jdbcTemplate.batchUpdate(AssetKeyFigureInsert, new BatchPreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+
+						preparedStatement.setBigDecimal(1, assetKeyFigureVOs.get(i).get_tenantId());
+						preparedStatement.setLong(2, service);
+						preparedStatement.setBigDecimal(3, assetKeyFigureVOs.get(i).getAssetID());
+						preparedStatement.setBigDecimal(4, assetKeyFigureVOs.get(i).get_custodianAppId());
+						preparedStatement.setBigDecimal(5, assetKeyFigureVOs.get(i).getMaturity());
+						if (assetKeyFigureVOs.get(i).getEarning() != null) {
+							preparedStatement.setDouble(6, assetKeyFigureVOs.get(i).getEarning());
+						} else {
+							preparedStatement.setNull(6, Types.NUMERIC);
+						}
+						if (assetKeyFigureVOs.get(i).getEstimatedDividend() != null) {
+							preparedStatement.setDouble(7, assetKeyFigureVOs.get(i).getEstimatedDividend());
+						} else {
+							preparedStatement.setNull(7, Types.NUMERIC);
+						}
+						preparedStatement.setBigDecimal(8, assetKeyFigureVOs.get(i).getYield());
+						preparedStatement.setBigDecimal(9, assetKeyFigureVOs.get(i).getYieldCall());
+						preparedStatement.setBigDecimal(10, assetKeyFigureVOs.get(i).getDuration());
+						preparedStatement.setBigDecimal(11, assetKeyFigureVOs.get(i).getDurationCall());
+						preparedStatement.setBigDecimal(12, assetKeyFigureVOs.get(i).getSpreadOverRiskfreeRate());
+						preparedStatement.setBigDecimal(13, assetKeyFigureVOs.get(i).getModifiedDuration());
+						preparedStatement.setBigDecimal(14, assetKeyFigureVOs.get(i).getConvexity());
+						preparedStatement.setBigDecimal(15, assetKeyFigureVOs.get(i).getPvbp());
+						if (assetKeyFigureVOs.get(i).getLtvPercentage() != null) {
+							preparedStatement.setDouble(16, assetKeyFigureVOs.get(i).getLtvPercentage());
+						} else {
+							preparedStatement.setNull(16, Types.DOUBLE);
+						}		
+						preparedStatement.setBigDecimal(17, assetKeyFigureVOs.get(i).getDiscountedPnL());
+						try {
+							preparedStatement.setTimestamp(18,
+									AssetUtil.stringToTimestamp(assetKeyFigureVOs.get(i).getEffectiveFromDate()));
+
+							if (assetKeyFigureVOs.get(i).getEffectiveFromTo() != null) {
+								preparedStatement.setTimestamp(19,
+										AssetUtil.stringToTimestamp(assetKeyFigureVOs.get(i).getEffectiveFromTo()));
+							} else {
+								preparedStatement.setTimestamp(19, null);
+							}
+						} catch (SQLException e) {
+							log.fatal("SQLException: ", e);
+						} catch (Exception e) {
+							log.fatal("Exception: ", e);
+						}
+						preparedStatement.setBigDecimal(20, assetKeyFigureVOs.get(i).get_sourceAppId());
+						preparedStatement.setString(21, assetKeyFigureVOs.get(i).getRemarks());
+						preparedStatement.setString(22, assetKeyFigureVOs.get(i).getUsername());
+						preparedStatement.setString(23, assetKeyFigureVOs.get(i).getIsin());
+						preparedStatement.setBigDecimal(24, assetKeyFigureVOs.get(i).get_currencyAppId());
+						preparedStatement.setString(25, assetKeyFigureVOs.get(i).get_custodianAppConfigName());
+						preparedStatement.setString(26, assetKeyFigureVOs.get(i).get_currencyAppConfigName());
+						preparedStatement.setString(27, assetKeyFigureVOs.get(i).getSourceAppConfigName());
+					}
+
+					@Override
+					public int getBatchSize() {
+						return assetKeyFigureVOs.size();
+					}
+				});
+
+//			jdbcTemplate.update(
+//					new PreparedStatementCreator() {
+//						public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+//							PreparedStatement preparedStatement = connection.prepareStatement(AssetKeyFigureInsert,
+//									new String[] { "id" });
+//							preparedStatement.setLong(1,1);
+//							preparedStatement.setLong(2,2);
+//							preparedStatement.setLong(3,reqParam.getAssetID());
+//							preparedStatement.setLong(4,reqParam.getCustodianAppId());
+//							preparedStatement.setInt(5,reqParam.getMaturity());
+//							preparedStatement.setDouble(6,reqParam.getEarning());
+//							preparedStatement.setDouble(7,reqParam.getEstimatedDividend());
+//							preparedStatement.setDouble(8,reqParam.getYield());
+//							preparedStatement.setDouble(9,reqParam.getYieldCall());
+//							preparedStatement.setDouble(10,reqParam.getDuration());
+//							preparedStatement.setDouble(11,reqParam.getDurationCall());
+//							preparedStatement.setDouble(12,reqParam.getSpreadOverRiskfreeRate());
+//							preparedStatement.setDouble(13,reqParam.getModifiedDuration());
+//							preparedStatement.setDouble(14,reqParam.getConvexity());
+//							preparedStatement.setDouble(15,reqParam.getPvbp());
+//							preparedStatement.setDouble(16,reqParam.getLtvPercentage());
+//							preparedStatement.setDate(17,AssetKeyFigureUtil.DateFormater(reqParam.getEffectiveFromDate()));
+//							preparedStatement.setLong(18,reqParam.getSourceAppId());
+//							preparedStatement.setString(19,reqParam.getRemarks());
+//							
+//							preparedStatement.setString(20,"System");
+//							
+//							return preparedStatement;
+//						}
+//					}
+//					,keyHolder); 
+			}
+			if (updateAndInsert.size() > 0) {
+				List<AssetKeyFigureVO> assetKeyFigureVOs = updateAndInsert;
+				List<AssetKeyFigureVO> updateList = new ArrayList<AssetKeyFigureVO>();
+				Map<String, List<AssetKeyFigureVO>> assetKeyFigureMap = new HashMap<String, List<AssetKeyFigureVO>>();
+				for (int i = 0; i < assetKeyFigureVOs.size(); i++) {
+					String key = assetKeyFigureVOs.get(i).getIsin()
+							+ assetKeyFigureVOs.get(i).get_currencyAppConfigName()
+							+ assetKeyFigureVOs.get(i).get_custodianAppConfigName();
+					if (!assetKeyFigureMap.containsKey(key)) {
+						List<AssetKeyFigureVO> assetKeyFigureList = new ArrayList<AssetKeyFigureVO>();
+						assetKeyFigureList.add(assetKeyFigureVOs.get(i));
+						assetKeyFigureMap.put(key, assetKeyFigureList);
+					} else {
+						assetKeyFigureMap.get(key).add(assetKeyFigureVOs.get(i));
+					}
+				}
+
+				Iterator<Map.Entry<String, List<AssetKeyFigureVO>>> itr = assetKeyFigureMap.entrySet().iterator();
+
+				while (itr.hasNext()) {
+					Map.Entry<String, List<AssetKeyFigureVO>> entry = itr.next();
+
+					List<AssetKeyFigureVO> assetKeyFigureList = (List<AssetKeyFigureVO>) entry.getValue();
+
+					if (assetKeyFigureList != null && assetKeyFigureList.size() > 0)
+						assetKeyFigureList = assetKeyFigureList.stream()
+								.sorted(Comparator.comparing(AssetKeyFigureVO::getEffectiveFromDate))
+								.collect(Collectors.toList());
+
+					if (assetKeyFigureList != null && assetKeyFigureList.size() > 0) {
+
+						for (int i = 0; i < assetKeyFigureList.size(); i++) {
+							if (i == 0) {
+								updateList.add(assetKeyFigureList.get(0));
+							}
+							if (i == assetKeyFigureList.size() - 1) {
+								maxDateInsertList.add(assetKeyFigureList.get(i));
+							} else {
+								AssetKeyFigureVO nextAssetKeyFigureVO = assetKeyFigureList.get(i + 1);
+
+								Date effectiveFromDate = nextAssetKeyFigureVO.getEffectiveFromDate();
+
+								Calendar calender = Calendar.getInstance();
+								calender.setTime(effectiveFromDate);
+								calender.add(Calendar.MILLISECOND, -1);
+								Date oneMinuteBefore = calender.getTime();
+
+								// Setting effectiveToDate
+								assetKeyFigureList.get(i).setEffectiveFromTo(oneMinuteBefore);
+							}
+
+						}
+					}
+				}
+				if (maxDateInsertList.size() > 0) {
+					this.updateAssetCustodianWiseLastDate(tenantCode, maxDateInsertList);
+				}
+
+				List<AssetKeyFigureVO> reqParam = updateList;
+				jdbcTemplate.batchUpdate(
+						"update asset_key_figure set eff_to_date= ?, updated_date=now(), updated_by=? where id= ?",
+						new BatchPreparedStatementSetter() {
+							@Override
+							public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+								Date myDate = reqParam.get(i).getEffectiveFromDate();
+								Calendar c = Calendar.getInstance();
+								c.setTime(myDate);
+								c.add(Calendar.MILLISECOND, -1);
+								Date oneMinuteBefore = c.getTime();
+								try {
+									preparedStatement.setTimestamp(1, AssetUtil.stringToTimestamp(oneMinuteBefore));
+								} catch (SQLException e) {
+									log.fatal("SQLException: ", e);
+								} catch (Exception e) {
+									log.fatal("Exception: ", e);
+								}
+								preparedStatement.setString(2, reqParam.get(i).getUsername());
+								preparedStatement.setBigDecimal(3, reqParam.get(i).getId());
+							}
+
+							@Override
+							public int getBatchSize() {
+								// TODO Auto-generated method stub
+								return reqParam.size();
+							}
+						});
+
+				jdbcTemplate.batchUpdate(AssetKeyFigureInsert, new BatchPreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+
+						preparedStatement.setLong(1, 1);
+						preparedStatement.setLong(2, service);
+						preparedStatement.setBigDecimal(3, assetKeyFigureVOs.get(i).getAssetID());
+						preparedStatement.setBigDecimal(4, assetKeyFigureVOs.get(i).get_custodianAppId());
+						preparedStatement.setBigDecimal(5, assetKeyFigureVOs.get(i).getMaturity());
+						if (assetKeyFigureVOs.get(i).getEarning() != null) {
+							preparedStatement.setDouble(6, assetKeyFigureVOs.get(i).getEarning());
+						} else {
+							preparedStatement.setNull(6, Types.DOUBLE);
+						}
+						if (assetKeyFigureVOs.get(i).getEstimatedDividend() != null) {
+							preparedStatement.setDouble(7, assetKeyFigureVOs.get(i).getEstimatedDividend());
+						} else {
+							preparedStatement.setNull(7, Types.DOUBLE);
+						}
+						preparedStatement.setBigDecimal(8, assetKeyFigureVOs.get(i).getYield());
+						preparedStatement.setBigDecimal(9, assetKeyFigureVOs.get(i).getYieldCall());
+						preparedStatement.setBigDecimal(10, assetKeyFigureVOs.get(i).getDuration());
+						preparedStatement.setBigDecimal(11, assetKeyFigureVOs.get(i).getDurationCall());
+						preparedStatement.setBigDecimal(12, assetKeyFigureVOs.get(i).getSpreadOverRiskfreeRate());
+						preparedStatement.setBigDecimal(13, assetKeyFigureVOs.get(i).getModifiedDuration());
+						preparedStatement.setBigDecimal(14, assetKeyFigureVOs.get(i).getConvexity());
+						preparedStatement.setBigDecimal(15, assetKeyFigureVOs.get(i).getPvbp());
+						if (assetKeyFigureVOs.get(i).getLtvPercentage() != null) {
+							preparedStatement.setDouble(16, assetKeyFigureVOs.get(i).getLtvPercentage());
+						} else {
+							preparedStatement.setNull(16, Types.DOUBLE);
+						}
+						preparedStatement.setBigDecimal(17, assetKeyFigureVOs.get(i).getDiscountedPnL());
+						try {
+							preparedStatement.setTimestamp(18,
+									AssetUtil.stringToTimestamp(assetKeyFigureVOs.get(i).getEffectiveFromDate()));
+
+							if (assetKeyFigureVOs.get(i).getEffectiveFromTo() != null) {
+								preparedStatement.setTimestamp(19,
+										AssetUtil.stringToTimestamp(assetKeyFigureVOs.get(i).getEffectiveFromTo()));
+							} else {
+								preparedStatement.setTimestamp(19, null);
+							}
+						} catch (SQLException e) {
+							log.fatal("SQLException: ", e);
+						} catch (Exception e) {
+							log.fatal("Exception: ", e);
+						}
+						preparedStatement.setBigDecimal(20, assetKeyFigureVOs.get(i).get_sourceAppId());
+						preparedStatement.setString(21, assetKeyFigureVOs.get(i).getRemarks());
+						preparedStatement.setString(22, assetKeyFigureVOs.get(i).getUsername());
+						preparedStatement.setString(23, assetKeyFigureVOs.get(i).getIsin());
+						preparedStatement.setBigDecimal(24, assetKeyFigureVOs.get(i).get_currencyAppId());
+						preparedStatement.setString(25, assetKeyFigureVOs.get(i).get_custodianAppConfigName());
+						preparedStatement.setString(26, assetKeyFigureVOs.get(i).get_currencyAppConfigName());
+						preparedStatement.setString(27, assetKeyFigureVOs.get(i).getSourceAppConfigName());
+					}
+
+					@Override
+					public int getBatchSize() {
+						return assetKeyFigureVOs.size();
+					}
+				});
+
+//				jdbcTemplate.update(
+//						new PreparedStatementCreator() {
+//							public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+//								PreparedStatement preparedStatement = connection.prepareStatement(AssetKeyFigureInsert,
+//										new String[] { "id" });
+//								preparedStatement.setLong(1,1);
+//								preparedStatement.setLong(2,2);
+//								preparedStatement.setLong(3,reqParam.getAssetID());
+//								preparedStatement.setLong(4,reqParam.getCustodianAppId());
+//								preparedStatement.setInt(5,reqParam.getMaturity()==null?dbVO.getMaturity():reqParam.getMaturity());
+//								preparedStatement.setDouble(6,reqParam.getEarning()==null?dbVO.getEarning():reqParam.getEarning());
+//								preparedStatement.setDouble(7,reqParam.getEstimatedDividend()==null?dbVO.getEstimatedDividend():reqParam.getEstimatedDividend());
+//								preparedStatement.setDouble(8,reqParam.getYield()==null?dbVO.getYield():reqParam.getYield());
+//								preparedStatement.setDouble(9,reqParam.getYieldCall()==null?dbVO.getYieldCall():reqParam.getYieldCall());
+//								preparedStatement.setDouble(10,reqParam.getDuration()==null?dbVO.getDuration():reqParam.getDuration());
+//								preparedStatement.setDouble(11,reqParam.getDurationCall()==null?dbVO.getDurationCall():reqParam.getDurationCall());
+//								preparedStatement.setDouble(12,reqParam.getSpreadOverRiskfreeRate()==null?dbVO.getSpreadOverRiskfreeRate():reqParam.getSpreadOverRiskfreeRate());
+//								preparedStatement.setDouble(13,reqParam.getModifiedDuration()==null?dbVO.getModifiedDuration():reqParam.getModifiedDuration());
+//								preparedStatement.setDouble(14,reqParam.getConvexity()==null?dbVO.getConvexity():reqParam.getConvexity());
+//								preparedStatement.setDouble(15,reqParam.getPvbp()==null?dbVO.getPvbp():reqParam.getPvbp());
+//								preparedStatement.setDouble(16,reqParam.getLtvPercentage()==null?dbVO.getLtvPercentage():reqParam.getLtvPercentage());
+//								preparedStatement.setDate(17,AssetKeyFigureUtil.DateFormater(reqParam.getEffectiveFromDate()));
+//								preparedStatement.setLong(18,reqParam.getSourceAppId()==null?dbVO.getSourceAppId():reqParam.getSourceAppId());
+//								preparedStatement.setString(19,reqParam.getRemarks()==null?dbVO.getRemarks():reqParam.getRemarks());
+//								
+//								preparedStatement.setString(20,"System");
+//		
+//								return preparedStatement;
+//							}
+//						}
+//						,keyHolder);
+			}
+		} catch (Exception exception) {
+			log.fatal("Error While addAssetKeyFigure ", exception);
+
+			throw exception;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+	}
+
+	@CustomTransactional
+	@Override
+	public void updateAssetKeyFigure(String tenantCode, List<AssetKeyFigureVO> reqParam,
+			Map<String, AssetKeyFigureVO> DbMap) throws Exception {
+
+		KeyHolder keyHolder = new GeneratedKeyHolder();
+		try {
+
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+			jdbcTemplate.batchUpdate(AssetKeyFigureUpdate, new BatchPreparedStatementSetter() {
+				@Override
+				public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+					String key = reqParam.get(i).get_custodianAppId() + "" + reqParam.get(i).getAssetID();
+					AssetKeyFigureVO dbVO = DbMap.get(key);
+
+					preparedStatement.setBigDecimal(1, reqParam.get(i).getMaturity());
+
+					if (reqParam.get(i).getEarning() != null) {
+
+						preparedStatement.setDouble(2, reqParam.get(i).getEarning());
+					} else {
+						preparedStatement.setNull(2, Types.NUMERIC);
+					}
+
+					// preparedStatement.setDouble(2, reqParam.get(i).getEarning());
+
+					if (reqParam.get(i).getEstimatedDividend() != null) {
+						preparedStatement.setDouble(3, reqParam.get(i).getEstimatedDividend());
+					} else {
+						preparedStatement.setNull(3, Types.NUMERIC);
+					}
+
+					preparedStatement.setBigDecimal(4, reqParam.get(i).getYield());
+					preparedStatement.setBigDecimal(5, reqParam.get(i).getYieldCall());
+					preparedStatement.setBigDecimal(6, reqParam.get(i).getDuration());
+					preparedStatement.setBigDecimal(7, reqParam.get(i).getDurationCall());
+					preparedStatement.setBigDecimal(8, reqParam.get(i).getSpreadOverRiskfreeRate());
+					preparedStatement.setBigDecimal(9, reqParam.get(i).getModifiedDuration());
+					preparedStatement.setBigDecimal(10, reqParam.get(i).getConvexity());
+					preparedStatement.setBigDecimal(11, reqParam.get(i).getPvbp());
+					if (reqParam.get(i).getLtvPercentage() != null) {
+						preparedStatement.setDouble(12, reqParam.get(i).getLtvPercentage());
+					} else {
+						preparedStatement.setNull(12, Types.NUMERIC);
+					}
+
+					preparedStatement.setBigDecimal(13, reqParam.get(i).getDiscountedPnL());
+
+					try {
+						preparedStatement.setTimestamp(14,
+								AssetUtil.stringToTimestamp(reqParam.get(i).getEffectiveFromDate()));
+					} catch (SQLException e) {
+						log.fatal("SQLException: ", e);
+					} catch (Exception e) {
+						log.fatal("Exception: ", e);
+					}
+					preparedStatement.setBigDecimal(15, reqParam.get(i).get_sourceAppId());
+					preparedStatement.setString(16, reqParam.get(i).getRemarks());
+					preparedStatement.setString(17, reqParam.get(i).getUsername());
+					preparedStatement.setBigDecimal(18, reqParam.get(i).getId());
+				}
+
+				@Override
+				public int getBatchSize() {
+					// TODO Auto-generated method stub
+					return reqParam.size();
+				}
+			});
+
+		} catch (Exception ex) {
+			log.fatal("Error in updateAssetKeyFigure: ", ex);
+			throw ex;
+		}
+	}
+
+	@Override
+	public Map<String, AssetKeyFigureVO> getAssetKeyFigure(String tenantCode, List<AssetKeyFigureVO> reqParam)
+			throws Exception {
+		StringBuilder query = new StringBuilder(AssetKeyFigureSelectConditional);
+		StringBuilder assetIds = new StringBuilder();
+		StringBuilder custIds = new StringBuilder();
+		HashSet<BigDecimal> assetIdsMap = new HashSet<BigDecimal>();
+		HashSet<BigDecimal> custIdsMap = new HashSet<BigDecimal>();
+		Map<String, AssetKeyFigureVO> AssetKeyFigureMap = new HashMap<>();
+
+		jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+		for (int i = 0; i < reqParam.size(); i++) {
+			AssetKeyFigureVO assetKeyFigureVO = reqParam.get(i);
+			if (i == reqParam.size() - 1) {
+				assetIdsMap.add(reqParam.get(reqParam.size() - 1).getAssetID());
+				assetIds.append("asset_id=" + reqParam.get(reqParam.size() - 1).getAssetID());
+				custIdsMap.add(reqParam.get(reqParam.size() - 1).get_custodianAppId());
+				custIds.append("custodian_id = COALESCE(" + reqParam.get(reqParam.size() - 1).get_custodianAppId()
+						+ ",custodian_id)or custodian_id is null ");
+			}
+			if (!assetIdsMap.contains(assetKeyFigureVO.getAssetID())) {
+				assetIdsMap.add(assetKeyFigureVO.getAssetID());
+				assetIds.append("asset_id=" + assetKeyFigureVO.getAssetID() + " or ");
+			}
+			// ***************************************************Update*****************************
+			if (!custIdsMap.contains(assetKeyFigureVO.get_custodianAppId())) {
+				custIdsMap.add(assetKeyFigureVO.get_custodianAppId());
+				custIds.append("(custodian_id = COALESCE(" + assetKeyFigureVO.get_custodianAppId()
+						+ ",custodian_id)or custodian_id is null) or ");
+			}
+		}
+//		if (!assetIdsMap.contains(reqParam.get(reqParam.size() - 1).getAssetID())) {
+//			assetIdsMap.add(reqParam.get(reqParam.size() - 1).getAssetID());
+//			assetIds.append("asset_id=" + reqParam.get(reqParam.size() - 1).getAssetID());
+//		}
+//		if (!custIdsMap.contains(reqParam.get(reqParam.size() - 1).get_custodianAppId())) {
+//			custIdsMap.add(reqParam.get(reqParam.size() - 1).get_custodianAppId());
+//			custIds.append("custodian_id=" + reqParam.get(reqParam.size() - 1).get_custodianAppId());
+//		}
+
+		for (int i = 0; i <= 1; i++) {
+			String assetPH = "<asset_id>";
+			int assetStart = query.indexOf(assetPH);
+			int assetSize = assetPH.length();
+			query.replace(assetStart, assetStart + assetSize, assetIds.toString());
+
+			String custodianPH = "<custodian_id>";
+			int custodianStart = query.indexOf(custodianPH);
+			int custodianSize = custodianPH.length();
+
+			query.replace(custodianStart, custodianStart + custodianSize, custIds.toString());
+		}
+		// log.fatal("query:" + query);
+		AssetKeyFigureMap = jdbcTemplate.query(query.toString(),
+				new ResultSetExtractor<Map<String, AssetKeyFigureVO>>() {
+					@Override
+					public Map<String, AssetKeyFigureVO> extractData(ResultSet rs)
+							throws SQLException, DataAccessException {
+						Map<String, AssetKeyFigureVO> result = new HashMap<>();
+
+						while (rs.next()) {
+							AssetKeyFigureVO vo;
+							if (!result.containsKey(rs.getString("assetkeyfigureKey"))) {
+								AssetKeyFigureRowMapper rowmapper = new AssetKeyFigureRowMapper();
+								vo = rowmapper.mapRow(rs, rs.getRow());
+								result.put(rs.getString("assetkeyfigureKey"), vo);
+							}
+						}
+						return result;
+					}
+				});
+		return AssetKeyFigureMap;
+	}
+
+	@Override
+	public List<AssetKeyFigureVO> getAssetKeyFigures(String tenantCode, AssetRequestVO request) throws Exception {
+
+		StringBuilder parameter = new StringBuilder("(");
+		StringBuilder query = new StringBuilder(AssetKeyFigureSelect);
+
+		List<AssetKeyFigureVO> result = new ArrayList<AssetKeyFigureVO>();
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			for (int i = 0; i < request.getAssetGetRequest().size(); i++) {
+
+				if (i == request.getAssetGetRequest().size() - 1) {
+					parameter.append("(( asset_id= ? and custodian_id=? ) or " + "( asset_id= ?))) and " + "(("
+							+ "eff_from_date>= ? " + " and " + "eff_to_date<= ? " + " ) or (" + "eff_from_date<= ?"
+							+ " and " + "eff_to_date isnull" + " ))");
+				} else {
+					parameter.append("(( asset_id= ? and custodian_id=? ) or " + "( asset_id= ?)) or");
+				}
+			}
+			String param = "<condition>";
+			int paramStart = query.indexOf(param);
+			int paramSize = param.length();
+
+			query.replace(paramStart, paramStart + paramSize, parameter.toString());
+
+			result = jdbcTemplate.query(query.toString(), new PreparedStatementSetter() {
+
+				@Override
+				public void setValues(PreparedStatement ps) throws SQLException {
+					int cnt = 1;
+					for (int i = 0; i < request.getAssetGetRequest().size(); i++) {
+						BigDecimal assetId = request.getAssetGetRequest().get(i).get_id();
+						BigDecimal custodianId = request.getAssetGetRequest().get(i).get_custodianAppId();
+						ps.setBigDecimal(cnt++, assetId);
+						ps.setBigDecimal(cnt++, custodianId);
+						ps.setBigDecimal(cnt++, assetId);
+					}
+					int start = cnt;
+					ps.setDate(start++, AssetUtil.DateFormater(request.getReferenceDate()));
+					ps.setDate(start++, AssetUtil.DateFormater(request.getReferenceDate()));
+					ps.setDate(start++, AssetUtil.DateFormater(request.getReferenceDate()));
+				}
+			}, new AssetKeyFigureRowMapper());
+		} catch (Exception e) {
+			// TODO: handle exception
+			log.fatal("Error: ", e);
+		}
+		return result;
+
+	}
+
+	@Override
+	public List<AssetVO> getAssets(String tenantCode, List<AssetKeyFigureVO> reqParam) throws Exception {
+		StringBuilder query = new StringBuilder(assetMasterSelectQuery);
+		StringBuilder param = new StringBuilder();
+		StringBuilder isins = new StringBuilder();
+		StringBuilder stockExchangeIds = new StringBuilder();
+
+		HashSet<String> uniqueIdsMap = new HashSet<String>();
+		HashSet<BigDecimal> stockExchangeIdsMap = new HashSet<BigDecimal>();
+		HashSet<String> isinsMap = new HashSet<String>();
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			for (int i = 0; i < reqParam.size(); i++) {
+				AssetKeyFigureVO assetKeyFigureVO = reqParam.get(i);
+				String key = assetKeyFigureVO.get_currencyAppId() + " " + assetKeyFigureVO.getIsin();
+				if (!uniqueIdsMap.contains(key) && key != null) {
+					uniqueIdsMap.add(key);
+					if (uniqueIdsMap.size() > 1)
+						param.append(" or ");
+					param.append(" ( currency_id=" + assetKeyFigureVO.get_currencyAppId() + " and isin = '"
+							+ assetKeyFigureVO.getIsin() + "' )");
+				}
+
+			}
+
+			String currencyPH = "<condition>";
+			int currencyStart = query.indexOf(currencyPH);
+			int currencySize = currencyPH.length();
+
+			query.replace(currencyStart, currencyStart + currencySize, param.toString());
+			List<AssetVO> result = jdbcTemplate.query(query.toString(), new AssetRowMapper());
+			return result;
+		} catch (Exception e) {
+			throw e;
+		}
+	}
+
+	@Override
+	public List<AssetKeyFigureVO> getAssetKeyFiguresList(String tenantcode, List<AssetGetRequestVO> assetRequestList,
+			Date referenceDate, String tenantCode) throws Exception {
+
+		List<AssetKeyFigureVO> assetKeyFigureVOs = new ArrayList<AssetKeyFigureVO>();
+		StringBuilder query = new StringBuilder("select * from asset_key_figure where (<condition>)");
+		StringBuilder parameter = new StringBuilder("(");
+		StringBuilder isins = new StringBuilder();
+		HashSet<Long> currencyIdsMap = new HashSet<Long>();
+		HashSet<String> isinsMap = new HashSet<String>();
+
+		StringBuilder query1 = new StringBuilder();
+		query1.append(GET_ASSET_KEY_FIGURE_WITH_NULL);
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			String lastStr;
+			String normStr;
+
+			for (int i = 0; i < assetRequestList.size(); i++) {
+
+				if (i == assetRequestList.size() - 1) {
+					if (assetRequestList.get(i).getCustodianConfigName() == null) {
+						lastStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME is null)";
+					} else {
+						lastStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME= ?)";
+					}
+					query1.append(lastStr);
+				} else {
+					if (assetRequestList.get(i).getCustodianConfigName() == null) {
+						normStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME is null) OR ";
+					} else {
+						normStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME= ?) OR ";
+					}
+					query1.append(normStr);
+				}
+			}
+
+			String remainingStr1 = " ) AND ((EFF_TO_DATE is null AND TO_DATE(?, 'yyyy-mm-DD') >= EFF_FROM_DATE) OR\r\n"
+					+ "(TO_DATE(?, 'yyyy-mm-DD')  BETWEEN EFF_FROM_DATE AND EFF_TO_DATE))\r\n"
+					+ ") priceWithCustodian";
+			query1.append(remainingStr1);
+
+//			for (int i = 0; i < assetRequestList.size(); i++) {
+//
+//				if (i == assetRequestList.size() - 1) {
+//					lastStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME is null)";
+//					query1.append(lastStr);
+//				} else {
+//					normStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME is null) OR ";
+//					query1.append(normStr);
+//				}
+//			}
+//			String withNullCustodian = " ) AND ((TO_DATE(?, 'yyyy-mm-DD')  BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR\r\n"
+//					+ "(EFF_TO_DATE is null AND EFF_FROM_DATE <= TO_DATE(?, 'yyyy-mm-DD')))\r\n"
+//					+ ") priceWithoutCustodian\r\n" + "ON (priceWithoutCustodian.isin = priceWithCustodian.isin\r\n"
+//					+ "AND priceWithoutCustodian.currency_id = priceWithCustodian.currency_id)\r\n" + "";
+//			query1.append(withNullCustodian);
+
+			//log.fatal("query1="+query1);
+			assetKeyFigureVOs = jdbcTemplate.query(query1.toString(), new PreparedStatementSetter() {
+				int cnt = 0;
+
+				@Override
+				public void setValues(PreparedStatement preparedStatement) throws SQLException {
+					for (int i = 0; i < assetRequestList.size(); i++) {
+						if (i == assetRequestList.size() - 1) {
+							preparedStatement.setString(++cnt, assetRequestList.get(i).getIsin());
+							preparedStatement.setString(++cnt, assetRequestList.get(i).getCurrencyConfigName());
+							if (assetRequestList.get(i).getCustodianConfigName() != null) {
+								preparedStatement.setString(++cnt, assetRequestList.get(i).getCustodianConfigName());
+							}
+						} else {
+							preparedStatement.setString(++cnt, assetRequestList.get(i).getIsin());
+							preparedStatement.setString(++cnt, assetRequestList.get(i).getCurrencyConfigName());
+							if (assetRequestList.get(i).getCustodianConfigName() != null) {
+								preparedStatement.setString(++cnt, assetRequestList.get(i).getCustodianConfigName());
+							}
+						}
+					}
+					preparedStatement.setDate(++cnt, AssetUtil.DateFormater(referenceDate));
+					preparedStatement.setDate(++cnt, AssetUtil.DateFormater(referenceDate));
+
+//					for (int i = 0; i < assetRequestList.size(); i++) {
+//						if (i == assetRequestList.size() - 1) {
+//							preparedStatement.setString(++cnt, assetRequestList.get(i).getIsin());
+//							preparedStatement.setString(++cnt, assetRequestList.get(i).getCurrencyConfigName());
+//						} else {
+//							preparedStatement.setString(++cnt, assetRequestList.get(i).getIsin());
+//							preparedStatement.setString(++cnt, assetRequestList.get(i).getCurrencyConfigName());
+//						}
+//					}
+//					preparedStatement.setDate(++cnt, AssetUtil.DateFormater(referenceDate));
+//					preparedStatement.setDate(++cnt, AssetUtil.DateFormater(referenceDate));
+					log.fatal(preparedStatement);
+				}
+			}, new AssetKeyFigureRowMapper());
+
+		} catch (Exception e) {
+			log.fatal("Error: ", e);
+			throw e;
+		}
+
+		return assetKeyFigureVOs;
+	}
+
+	@Override
+	public List<AssetKeyFigureVO> getAssetKeyFiguresInfo(String tenantCode, AssetRequestVO reqParam) throws Exception {
+		List<AssetKeyFigureVO> result = new ArrayList<AssetKeyFigureVO>();
+		try {
+			result = this.getAssetKeyFiguresList(tenantCode, reqParam.getAssetGetRequest(), reqParam.getReferenceDate(),
+					reqParam.getTenantCode());
+			return result;
+		} catch (Exception e) {
+			// TODO: handle exception
+			throw e;
+		}
+	}
+
+	public String getCatagory(String tenantCode, AssetGetRequestVO assetPriceVO) throws Exception {
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			String query1 = CHECK_CATEGORY;
+			query1 = query1.replace("isinPlaceholder", assetPriceVO.getIsin());
+			query1 = query1.replace("currencyPlaceholder", assetPriceVO.getCurrencyConfigName());
+			String catagoryName = jdbcTemplate.queryForObject(query1, String.class);
+
+			return catagoryName;
+		} catch (Exception e) {
+			throw e;
+		}
+	}
+
+	@Override
+	public String getAssetCurrency(String tenantCode, String isin, String currency) throws Exception {
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			String query1 = GET_CURRENCY;
+			query1 = query1.replace("isinPlaceholder", isin);
+			query1 = query1.replace("currencyPlaceholder", currency);
+			String currencyConfigName = jdbcTemplate.queryForObject(query1, String.class);
+
+			return currencyConfigName;
+
+		} catch (Exception exception) {
+
+			throw exception;
+		}
+	}
+
+	@Override
+	public String getSubCatagory1(String tenantCode, String isin, String currency) throws Exception {
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			String query1 = GET_SUBCATAGORY1;
+			query1 = query1.replace("isinPlaceholder", isin);
+			query1 = query1.replace("currencyPlaceholder", currency);
+
+			String subcatagoryName = jdbcTemplate.queryForObject(query1, String.class);
+
+			return subcatagoryName;
+		} catch (Exception e) {
+			log.fatal("Error: ", e);
+			throw e;
+		}
+	}
+
+	@Override
+	public String getSubCatagory2(String tenantCode, String isin, String currency) throws Exception {
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			String query1 = GET_SUBCATAGORY2;
+			query1 = query1.replace("isinPlaceholder", isin);
+			query1 = query1.replace("currencyPlaceholder", currency);
+
+			String subcatagoryName = jdbcTemplate.queryForObject(query1, String.class);
+
+			return subcatagoryName;
+		} catch (Exception e) {
+			log.fatal("Error: ", e);
+			throw e;
+		}
+	}
+
+	@Override
+	public String getFirstLegCurrency(String tenantCode, String isin, String currency) throws Exception {
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			String query1 = GET_FIRST_LEG_CURRENCY;
+			query1 = query1.replace("isinPlaceholder", isin);
+			query1 = query1.replace("currencyPlaceholder", currency);
+
+			String firstlegCurrency = jdbcTemplate.queryForObject(query1, String.class);
+
+			return firstlegCurrency;
+		} catch (Exception e) {
+			log.fatal("Error: ", e);
+			throw e;
+		}
+	}
+
+	@Override
+	public String getSecondLegCurrency(String tenantCode, String isin, String currency) throws Exception {
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			String query1 = GET_SECOND_LEG_CURRENCY;
+			query1 = query1.replace("isinPlaceholder", isin);
+			query1 = query1.replace("currencyPlaceholder", currency);
+
+			String secondlegCurrency = jdbcTemplate.queryForObject(query1, String.class);
+
+			return secondlegCurrency;
+		} catch (Exception e) {
+			log.fatal("Error: ", e);
+			throw e;
+		}
+	}
+
+	@Override
+	public List<Map<String, Object>> getCategoryList(String tenantCode, List<AssetGetRequestVO> reqParam) {
+
+		StringBuilder query = new StringBuilder();
+		query.append(GET_CATEGORY_LIST);
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			for (int i = 0; i < reqParam.size(); i++) {
+				AssetGetRequestVO requestVO = reqParam.get(i);
+				if (i == reqParam.size() - 1) {
+					String last = "(ISIN = '" + requestVO.getIsin() + "' AND CURRENCY_CONFIG_NAME='"
+							+ requestVO.getCurrencyConfigName() + "'))";
+					query.append(last);
+				} else {
+					String last = "(ISIN = '" + requestVO.getIsin() + "' AND CURRENCY_CONFIG_NAME='"
+							+ requestVO.getCurrencyConfigName() + "') OR ";
+					query.append(last);
+				}
+			}
+
+			List<Map<String, Object>> mapObject = jdbcTemplate.queryForList(query.toString());
+			return mapObject;
+		} catch (Exception e) {
+			log.fatal("Error: " + e);
+			throw e;
+		}
+	}
+
+}

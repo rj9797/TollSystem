@@ -1,0 +1,60 @@
+package com.klayx.asset.service.impl;
+
+import java.util.List;
+
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.dao.IAssetReturnsDAO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetReturnsVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.service.IAssetReturnsService;
+import com.klayx.asset.validator.IAssetBusinessValidator;
+
+@Service(AssetConstants.ASSETRETURNSSERVICE)
+public class AssetReturnsServiceImpl implements IAssetReturnsService {
+
+	private static final Logger log = LogManager.getLogger(AssetReturnsServiceImpl.class);
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETRETURNSEDAO)
+	private IAssetReturnsDAO assetReturnsDao;
+
+	@Autowired
+	@Qualifier(AssetConstants.BUSINESSVALIDATORSERVICE)
+	private IAssetBusinessValidator assetBusinessValidator;
+
+	@Override
+	// @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor =
+	// Exception.class)
+	public void addAssetReturns(String tenantCode, List<AssetReturnsVO> successVOs,
+			List<FailedVO<AssetReturnsVO>> failedVOs, List<JsonObject> totalVOs, boolean isInterfaceRequest,
+			AssetRequestVO reqParam) throws Exception {
+
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+
+			assetBusinessValidator.validateAssetReturns(successVOs, failedVOs, totalVOs, isInterfaceRequest, reqParam);
+
+			if (successVOs != null && successVOs.size() > 0) {
+				assetReturnsDao.addAssetReturnsList(tenantCode, successVOs, reqParam.getAccessToken());
+			}
+
+		} catch (Exception exp) {
+			log.fatal("Error in addAssetReturns: ", exp);
+			throw exp;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+}

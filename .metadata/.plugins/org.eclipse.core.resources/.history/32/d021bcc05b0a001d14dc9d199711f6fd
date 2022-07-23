@@ -1,0 +1,967 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+public class SearchResultDataVO {
+
+		private BigDecimal id;
+		private String isin;
+		private String name;
+		private String assetID1;
+		private String assetID2;
+		private String assetID3;
+		private String assetID4;
+		private String assetID5;
+		private String description1;
+		private String description2;
+		private String description3;
+		private BigDecimal categoryAppId;
+		private String categoryConfigName;
+		private BigDecimal subcategory1AppId;
+        private String subcategory1ConfigName;
+        private BigDecimal subcategory2AppId;
+        private String subcategory2ConfigName;
+        private BigDecimal subcategory3AppId;
+        private String subcategory3ConfigName;
+        private BigDecimal subcategory4AppId;
+        private String subcategory4ConfigName;
+        private BigDecimal subcategory5AppId;
+        private String subcategory5ConfigName;
+        private BigDecimal sectorAppId;
+        private String sectorConfigName;
+        private BigDecimal regionAppId;
+        private String regionConfigName;
+        private BigDecimal countryAppId;
+        private String countryConfigName;
+        private BigDecimal stockExchangeAppId;
+        private String stockExchangeConfigName;
+        private BigDecimal currencyAppId;
+        private String currencyAppConfigName;
+        private BigDecimal divisor;
+        private BigDecimal denomination;
+        private BigDecimal optionStyleAppId;
+        private String optionStyleConfigName;
+        private BigDecimal optionDirectionAppId;
+        private String optionDirectionConfigName;
+        private BigDecimal strikePrice;
+        private BigDecimal strikePriceCurrencyAppId;
+        private String strikePriceCurrencyConfigName;
+        private int contractSize;
+        private BigDecimal firstLegCurrencyAppId;
+        private String firstLegCurrencyConfigName;
+        private BigDecimal firstLegAmount;
+        private BigDecimal secondLegCurrencyAppId;
+        private String secondLegCurrencyConfigName;
+        private BigDecimal secondLegAmount;
+        private BigDecimal originatingCurrencyAppId;
+        private String originatingCurrencyConfigName;
+        private BigDecimal targetCurrencyAppId;
+        private String targetCurrencyConfigName;
+        private long totalRecords;
+        private int status;
+        private String statusConfigName;
+    	private List<UnderlyingAssetsVO> underlyingAssets;
+    	
+    	
+    	//StockScreener screen 
+    	private String company; //name
+    	private BigDecimal marketCap; //market_cap_Syscurr_amt
+    	private BigDecimal price; //price_Syscurr_amt
+    	private String region;
+    	private String country;
+    	private String sector;
+    	private String superSelectModelAttributeConfigName;
+    	private String signalModelAttributeConfigName;
+    	private String klayOfferingModelAttributeConfigName;
+    	private int overSold;
+
+    	//Consensus
+    	private int analystCount;
+    	private int buyAnalystCount;
+    	private int sellAnalystCount;
+    	private BigDecimal averagePriceTarget;
+    	private BigDecimal upsideToPriceTarget;
+    	
+    	//Performance
+    	private double priceChange1DPerc;
+    	private double priceChange1WPerc;
+    	private double priceChange1MPerc;
+    	private double priceChange3MPerc;
+    	private double priceChange6MPerc;
+    	private double priceChange1YPerc;
+    	private double priceChange2YPerc;
+    	private double priceChange3YPerc;
+    	private double priceChange5YPerc;
+    	
+    	//Financial metrics
+    	private BigDecimal trailingPriceToBookNbr;
+    	private BigDecimal forwardPE12MNbr;
+    	private double forwardROE12MPerc;
+    	private BigDecimal forwardEVToEbitda12MNbr;
+    	private double forwardDivYield12MPerc;
+    	private double volatility1YPer;
+
+    	//Technicals
+    	private BigDecimal relativeStrengthIndex14DNbr;
+    	private BigDecimal bollBonds20DNbr;
+    	
+    	//ratingFilters	
+    	private int buyRecommendationByXBrokers;
+    	private int neutralRecommendationByXBrokers;
+    	private int sellRecommendationByXBrokers;
+    	private int notRatedByXBrokers;
+    	private int notCoveredByXBrokers;
+    	
+    	private int newCoverageByXBrokers;
+    	private int newCoverageBUYByXBrokers;
+    	private int newCoverageSELLByXBrokers;
+    	private int newCoverageNEUTRALByXBrokers;
+    	
+    	private int changedRatingByXBrokers;
+    	private int changedToBuyByXBrokers;
+    	private int changedToSellByXBrokers;
+    	private int changedToNeutralByXBrokers;
+    	private int changedToSuspendedByXBrokers;
+    	private int changedToStoppedByXBrokers;
+		private int changedToNotRatedByXBrokers;
+		private int changedToNotCoveredByXBrokers;
+    	
+    	private int sameRatingByXBrokers;
+    	private int sameRatingBuyByXBrokers;
+    	private int sameRatingSellByXBrokers;
+    	private int sameRatingNeutralByXBrokers;
+    	private int sameRatingToSuspendedByXBrokers;
+    	private int sameRatingToStoppedByXBrokers;
+    	private int sameNotRatedByXBrokers;
+    	private int sameNotCoveredByXBrokers;
+    	
+    	private int suspendedByXBroker;
+    	private int stopedByXBrokers;
+    	private Date maxDate;
+    	private List<UniverseStockDetailsByBrokerVO> tempUniverseStockDetailsByBroker;
+    	//Research Coverage & Target Prices
+    	private List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBroker;
+    	
+    	private List<AssetDocumentVO> documents;
+    	
+    	private Map<String,UniverseStockDetailsByBrokerVO> brokerWiseMinMaxDate;
+    	
+		public Map<String, UniverseStockDetailsByBrokerVO> getBrokerWiseMinMaxDate() {
+			return brokerWiseMinMaxDate;
+		}
+		public void setBrokerWiseMinMaxDate(Map<String, UniverseStockDetailsByBrokerVO> brokerWiseMinMaxDate) {
+			this.brokerWiseMinMaxDate = brokerWiseMinMaxDate;
+		}
+		public List<UnderlyingAssetsVO> getUnderlyingAssets() {
+			return underlyingAssets;
+		}
+		public void setUnderlyingAssets(List<UnderlyingAssetsVO> underlyingAssets) {
+			this.underlyingAssets = underlyingAssets;
+		}
+		public String getStatusConfigName() {
+			return statusConfigName;
+		}
+		public void setStatusConfigName(String statusConfigName) {
+			this.statusConfigName = statusConfigName;
+		}
+		public int getStatus() {
+			return status;
+		}
+		public void setStatus(int status) {
+			this.status = status;
+		}
+		public String getEffectiveFromDate() {
+			return effectiveFromDate;
+		}
+		public void setEffectiveFromDate(String effectiveFromDate) {
+			this.effectiveFromDate = effectiveFromDate;
+		}
+		public String getEffectiveToDate() {
+			return effectiveToDate;
+		}
+		public void setEffectiveToDate(String effectiveToDate) {
+			this.effectiveToDate = effectiveToDate;
+		}
+		private String effectiveFromDate;
+    	private String effectiveToDate;
+
+		public BigDecimal getId() {
+			return id;
+		}
+		public void setId(BigDecimal id) {
+			this.id = id;
+		}
+		public String getIsin() {
+			return isin;
+		}
+		public void setIsin(String isin) {
+			this.isin = isin;
+		}
+		public String getName() {
+			return name;
+		}
+		public void setName(String name) {
+			this.name = name;
+		}
+		public String getAssetID1() {
+			return assetID1;
+		}
+		public void setAssetID1(String assetID1) {
+			this.assetID1 = assetID1;
+		}
+		public String getAssetID2() {
+			return assetID2;
+		}
+		public void setAssetID2(String assetID2) {
+			this.assetID2 = assetID2;
+		}
+		public String getAssetID3() {
+			return assetID3;
+		}
+		public void setAssetID3(String assetID3) {
+			this.assetID3 = assetID3;
+		}
+		public String getAssetID4() {
+			return assetID4;
+		}
+		public void setAssetID4(String assetID4) {
+			this.assetID4 = assetID4;
+		}
+		public String getAssetID5() {
+			return assetID5;
+		}
+		public void setAssetID5(String assetID5) {
+			this.assetID5 = assetID5;
+		}
+		public String getDescription1() {
+			return description1;
+		}
+		public void setDescription1(String description1) {
+			this.description1 = description1;
+		}
+		public String getDescription2() {
+			return description2;
+		}
+		public void setDescription2(String description2) {
+			this.description2 = description2;
+		}
+		public String getDescription3() {
+			return description3;
+		}
+		public void setDescription3(String description3) {
+			this.description3 = description3;
+		}
+		public BigDecimal getCategoryAppId() {
+			return categoryAppId;
+		}
+		public void setCategoryAppId(BigDecimal categoryAppId) {
+			this.categoryAppId = categoryAppId;
+		}
+		public String getCategoryConfigName() {
+			return categoryConfigName;
+		}
+		public void setCategoryConfigName(String categoryConfigName) {
+			this.categoryConfigName = categoryConfigName;
+		}
+		public BigDecimal getSubcategory1AppId() {
+			return subcategory1AppId;
+		}
+		public void setSubcategory1AppId(BigDecimal subcategory1AppId) {
+			this.subcategory1AppId = subcategory1AppId;
+		}
+		public String getSubcategory1ConfigName() {
+			return subcategory1ConfigName;
+		}
+		public void setSubcategory1ConfigName(String subcategory1ConfigName) {
+			this.subcategory1ConfigName = subcategory1ConfigName;
+		}
+		public BigDecimal getSubcategory2AppId() {
+			return subcategory2AppId;
+		}
+		public void setSubcategory2AppId(BigDecimal subcategory2AppId) {
+			this.subcategory2AppId = subcategory2AppId;
+		}
+		public String getSubcategory2ConfigName() {
+			return subcategory2ConfigName;
+		}
+		public void setSubcategory2ConfigName(String subcategory2ConfigName) {
+			this.subcategory2ConfigName = subcategory2ConfigName;
+		}
+		public BigDecimal getSubcategory3AppId() {
+			return subcategory3AppId;
+		}
+		public void setSubcategory3AppId(BigDecimal subcategory3AppId) {
+			this.subcategory3AppId = subcategory3AppId;
+		}
+		public String getSubcategory3ConfigName() {
+			return subcategory3ConfigName;
+		}
+		public void setSubcategory3ConfigName(String subcategory3ConfigName) {
+			this.subcategory3ConfigName = subcategory3ConfigName;
+		}
+		public BigDecimal getSubcategory4AppId() {
+			return subcategory4AppId;
+		}
+		public void setSubcategory4AppId(BigDecimal subcategory4AppId) {
+			this.subcategory4AppId = subcategory4AppId;
+		}
+		public String getSubcategory4ConfigName() {
+			return subcategory4ConfigName;
+		}
+		public void setSubcategory4ConfigName(String subcategory4ConfigName) {
+			this.subcategory4ConfigName = subcategory4ConfigName;
+		}
+		public BigDecimal getSubcategory5AppId() {
+			return subcategory5AppId;
+		}
+		public void setSubcategory5AppId(BigDecimal subcategory5AppId) {
+			this.subcategory5AppId = subcategory5AppId;
+		}
+		public String getSubcategory5ConfigName() {
+			return subcategory5ConfigName;
+		}
+		public void setSubcategory5ConfigName(String subcategory5ConfigName) {
+			this.subcategory5ConfigName = subcategory5ConfigName;
+		}
+		public BigDecimal getSectorAppId() {
+			return sectorAppId;
+		}
+		public void setSectorAppId(BigDecimal sectorAppId) {
+			this.sectorAppId = sectorAppId;
+		}
+		public String getSectorConfigName() {
+			return sectorConfigName;
+		}
+		public void setSectorConfigName(String sectorConfigName) {
+			this.sectorConfigName = sectorConfigName;
+		}
+		public BigDecimal getRegionAppId() {
+			return regionAppId;
+		}
+		public void setRegionAppId(BigDecimal regionAppId) {
+			this.regionAppId = regionAppId;
+		}
+		public String getRegionConfigName() {
+			return regionConfigName;
+		}
+		public void setRegionConfigName(String regionConfigName) {
+			this.regionConfigName = regionConfigName;
+		}
+		public BigDecimal getCountryAppId() {
+			return countryAppId;
+		}
+		public void setCountryAppId(BigDecimal countryAppId) {
+			this.countryAppId = countryAppId;
+		}
+		public String getCountryConfigName() {
+			return countryConfigName;
+		}
+		public void setCountryConfigName(String countryConfigName) {
+			this.countryConfigName = countryConfigName;
+		}
+		public BigDecimal getStockExchangeAppId() {
+			return stockExchangeAppId;
+		}
+		public void setStockExchangeAppId(BigDecimal stockExchangeAppId) {
+			this.stockExchangeAppId = stockExchangeAppId;
+		}
+		public String getStockExchangeConfigName() {
+			return stockExchangeConfigName;
+		}
+		public void setStockExchangeConfigName(String stockExchangeConfigName) {
+			this.stockExchangeConfigName = stockExchangeConfigName;
+		}
+		public BigDecimal getCurrencyAppId() {
+			return currencyAppId;
+		}
+		public void setCurrencyAppId(BigDecimal currencyAppId) {
+			this.currencyAppId = currencyAppId;
+		}
+		public String getCurrencyAppConfigName() {
+			return currencyAppConfigName;
+		}
+		public void setCurrencyAppConfigName(String currencyAppConfigName) {
+			this.currencyAppConfigName = currencyAppConfigName;
+		}
+		public BigDecimal getDivisor() {
+			return divisor;
+		}
+		public void setDivisor(BigDecimal divisor) {
+			this.divisor = divisor;
+		}
+		public BigDecimal getDenomination() {
+			return denomination;
+		}
+		public void setDenomination(BigDecimal denomination) {
+			this.denomination = denomination;
+		}
+		public BigDecimal getOptionStyleAppId() {
+			return optionStyleAppId;
+		}
+		public void setOptionStyleAppId(BigDecimal optionStyleAppId) {
+			this.optionStyleAppId = optionStyleAppId;
+		}
+		public String getOptionStyleConfigName() {
+			return optionStyleConfigName;
+		}
+		public void setOptionStyleConfigName(String optionStyleConfigName) {
+			this.optionStyleConfigName = optionStyleConfigName;
+		}
+		public BigDecimal getOptionDirectionAppId() {
+			return optionDirectionAppId;
+		}
+		public void setOptionDirectionAppId(BigDecimal optionDirectionAppId) {
+			this.optionDirectionAppId = optionDirectionAppId;
+		}
+		public String getOptionDirectionConfigName() {
+			return optionDirectionConfigName;
+		}
+		public void setOptionDirectionConfigName(String optionDirectionConfigName) {
+			this.optionDirectionConfigName = optionDirectionConfigName;
+		}
+		public BigDecimal getStrikePrice() {
+			return strikePrice;
+		}
+		public void setStrikePrice(BigDecimal strikePrice) {
+			this.strikePrice = strikePrice;
+		}
+		public BigDecimal getStrikePriceCurrencyAppId() {
+			return strikePriceCurrencyAppId;
+		}
+		public void setStrikePriceCurrencyAppId(BigDecimal strikePriceCurrencyAppId) {
+			this.strikePriceCurrencyAppId = strikePriceCurrencyAppId;
+		}
+		public String getStrikePriceCurrencyConfigName() {
+			return strikePriceCurrencyConfigName;
+		}
+		public void setStrikePriceCurrencyConfigName(String strikePriceCurrencyConfigName) {
+			this.strikePriceCurrencyConfigName = strikePriceCurrencyConfigName;
+		}
+		public int getContractSize() {
+			return contractSize;
+		}
+		public void setContractSize(int contractSize) {
+			this.contractSize = contractSize;
+		}
+		public BigDecimal getFirstLegCurrencyAppId() {
+			return firstLegCurrencyAppId;
+		}
+		public void setFirstLegCurrencyAppId(BigDecimal firstLegCurrencyAppId) {
+			this.firstLegCurrencyAppId = firstLegCurrencyAppId;
+		}
+		public String getFirstLegCurrencyConfigName() {
+			return firstLegCurrencyConfigName;
+		}
+		public void setFirstLegCurrencyConfigName(String firstLegCurrencyConfigName) {
+			this.firstLegCurrencyConfigName = firstLegCurrencyConfigName;
+		}
+		public BigDecimal getFirstLegAmount() {
+			return firstLegAmount;
+		}
+		public void setFirstLegAmount(BigDecimal firstLegAmount) {
+			this.firstLegAmount = firstLegAmount;
+		}
+		public BigDecimal getSecondLegCurrencyAppId() {
+			return secondLegCurrencyAppId;
+		}
+		public void setSecondLegCurrencyAppId(BigDecimal secondLegCurrencyAppId) {
+			this.secondLegCurrencyAppId = secondLegCurrencyAppId;
+		}
+		public String getSecondLegCurrencyConfigName() {
+			return secondLegCurrencyConfigName;
+		}
+		public void setSecondLegCurrencyConfigName(String secondLegCurrencyConfigName) {
+			this.secondLegCurrencyConfigName = secondLegCurrencyConfigName;
+		}
+		public BigDecimal getSecondLegAmount() {
+			return secondLegAmount;
+		}
+		public void setSecondLegAmount(BigDecimal secondLegAmount) {
+			this.secondLegAmount = secondLegAmount;
+		}
+		public BigDecimal getOriginatingCurrencyAppId() {
+			return originatingCurrencyAppId;
+		}
+		public void setOriginatingCurrencyAppId(BigDecimal originatingCurrencyAppId) {
+			this.originatingCurrencyAppId = originatingCurrencyAppId;
+		}
+		public String getOriginatingCurrencyConfigName() {
+			return originatingCurrencyConfigName;
+		}
+		public void setOriginatingCurrencyConfigName(String originatingCurrencyConfigName) {
+			this.originatingCurrencyConfigName = originatingCurrencyConfigName;
+		}
+		public BigDecimal getTargetCurrencyAppId() {
+			return targetCurrencyAppId;
+		}
+		public void setTargetCurrencyAppId(BigDecimal targetCurrencyAppId) {
+			this.targetCurrencyAppId = targetCurrencyAppId;
+		}
+		public String getTargetCurrencyConfigName() {
+			return targetCurrencyConfigName;
+		}
+		public void setTargetCurrencyConfigName(String targetCurrencyConfigName) {
+			this.targetCurrencyConfigName = targetCurrencyConfigName;
+		}
+		public long getTotalRecords() {
+			return totalRecords;
+		}
+		public void setTotalRecords(long totalRecords) {
+			this.totalRecords = totalRecords;
+		}
+		public String getCompany() {
+			return company;
+		}
+		public void setCompany(String company) {
+			this.company = company;
+		}
+		public BigDecimal getMarketCap() {
+			return marketCap;
+		}
+		public void setMarketCap(BigDecimal marketCap) {
+			this.marketCap = marketCap;
+		}
+		public BigDecimal getPrice() {
+			return price;
+		}
+		public void setPrice(BigDecimal price) {
+			this.price = price;
+		}
+		public String getRegion() {
+			return region;
+		}
+		public void setRegion(String region) {
+			this.region = region;
+		}
+		public String getCountry() {
+			return country;
+		}
+		public void setCountry(String country) {
+			this.country = country;
+		}
+		public String getSector() {
+			return sector;
+		}
+		public void setSector(String sector) {
+			this.sector = sector;
+		}
+		public String getSuperSelectModelAttributeConfigName() {
+			return superSelectModelAttributeConfigName;
+		}
+		public void setSuperSelectModelAttributeConfigName(String superSelectModelAttributeConfigName) {
+			this.superSelectModelAttributeConfigName = superSelectModelAttributeConfigName;
+		}
+		public String getSignalModelAttributeConfigName() {
+			return signalModelAttributeConfigName;
+		}
+		public void setSignalModelAttributeConfigName(String signalModelAttributeConfigName) {
+			this.signalModelAttributeConfigName = signalModelAttributeConfigName;
+		}
+		public String getKlayOfferingModelAttributeConfigName() {
+			return klayOfferingModelAttributeConfigName;
+		}
+		public void setKlayOfferingModelAttributeConfigName(String klayOfferingModelAttributeConfigName) {
+			this.klayOfferingModelAttributeConfigName = klayOfferingModelAttributeConfigName;
+		}
+		public BigDecimal getAveragePriceTarget() {
+			return averagePriceTarget;
+		}
+		public void setAveragePriceTarget(BigDecimal averagePriceTarget) {
+			this.averagePriceTarget = averagePriceTarget;
+		}
+		public double getPriceChange1DPerc() {
+			return priceChange1DPerc;
+		}
+		public void setPriceChange1DPerc(double priceChange1DPerc) {
+			this.priceChange1DPerc = priceChange1DPerc;
+		}
+		public double getPriceChange1WPerc() {
+			return priceChange1WPerc;
+		}
+		public void setPriceChange1WPerc(double priceChange1WPerc) {
+			this.priceChange1WPerc = priceChange1WPerc;
+		}
+		public double getPriceChange1MPerc() {
+			return priceChange1MPerc;
+		}
+		public void setPriceChange1MPerc(double priceChange1MPerc) {
+			this.priceChange1MPerc = priceChange1MPerc;
+		}
+		public double getPriceChange3MPerc() {
+			return priceChange3MPerc;
+		}
+		public void setPriceChange3MPerc(double priceChange3MPerc) {
+			this.priceChange3MPerc = priceChange3MPerc;
+		}
+		public double getPriceChange6MPerc() {
+			return priceChange6MPerc;
+		}
+		public void setPriceChange6MPerc(double priceChange6MPerc) {
+			this.priceChange6MPerc = priceChange6MPerc;
+		}
+		public double getPriceChange1YPerc() {
+			return priceChange1YPerc;
+		}
+		public void setPriceChange1YPerc(double priceChange1YPerc) {
+			this.priceChange1YPerc = priceChange1YPerc;
+		}
+		public double getPriceChange2YPerc() {
+			return priceChange2YPerc;
+		}
+		public void setPriceChange2YPerc(double priceChange2YPerc) {
+			this.priceChange2YPerc = priceChange2YPerc;
+		}
+		public double getPriceChange3YPerc() {
+			return priceChange3YPerc;
+		}
+		public void setPriceChange3YPerc(double priceChange3YPerc) {
+			this.priceChange3YPerc = priceChange3YPerc;
+		}
+		public double getPriceChange5YPerc() {
+			return priceChange5YPerc;
+		}
+		public void setPriceChange5YPerc(double priceChange5YPerc) {
+			this.priceChange5YPerc = priceChange5YPerc;
+		}
+		public BigDecimal getTrailingPriceToBookNbr() {
+			return trailingPriceToBookNbr;
+		}
+		public void setTrailingPriceToBookNbr(BigDecimal trailingPriceToBookNbr) {
+			this.trailingPriceToBookNbr = trailingPriceToBookNbr;
+		}
+		public BigDecimal getForwardPE12MNbr() {
+			return forwardPE12MNbr;
+		}
+		public void setForwardPE12MNbr(BigDecimal forwardPE12MNbr) {
+			this.forwardPE12MNbr = forwardPE12MNbr;
+		}
+		public double getForwardROE12MPerc() {
+			return forwardROE12MPerc;
+		}
+		public void setForwardROE12MPerc(double forwardROE12MPerc) {
+			this.forwardROE12MPerc = forwardROE12MPerc;
+		}
+		public BigDecimal getForwardEVToEbitda12MNbr() {
+			return forwardEVToEbitda12MNbr;
+		}
+		public void setForwardEVToEbitda12MNbr(BigDecimal forwardEVToEbitda12MNbr) {
+			this.forwardEVToEbitda12MNbr = forwardEVToEbitda12MNbr;
+		}
+		public double getForwardDivYield12MPerc() {
+			return forwardDivYield12MPerc;
+		}
+		public void setForwardDivYield12MPerc(double forwardDivYield12MPerc) {
+			this.forwardDivYield12MPerc = forwardDivYield12MPerc;
+		}
+		
+		public List<UniverseStockDetailsByBrokerVO> getUniverseStockDetailsByBroker() {
+			return universeStockDetailsByBroker;
+		}
+		public void setUniverseStockDetailsByBroker(List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBroker) {
+			this.universeStockDetailsByBroker = universeStockDetailsByBroker;
+		}
+		public double getVolatility1YPer() {
+			return volatility1YPer;
+		}
+		public void setVolatility1YPer(double volatility1yPer) {
+			volatility1YPer = volatility1yPer;
+		}
+		public BigDecimal getRelativeStrengthIndex14DNbr() {
+			return relativeStrengthIndex14DNbr;
+		}
+		public void setRelativeStrengthIndex14DNbr(BigDecimal relativeStrengthIndex14DNbr) {
+			this.relativeStrengthIndex14DNbr = relativeStrengthIndex14DNbr;
+		}
+		
+		public BigDecimal getBollBonds20DNbr() {
+			return bollBonds20DNbr;
+		}
+		public void setBollBonds20DNbr(BigDecimal bollBonds20DNbr) {
+			this.bollBonds20DNbr = bollBonds20DNbr;
+		}
+		public int getOverSold() {
+			return overSold;
+		}
+		public void setOverSold(int overSold) {
+			this.overSold = overSold;
+		}
+		public int getAnalystCount() {
+			return analystCount;
+		}
+		public void setAnalystCount(int analystCount) {
+			this.analystCount = analystCount;
+		}
+		public int getBuyAnalystCount() {
+			return buyAnalystCount;
+		}
+		public void setBuyAnalystCount(int buyAnalystCount) {
+			this.buyAnalystCount = buyAnalystCount;
+		}
+		public int getSellAnalystCount() {
+			return sellAnalystCount;
+		}
+		public void setSellAnalystCount(int sellAnalystCount) {
+			this.sellAnalystCount = sellAnalystCount;
+		}
+		public BigDecimal getUpsideToPriceTarget() {
+			return upsideToPriceTarget;
+		}
+		public void setUpsideToPriceTarget(BigDecimal upsideToPriceTarget) {
+			this.upsideToPriceTarget = upsideToPriceTarget;
+		}
+		public List<AssetDocumentVO> getDocuments() {
+			return documents;
+		}
+		public void setDocuments(List<AssetDocumentVO> documents) {
+			this.documents = documents;
+		}
+		public int getBuyRecommendationByXBrokers() {
+			return buyRecommendationByXBrokers;
+		}
+		public void setBuyRecommendationByXBrokers(int buyRecommendationByXBrokers) {
+			this.buyRecommendationByXBrokers = buyRecommendationByXBrokers;
+		}
+		public int getNeutralRecommendationByXBrokers() {
+			return neutralRecommendationByXBrokers;
+		}
+		public void setNeutralRecommendationByXBrokers(int neutralRecommendationByXBrokers) {
+			this.neutralRecommendationByXBrokers = neutralRecommendationByXBrokers;
+		}
+		public int getSellRecommendationByXBrokers() {
+			return sellRecommendationByXBrokers;
+		}
+		public void setSellRecommendationByXBrokers(int sellRecommendationByXBrokers) {
+			this.sellRecommendationByXBrokers = sellRecommendationByXBrokers;
+		}
+		public int getNotRatedByXBrokers() {
+			return notRatedByXBrokers;
+		}
+		public void setNotRatedByXBrokers(int notRatedByXBrokers) {
+			this.notRatedByXBrokers = notRatedByXBrokers;
+		}
+		public int getNotCoveredByXBrokers() {
+			return notCoveredByXBrokers;
+		}
+		public void setNotCoveredByXBrokers(int notCoveredByXBrokers) {
+			this.notCoveredByXBrokers = notCoveredByXBrokers;
+		}
+		public int getNewCoverageByXBrokers() {
+			return newCoverageByXBrokers;
+		}
+		public void setNewCoverageByXBrokers(int newCoverageByXBrokers) {
+			this.newCoverageByXBrokers = newCoverageByXBrokers;
+		}
+		public int getNewCoverageBUYByXBrokers() {
+			return newCoverageBUYByXBrokers;
+		}
+		public void setNewCoverageBUYByXBrokers(int newCoverageBUYByXBrokers) {
+			this.newCoverageBUYByXBrokers = newCoverageBUYByXBrokers;
+		}
+		public int getNewCoverageSELLByXBrokers() {
+			return newCoverageSELLByXBrokers;
+		}
+		public void setNewCoverageSELLByXBrokers(int newCoverageSELLByXBrokers) {
+			this.newCoverageSELLByXBrokers = newCoverageSELLByXBrokers;
+		}
+		public int getNewCoverageNEUTRALByXBrokers() {
+			return newCoverageNEUTRALByXBrokers;
+		}
+		public void setNewCoverageNEUTRALByXBrokers(int newCoverageNEUTRALByXBrokers) {
+			this.newCoverageNEUTRALByXBrokers = newCoverageNEUTRALByXBrokers;
+		}
+		public int getChangedRatingByXBrokers() {
+			return changedRatingByXBrokers;
+		}
+		public void setChangedRatingByXBrokers(int changedRatingByXBrokers) {
+			this.changedRatingByXBrokers = changedRatingByXBrokers;
+		}
+		public int getChangedToBuyByXBrokers() {
+			return changedToBuyByXBrokers;
+		}
+		public void setChangedToBuyByXBrokers(int changedToBuyByXBrokers) {
+			this.changedToBuyByXBrokers = changedToBuyByXBrokers;
+		}
+		public int getChangedToSellByXBrokers() {
+			return changedToSellByXBrokers;
+		}
+		public void setChangedToSellByXBrokers(int changedToSellByXBrokers) {
+			this.changedToSellByXBrokers = changedToSellByXBrokers;
+		}
+		public int getChangedToNeutralByXBrokers() {
+			return changedToNeutralByXBrokers;
+		}
+		public void setChangedToNeutralByXBrokers(int changedToNeutralByXBrokers) {
+			this.changedToNeutralByXBrokers = changedToNeutralByXBrokers;
+		}
+		public int getChangedToSuspendedByXBrokers() {
+			return changedToSuspendedByXBrokers;
+		}
+		public void setChangedToSuspendedByXBrokers(int changedToSuspendedByXBrokers) {
+			this.changedToSuspendedByXBrokers = changedToSuspendedByXBrokers;
+		}
+		public int getChangedToStoppedByXBrokers() {
+			return changedToStoppedByXBrokers;
+		}
+		public void setChangedToStoppedByXBrokers(int changedToStoppedByXBrokers) {
+			this.changedToStoppedByXBrokers = changedToStoppedByXBrokers;
+		}
+		public int getChangedToNotRatedByXBrokers() {
+			return changedToNotRatedByXBrokers;
+		}
+		public void setChangedToNotRatedByXBrokers(int changedToNotRatedByXBrokers) {
+			this.changedToNotRatedByXBrokers = changedToNotRatedByXBrokers;
+		}
+		public int getChangedToNotCoveredByXBrokers() {
+			return changedToNotCoveredByXBrokers;
+		}
+		public void setChangedToNotCoveredByXBrokers(int changedToNotCoveredByXBrokers) {
+			this.changedToNotCoveredByXBrokers = changedToNotCoveredByXBrokers;
+		}
+		public int getSameRatingByXBrokers() {
+			return sameRatingByXBrokers;
+		}
+		public void setSameRatingByXBrokers(int sameRatingByXBrokers) {
+			this.sameRatingByXBrokers = sameRatingByXBrokers;
+		}
+		public int getSameRatingBuyByXBrokers() {
+			return sameRatingBuyByXBrokers;
+		}
+		public void setSameRatingBuyByXBrokers(int sameRatingBuyByXBrokers) {
+			this.sameRatingBuyByXBrokers = sameRatingBuyByXBrokers;
+		}
+		public int getSameRatingSellByXBrokers() {
+			return sameRatingSellByXBrokers;
+		}
+		public void setSameRatingSellByXBrokers(int sameRatingSellByXBrokers) {
+			this.sameRatingSellByXBrokers = sameRatingSellByXBrokers;
+		}
+		public int getSameRatingNeutralByXBrokers() {
+			return sameRatingNeutralByXBrokers;
+		}
+		public void setSameRatingNeutralByXBrokers(int sameRatingNeutralByXBrokers) {
+			this.sameRatingNeutralByXBrokers = sameRatingNeutralByXBrokers;
+		}
+		public int getSameRatingToSuspendedByXBrokers() {
+			return sameRatingToSuspendedByXBrokers;
+		}
+		public void setSameRatingToSuspendedByXBrokers(int sameRatingToSuspendedByXBrokers) {
+			this.sameRatingToSuspendedByXBrokers = sameRatingToSuspendedByXBrokers;
+		}
+		public int getSameRatingToStoppedByXBrokers() {
+			return sameRatingToStoppedByXBrokers;
+		}
+		public void setSameRatingToStoppedByXBrokers(int sameRatingToStoppedByXBrokers) {
+			this.sameRatingToStoppedByXBrokers = sameRatingToStoppedByXBrokers;
+		}
+		public int getSameNotRatedByXBrokers() {
+			return sameNotRatedByXBrokers;
+		}
+		public void setSameNotRatedByXBrokers(int sameNotRatedByXBrokers) {
+			this.sameNotRatedByXBrokers = sameNotRatedByXBrokers;
+		}
+		public int getSameNotCoveredByXBrokers() {
+			return sameNotCoveredByXBrokers;
+		}
+		public void setSameNotCoveredByXBrokers(int sameNotCoveredByXBrokers) {
+			this.sameNotCoveredByXBrokers = sameNotCoveredByXBrokers;
+		}
+		
+		public Date getMaxDate() {
+			return maxDate;
+		}
+		public void setMaxDate(Date maxDate) {
+			this.maxDate = maxDate;
+		}
+		
+		public List<UniverseStockDetailsByBrokerVO> getTempUniverseStockDetailsByBroker() {
+			return tempUniverseStockDetailsByBroker;
+		}
+		public void setTempUniverseStockDetailsByBroker(List<UniverseStockDetailsByBrokerVO> tempUniverseStockDetailsByBroker) {
+			this.tempUniverseStockDetailsByBroker = tempUniverseStockDetailsByBroker;
+		}
+		public int getSuspendedByXBroker() {
+			return suspendedByXBroker;
+		}
+		public void setSuspendedByXBroker(int suspendedByXBroker) {
+			this.suspendedByXBroker = suspendedByXBroker;
+		}
+		public int getStopedByXBrokers() {
+			return stopedByXBrokers;
+		}
+		public void setStopedByXBrokers(int stopedByXBrokers) {
+			this.stopedByXBrokers = stopedByXBrokers;
+		}
+		@Override
+		public String toString() {
+			return "SearchResultDataVO [id=" + id + ", isin=" + isin + ", name=" + name + ", assetID1=" + assetID1
+					+ ", assetID2=" + assetID2 + ", assetID3=" + assetID3 + ", assetID4=" + assetID4 + ", assetID5="
+					+ assetID5 + ", description1=" + description1 + ", description2=" + description2 + ", description3="
+					+ description3 + ", categoryAppId=" + categoryAppId + ", categoryConfigName=" + categoryConfigName
+					+ ", subcategory1AppId=" + subcategory1AppId + ", subcategory1ConfigName=" + subcategory1ConfigName
+					+ ", subcategory2AppId=" + subcategory2AppId + ", subcategory2ConfigName=" + subcategory2ConfigName
+					+ ", subcategory3AppId=" + subcategory3AppId + ", subcategory3ConfigName=" + subcategory3ConfigName
+					+ ", subcategory4AppId=" + subcategory4AppId + ", subcategory4ConfigName=" + subcategory4ConfigName
+					+ ", subcategory5AppId=" + subcategory5AppId + ", subcategory5ConfigName=" + subcategory5ConfigName
+					+ ", sectorAppId=" + sectorAppId + ", sectorConfigName=" + sectorConfigName + ", regionAppId="
+					+ regionAppId + ", regionConfigName=" + regionConfigName + ", countryAppId=" + countryAppId
+					+ ", countryConfigName=" + countryConfigName + ", stockExchangeAppId=" + stockExchangeAppId
+					+ ", stockExchangeConfigName=" + stockExchangeConfigName + ", currencyAppId=" + currencyAppId
+					+ ", currencyAppConfigName=" + currencyAppConfigName + ", divisor=" + divisor + ", denomination="
+					+ denomination + ", optionStyleAppId=" + optionStyleAppId + ", optionStyleConfigName="
+					+ optionStyleConfigName + ", optionDirectionAppId=" + optionDirectionAppId
+					+ ", optionDirectionConfigName=" + optionDirectionConfigName + ", strikePrice=" + strikePrice
+					+ ", strikePriceCurrencyAppId=" + strikePriceCurrencyAppId + ", strikePriceCurrencyConfigName="
+					+ strikePriceCurrencyConfigName + ", contractSize=" + contractSize + ", firstLegCurrencyAppId="
+					+ firstLegCurrencyAppId + ", firstLegCurrencyConfigName=" + firstLegCurrencyConfigName
+					+ ", firstLegAmount=" + firstLegAmount + ", secondLegCurrencyAppId=" + secondLegCurrencyAppId
+					+ ", secondLegCurrencyConfigName=" + secondLegCurrencyConfigName + ", secondLegAmount="
+					+ secondLegAmount + ", originatingCurrencyAppId=" + originatingCurrencyAppId
+					+ ", originatingCurrencyConfigName=" + originatingCurrencyConfigName + ", targetCurrencyAppId="
+					+ targetCurrencyAppId + ", targetCurrencyConfigName=" + targetCurrencyConfigName + ", totalRecords="
+					+ totalRecords + ", status=" + status + ", statusConfigName=" + statusConfigName
+					+ ", underlyingAssets=" + underlyingAssets + ", company=" + company + ", marketCap=" + marketCap
+					+ ", price=" + price + ", region=" + region + ", country=" + country + ", sector=" + sector
+					+ ", superSelectModelAttributeConfigName=" + superSelectModelAttributeConfigName
+					+ ", signalModelAttributeConfigName=" + signalModelAttributeConfigName
+					+ ", klayOfferingModelAttributeConfigName=" + klayOfferingModelAttributeConfigName + ", overSold="
+					+ overSold + ", analystCount=" + analystCount + ", buyAnalystCount=" + buyAnalystCount
+					+ ", sellAnalystCount=" + sellAnalystCount + ", averagePriceTarget=" + averagePriceTarget
+					+ ", upsideToPriceTarget=" + upsideToPriceTarget + ", priceChange1DPerc=" + priceChange1DPerc
+					+ ", priceChange1WPerc=" + priceChange1WPerc + ", priceChange1MPerc=" + priceChange1MPerc
+					+ ", priceChange3MPerc=" + priceChange3MPerc + ", priceChange6MPerc=" + priceChange6MPerc
+					+ ", priceChange1YPerc=" + priceChange1YPerc + ", priceChange2YPerc=" + priceChange2YPerc
+					+ ", priceChange3YPerc=" + priceChange3YPerc + ", priceChange5YPerc=" + priceChange5YPerc
+					+ ", trailingPriceToBookNbr=" + trailingPriceToBookNbr + ", forwardPE12MNbr=" + forwardPE12MNbr
+					+ ", forwardROE12MPerc=" + forwardROE12MPerc + ", forwardEVToEbitda12MNbr="
+					+ forwardEVToEbitda12MNbr + ", forwardDivYield12MPerc=" + forwardDivYield12MPerc
+					+ ", volatility1YPer=" + volatility1YPer + ", relativeStrengthIndex14DNbr="
+					+ relativeStrengthIndex14DNbr + ", bollBonds20DNbr=" + bollBonds20DNbr
+					+ ", buyRecommendationByXBrokers=" + buyRecommendationByXBrokers
+					+ ", neutralRecommendationByXBrokers=" + neutralRecommendationByXBrokers
+					+ ", sellRecommendationByXBrokers=" + sellRecommendationByXBrokers + ", notRatedByXBrokers="
+					+ notRatedByXBrokers + ", notCoveredByXBrokers=" + notCoveredByXBrokers + ", newCoverageByXBrokers="
+					+ newCoverageByXBrokers + ", newCoverageBUYByXBrokers=" + newCoverageBUYByXBrokers
+					+ ", newCoverageSELLByXBrokers=" + newCoverageSELLByXBrokers + ", newCoverageNEUTRALByXBrokers="
+					+ newCoverageNEUTRALByXBrokers + ", changedRatingByXBrokers=" + changedRatingByXBrokers
+					+ ", changedToBuyByXBrokers=" + changedToBuyByXBrokers + ", changedToSellByXBrokers="
+					+ changedToSellByXBrokers + ", changedToNeutralByXBrokers=" + changedToNeutralByXBrokers
+					+ ", changedToSuspendedByXBrokers=" + changedToSuspendedByXBrokers + ", changedToStoppedByXBrokers="
+					+ changedToStoppedByXBrokers + ", changedToNotRatedByXBrokers=" + changedToNotRatedByXBrokers
+					+ ", changedToNotCoveredByXBrokers=" + changedToNotCoveredByXBrokers + ", sameRatingByXBrokers="
+					+ sameRatingByXBrokers + ", sameRatingBuyByXBrokers=" + sameRatingBuyByXBrokers
+					+ ", sameRatingSellByXBrokers=" + sameRatingSellByXBrokers + ", sameRatingNeutralByXBrokers="
+					+ sameRatingNeutralByXBrokers + ", sameRatingToSuspendedByXBrokers="
+					+ sameRatingToSuspendedByXBrokers + ", sameRatingToStoppedByXBrokers="
+					+ sameRatingToStoppedByXBrokers + ", sameNotRatedByXBrokers=" + sameNotRatedByXBrokers
+					+ ", sameNotCoveredByXBrokers=" + sameNotCoveredByXBrokers + ", suspendedByXBroker="
+					+ suspendedByXBroker + ", stopedByXBrokers=" + stopedByXBrokers + ", maxDate=" + maxDate
+					+ ", tempUniverseStockDetailsByBroker=" + tempUniverseStockDetailsByBroker
+					+ ", universeStockDetailsByBroker=" + universeStockDetailsByBroker + ", documents=" + documents
+					+ ", brokerWiseMinMaxDate=" + brokerWiseMinMaxDate + ", effectiveFromDate=" + effectiveFromDate
+					+ ", effectiveToDate=" + effectiveToDate + "]";
+		}
+		
+}

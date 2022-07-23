@@ -1,0 +1,114 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+public class AssetDocumentVO {
+
+	private BigDecimal id;
+	private String isin;
+	private BigDecimal currencyId;
+	private String currencyConfigName;
+	private BigDecimal levelId;
+	private String levelConfigName;
+	private BigDecimal documentReferenceTypeId;
+	private String documentReferenceTypeConfigName;
+	private String internalReferenceNumber;
+	private String externalReferenceNumber;
+	private int isActive;
+	private BigDecimal levelReferenceId;
+	
+	private List<AssetDocumentsBusinessDefinitionsVO> documentTypes;
+	
+	public BigDecimal getId() {
+		return id;
+	}
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+	public String getIsin() {
+		return isin;
+	}
+	public void setIsin(String isin) {
+		this.isin = isin;
+	}
+	public BigDecimal getCurrencyId() {
+		return currencyId;
+	}
+	public void setCurrencyId(BigDecimal currencyId) {
+		this.currencyId = currencyId;
+	}
+	public String getCurrencyConfigName() {
+		return currencyConfigName;
+	}
+	public void setCurrencyConfigName(String currencyConfigName) {
+		this.currencyConfigName = currencyConfigName;
+	}
+	public BigDecimal getLevelId() {
+		return levelId;
+	}
+	public void setLevelId(BigDecimal levelId) {
+		this.levelId = levelId;
+	}
+	public String getLevelConfigName() {
+		return levelConfigName;
+	}
+	public void setLevelConfigName(String levelConfigName) {
+		this.levelConfigName = levelConfigName;
+	}
+	public BigDecimal getDocumentReferenceTypeId() {
+		return documentReferenceTypeId;
+	}
+	public void setDocumentReferenceTypeId(BigDecimal documentReferenceTypeId) {
+		this.documentReferenceTypeId = documentReferenceTypeId;
+	}
+	public String getDocumentReferenceTypeConfigName() {
+		return documentReferenceTypeConfigName;
+	}
+	public void setDocumentReferenceTypeConfigName(String documentReferenceTypeConfigName) {
+		this.documentReferenceTypeConfigName = documentReferenceTypeConfigName;
+	}
+	public String getInternalReferenceNumber() {
+		return internalReferenceNumber;
+	}
+	public void setInternalReferenceNumber(String internalReferenceNumber) {
+		this.internalReferenceNumber = internalReferenceNumber;
+	}
+	public String getExternalReferenceNumber() {
+		return externalReferenceNumber;
+	}
+	public void setExternalReferenceNumber(String externalReferenceNumber) {
+		this.externalReferenceNumber = externalReferenceNumber;
+	}
+	public int getIsActive() {
+		return isActive;
+	}
+	public void setIsActive(int isActive) {
+		this.isActive = isActive;
+	}
+	public List<AssetDocumentsBusinessDefinitionsVO> getDocumentTypes() {
+		return documentTypes;
+	}
+	public void setDocumentTypes(List<AssetDocumentsBusinessDefinitionsVO> documentTypes) {
+		this.documentTypes = documentTypes;
+	}
+	public BigDecimal getLevelReferenceId() {
+		return levelReferenceId;
+	}
+	public void setLevelReferenceId(BigDecimal levelReferenceId) {
+		this.levelReferenceId = levelReferenceId;
+	}
+	@Override
+	public String toString() {
+		return "AssetDocumentVO [id=" + id + ", isin=" + isin + ", currencyId=" + currencyId + ", currencyConfigName="
+				+ currencyConfigName + ", levelId=" + levelId + ", levelConfigName=" + levelConfigName
+				+ ", documentReferenceTypeId=" + documentReferenceTypeId + ", documentReferenceTypeConfigName="
+				+ documentReferenceTypeConfigName + ", internalReferenceNumber=" + internalReferenceNumber
+				+ ", externalReferenceNumber=" + externalReferenceNumber + ", isActive=" + isActive
+				+ ", levelReferenceId=" + levelReferenceId + ", documentTypes=" + documentTypes + "]";
+	}
+	
+	
+
+	
+}

@@ -1,0 +1,386 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+public class AssetPriceVO {
+
+	private BigDecimal _id;
+	private BigDecimal _assetID;
+	private String isin;
+	private BigDecimal _custodianAppId;
+	private String custodianAppConfigName;
+	private BigDecimal _currencyAppId;
+	private String currencyAppConfigName;
+	private BigDecimal _stockExchangeAppId;
+	private BigDecimal price;
+	private BigDecimal dirtyPrice;
+	private BigDecimal open;
+	private BigDecimal high;
+	private BigDecimal low;
+	private BigDecimal close;
+	private BigDecimal bid;
+	private BigDecimal ask;
+	private BigDecimal _sourceAppId;
+	private String sourceAppConfigName;
+	
+	private BigDecimal _thirdPartyProcessorId1;
+	private BigDecimal _thirdPartyProcessorId2;
+	private int hasError;
+
+	private List<ErrorVO> errors;
+
+	private String remarks;
+
+	private Date effectiveFromDate;
+	private Date effToDate;
+	private String createdBy;
+	private Date createdDate;
+
+	private BigDecimal serviceId;
+	private BigDecimal _tenentId;
+	private String error;
+	private String username;
+	
+	private String uniqueKey;
+
+	public String getError() {
+		return error;
+	}
+
+	public void setError(String error) {
+		this.error = error;
+	}
+
+	public String getCustodianAppConfigName() {
+		return custodianAppConfigName;
+	}
+
+	public void setCustodianAppConfigName(String custodianAppConfigName) {
+		this.custodianAppConfigName = custodianAppConfigName;
+	}
+
+	public String getCurrencyAppConfigName() {
+		return currencyAppConfigName;
+	}
+
+	public void setCurrencyAppConfigName(String currencyConfigName) {
+		this.currencyAppConfigName = currencyConfigName;
+	}
+
+	public BigDecimal get_id() {
+		return _id;
+	}
+
+	public void set_id(BigDecimal _id) {
+		this._id = _id;
+	}
+
+	public BigDecimal get_assetID() {
+		return _assetID;
+	}
+
+	public void set_assetID(BigDecimal _assetID) {
+		this._assetID = _assetID;
+	}
+
+	public String getIsin() {
+		return isin;
+	}
+
+	public void setIsin(String isin) {
+		this.isin = isin;
+	}
+
+	public BigDecimal get_custodianAppId() {
+		return _custodianAppId;
+	}
+
+	public void set_custodianAppId(BigDecimal _custodianAppId) {
+		this._custodianAppId = _custodianAppId;
+	}
+
+	public BigDecimal get_currencyAppId() {
+		return _currencyAppId;
+	}
+
+	public void set_currencyAppId(BigDecimal _currencyAppId) {
+		this._currencyAppId = _currencyAppId;
+	}
+
+	public BigDecimal get_stockExchangeAppId() {
+		return _stockExchangeAppId;
+	}
+
+	public void set_stockExchangeAppId(BigDecimal _stockExchangeAppId) {
+		this._stockExchangeAppId = _stockExchangeAppId;
+	}
+
+	public BigDecimal getId() {
+		return _id;
+	}
+
+	public void setId(BigDecimal id) {
+		this._id = id;
+	}
+
+	public BigDecimal getAssetID() {
+		return _assetID;
+	}
+
+	public void setAssetID(BigDecimal assetID) {
+		this._assetID = assetID;
+	}
+
+	public BigDecimal getCustodianAppId() {
+		return _custodianAppId;
+	}
+
+	public void setCustodianAppId(BigDecimal custodianAppId) {
+		this._custodianAppId = custodianAppId;
+	}
+
+	public BigDecimal getCurrencyAppId() {
+		return _currencyAppId;
+	}
+
+	public void setCurrencyAppId(BigDecimal currencyAppId) {
+		this._currencyAppId = currencyAppId;
+	}
+
+	public BigDecimal getStockExchangeAppId() {
+		return _stockExchangeAppId;
+	}
+
+	public void setStockExchangeAppId(BigDecimal stockExchangeAppId) {
+		this._stockExchangeAppId = stockExchangeAppId;
+	}
+
+	public BigDecimal getPrice() {
+		return price;
+	}
+
+	public void setPrice(BigDecimal price) {
+		this.price = price;
+	}
+
+	public BigDecimal getDirtyPrice() {
+		return dirtyPrice;
+	}
+
+	public void setDirtyPrice(BigDecimal dirtyPrice) {
+		this.dirtyPrice = dirtyPrice;
+	}
+
+	public BigDecimal getOpen() {
+		return open;
+	}
+
+	public void setOpen(BigDecimal open) {
+		this.open = open;
+	}
+
+	public BigDecimal getHigh() {
+		return high;
+	}
+
+	public void setHigh(BigDecimal high) {
+		this.high = high;
+	}
+
+	public BigDecimal getLow() {
+		return low;
+	}
+
+	public void setLow(BigDecimal low) {
+		this.low = low;
+	}
+
+	public BigDecimal getClose() {
+		return close;
+	}
+
+	public void setClose(BigDecimal close) {
+		this.close = close;
+	}
+
+	public BigDecimal getBid() {
+		return bid;
+	}
+
+	public void setBid(BigDecimal bid) {
+		this.bid = bid;
+	}
+
+	public BigDecimal getAsk() {
+		return ask;
+	}
+
+	public void setAsk(BigDecimal ask) {
+		this.ask = ask;
+	}
+
+
+	public BigDecimal getThirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+
+	public void setThirdPartyProcessorId1(BigDecimal thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = thirdPartyProcessorId1;
+	}
+
+	public BigDecimal getThirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+
+	public void setThirdPartyProcessorId2(BigDecimal thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = thirdPartyProcessorId2;
+	}
+
+	public BigDecimal get_sourceAppId() {
+		return _sourceAppId;
+	}
+
+	public void set_sourceAppId(BigDecimal _sourceAppId) {
+		this._sourceAppId = _sourceAppId;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+
+	public void set_thirdPartyProcessorId1(BigDecimal _thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = _thirdPartyProcessorId1;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+
+	public void set_thirdPartyProcessorId2(BigDecimal _thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = _thirdPartyProcessorId2;
+	}
+
+	public int getHasError() {
+		return hasError;
+	}
+
+	public void setHasError(int hasError) {
+		this.hasError = hasError;
+	}
+
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+
+	public String getRemarks() {
+		return remarks;
+	}
+
+	public void setRemarks(String remarks) {
+		this.remarks = remarks;
+	}
+
+	public Date getEffectiveFromDate() {
+		return effectiveFromDate;
+	}
+
+	public void setEffectiveFromDate(Date effectiveFromDate) {
+		this.effectiveFromDate = effectiveFromDate;
+	}
+
+	public Date getEffToDate() {
+		return effToDate;
+	}
+
+	public void setEffToDate(Date effFromTo) {
+		this.effToDate = effFromTo;
+	}
+
+	public String getCreatedBy() {
+		return createdBy;
+	}
+
+	public void setCreatedBy(String createdBy) {
+		this.createdBy = createdBy;
+	}
+
+	public Date getCreatedDate() {
+		return createdDate;
+	}
+
+	public void setCreatedDate(Date createdDate) {
+		this.createdDate = createdDate;
+	}
+
+	public BigDecimal getServiceId() {
+		return serviceId;
+	}
+
+	public void setServiceId(BigDecimal serviceId) {
+		this.serviceId = serviceId;
+	}
+
+	public BigDecimal getTenentId() {
+		return _tenentId;
+	}
+
+	public void setTenentId(BigDecimal tenentId) {
+		this._tenentId = tenentId;
+	}
+
+	public String getSourceAppConfigName() {
+		return sourceAppConfigName;
+	}
+
+	public void setSourceAppConfigName(String sourceAppConfigName) {
+		this.sourceAppConfigName = sourceAppConfigName;
+	}
+
+	public BigDecimal get_tenentId() {
+		return _tenentId;
+	}
+
+	public void set_tenentId(BigDecimal _tenentId) {
+		this._tenentId = _tenentId;
+	}
+
+	public String getUniqueKey() {
+		return uniqueKey;
+	}
+
+	public void setUniqueKey(String uniqueKey) {
+		this.uniqueKey = uniqueKey;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+	@Override
+	public String toString() {
+		return "AssetPriceVO [_id=" + _id + ", _assetID=" + _assetID + ", isin=" + isin + ", _custodianAppId="
+				+ _custodianAppId + ", custodianAppConfigName=" + custodianAppConfigName + ", _currencyAppId="
+				+ _currencyAppId + ", currencyAppConfigName=" + currencyAppConfigName + ", _stockExchangeAppId="
+				+ _stockExchangeAppId + ", price=" + price + ", dirtyPrice=" + dirtyPrice + ", open=" + open + ", high="
+				+ high + ", low=" + low + ", close=" + close + ", bid=" + bid + ", ask=" + ask + ", _sourceAppId="
+				+ _sourceAppId + ", sourceAppConfigName=" + sourceAppConfigName + ", _thirdPartyProcessorId1="
+				+ _thirdPartyProcessorId1 + ", _thirdPartyProcessorId2=" + _thirdPartyProcessorId2 + ", hasError="
+				+ hasError + ", errors=" + errors + ", remarks=" + remarks + ", effectiveFromDate=" + effectiveFromDate
+				+ ", effToDate=" + effToDate + ", createdBy=" + createdBy + ", createdDate=" + createdDate
+				+ ", serviceId=" + serviceId + ", _tenentId=" + _tenentId + ", error=" + error + ", uniqueKey="
+				+ uniqueKey + "]";
+	}
+
+	
+
+}

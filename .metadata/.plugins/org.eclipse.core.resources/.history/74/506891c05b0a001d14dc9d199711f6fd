@@ -1,0 +1,79 @@
+package com.klayx.asset.model;
+
+import java.util.Date;
+
+public class FailedAssetVO {
+	private String defaultedFor;
+	private String ISIN;
+	private String currency;
+	private String fromCurrency;
+	private String toCurrency;
+	private String custodian;
+	private Date referenceDate;
+	private Date effFromDate;
+	private Date effToDate;
+	public String getDefaultedFor() {
+		return defaultedFor;
+	}
+	public void setDefaultedFor(String defaultedFor) {
+		this.defaultedFor = defaultedFor;
+	}
+	public String getISIN() {
+		return ISIN;
+	}
+	public void setISIN(String iSIN) {
+		ISIN = iSIN;
+	}
+	public String getCurrency() {
+		return currency;
+	}
+	public void setCurrency(String currency) {
+		this.currency = currency;
+	}
+	public String getFromCurrency() {
+		return fromCurrency;
+	}
+	public void setFromCurrency(String fromCurrency) {
+		this.fromCurrency = fromCurrency;
+	}
+	public String getToCurrency() {
+		return toCurrency;
+	}
+	public void setToCurrency(String toCurrency) {
+		this.toCurrency = toCurrency;
+	}
+	public String getCustodian() {
+		return custodian;
+	}
+	public void setCustodian(String custodian) {
+		this.custodian = custodian;
+	}
+	public Date getReferenceDate() {
+		return referenceDate;
+	}
+	public void setReferenceDate(Date referenceDate) {
+		this.referenceDate = referenceDate;
+	}
+	public Date getEffFromDate() {
+		return effFromDate;
+	}
+	public void setEffFromDate(Date effFromDate) {
+		this.effFromDate = effFromDate;
+	}
+	public Date getEffToDate() {
+		return effToDate;
+	}
+	public void setEffToDate(Date effToDate) {
+		this.effToDate = effToDate;
+	}
+	@Override
+	public String toString() {
+		return "FailedAssetVO [defaultedFor=" + defaultedFor + ", ISIN=" + ISIN + ", currency=" + currency
+				+ ", fromCurrency=" + fromCurrency + ", toCurrency=" + toCurrency + ", custodian=" + custodian
+				+ ", referenceDate=" + referenceDate + ", effFromDate=" + effFromDate + ", effToDate=" + effToDate
+				+ "]";
+	}
+	
+	
+	
+}

@@ -1,0 +1,7 @@
+spring.profiles.active=@activatedProperties@
+
+#spring.datasource.schema=classpath:/schema.sql
+spring.datasource.continue-on-error=true
+
+server.port=8089
+

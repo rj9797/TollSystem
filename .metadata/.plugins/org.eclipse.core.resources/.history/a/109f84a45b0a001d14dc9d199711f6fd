@@ -1,0 +1,486 @@
+package com.klayx.asset.service.impl;
+
+import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IAssetPriceDAO;
+import com.klayx.asset.dao.impl.AssetDAOImpl;
+import com.klayx.asset.model.AssetAddRequestVO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.ResponseVO;
+import com.klayx.asset.model.SqlExtractVO;
+import com.klayx.asset.model.TenantInfoVO;
+import com.klayx.asset.service.IAssetPriceService;
+import com.klayx.asset.validator.IAssetBusinessValidator;
+
+@Service(AssetConstants.ASSETPRICESERVICE)
+public class AssetPriceServiceImpl implements IAssetPriceService {
+
+	private static final Logger log = LogManager.getLogger(AssetServiceImpl.class);
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETPRICEDAO)
+	private IAssetPriceDAO assetPriceDao;
+
+	@Autowired
+	@Qualifier(AssetConstants.BUSINESSVALIDATORSERVICE)
+	private IAssetBusinessValidator assetBusinessValidator;
+
+	@Value("${FETCH_ASSET_PRICE_QUERY}")
+	private String FETCH_ASSET_PRICE_QUERY;
+
+	@Value("${GET_TENANT_INFO_URL}")
+	private String getTenantInfoUrl;
+
+	Gson gson = new Gson();
+	
+	@Override
+	// @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor =
+	// Exception.class)
+	public void addAssetPrice(String tenantCode, List<AssetPriceVO> successVOs, List<FailedVO<AssetPriceVO>> failedVOs,
+			List<JsonObject> totalVOs, boolean isInterfaceRequest, AssetRequestVO reqParam) throws Exception {
+		ResponseVO<AssetPriceVO, AssetAddRequestVO> responseVO = new ResponseVO<>();
+		int counter = 0;
+		int flag = 0;
+		List<FailedVO<AssetPriceVO>> failed = new ArrayList<FailedVO<AssetPriceVO>>();
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		List<AssetPriceVO> successList = new ArrayList<AssetPriceVO>();
+		try {
+
+			successVOs= successVOs.stream().sorted((o1,o2)->{
+                return o1.getEffectiveFromDate().compareTo(o2.getEffectiveFromDate());
+		}).collect(Collectors.toList());
+			//successVOs.forEach(System.out::println);
+		successVOs.sort(Comparator.comparing(AssetPriceVO::getEffectiveFromDate));
+		
+			// BusinessValidator
+			assetBusinessValidator.validateAssetPrice(successVOs, failedVOs, totalVOs, isInterfaceRequest, reqParam);
+
+			StringBuilder query = new StringBuilder();
+			StringBuilder isinBuffer = new StringBuilder();
+			StringBuilder custBuffer = new StringBuilder();
+			List<Map<String, AssetPriceVO>> list11 = new ArrayList<Map<String, AssetPriceVO>>();
+			Map<String, AssetPriceVO> mapJson = new HashMap<String, AssetPriceVO>();
+			query.append(FETCH_ASSET_PRICE_QUERY);
+			List<String> isin = new ArrayList<String>();
+			List<BigDecimal> custodian = new ArrayList<BigDecimal>();
+
+			int cnt = 0;
+			String tmpIsinBuffer = null;
+			String tmpMultipleIsinBuffer = null;
+
+			// unique
+			Map<String, AssetPriceVO> assetPriceMap = new HashMap<String, AssetPriceVO>();
+			StringBuilder assetPriceKey = null;
+			int tenantFlag=0;
+			for (AssetPriceVO assetPrice : successVOs) {
+				if (tenantFlag == 0 && assetPrice.getTenentId() == null) {
+					JsonObject obj = new JsonObject();
+					obj.addProperty("tenantCode", tenantCode);
+					TenantInfoVO tenantInfo = null;
+					String tenantInfoAsStr = AssetUtil.syncHttpCall(gson.toJson(obj), getTenantInfoUrl,
+							reqParam.getAccessToken());
+					tenantInfo = AssetUtil.fromJSonToObject(tenantInfoAsStr, TenantInfoVO.class);
+					reqParam.set_tenantId(tenantInfo.getId());
+					tenantFlag = 1;
+				}
+				if (assetPrice.getTenentId() == null) {
+					assetPrice.setTenentId(reqParam.get_tenantId());;
+				}
+				assetPriceKey = new StringBuilder();
+				assetPriceKey.append(assetPrice.getIsin()).append(assetPrice.getCurrencyAppConfigName())
+						.append(assetPrice.getCustodianAppConfigName());
+				assetPriceMap.put(assetPriceKey.toString(), assetPrice);
+			}
+
+			// Taking out unique AssetPrice objects based on ISIN, Currency & Custodian
+			List<AssetPriceVO> uniqueAssetPriceVOs = new ArrayList<AssetPriceVO>(assetPriceMap.values());
+
+			if (uniqueAssetPriceVOs != null && uniqueAssetPriceVOs.size() > 0) {
+				for (AssetPriceVO assetPrice : uniqueAssetPriceVOs) {
+
+					if (uniqueAssetPriceVOs.size() == 1) {
+						tmpIsinBuffer = "(isin=? AND currency_id = ? AND (custodian_id = COALESCE( ?,custodian_id)or custodian_id is null)";
+						query.append(tmpIsinBuffer);
+						isin.add(assetPrice.getIsin());
+						custodian.add(assetPrice.get_custodianAppId());
+						String quer = ")) as assetPriceDetails JOIN (select concat(isin,custodian_id,currency_id)as assetPriceKey, isin ,currency_id, custodian_id, max_eff_from_date assetPriceMaxDate FROM asset_custodianwise_last_date where ";
+						query.append(quer);
+						query.append(tmpIsinBuffer);
+
+						query.append(" AND ( max_eff_from_date_for_config_name = 'ACM1922' ) )\r\n"
+								+ ") assetpricemaxdate ON ( assetpricemaxdate.isin = assetpricedetails.isin\r\n"
+								+ "                        AND assetpricemaxdate.currency_id = assetpricedetails.currency_id\r\n"
+								+" AND (assetpricemaxdate.custodian_id = assetpricedetails.custodian_id OR assetpricemaxdate.custodian_id is null) "
+								+ "                             AND assetpricemaxdate.assetpricemaxdate = assetpricedetails.eff_from_date ) ");
+						flag = 1;
+						counter++;
+					} else {
+						int sz = uniqueAssetPriceVOs.size();
+						if (sz - 1 == cnt) {
+							tmpMultipleIsinBuffer = "(isin=? AND currency_id = ? AND (custodian_id = COALESCE( ?,custodian_id)or custodian_id is null)) ";
+							isinBuffer.append(tmpMultipleIsinBuffer);
+							isin.add(assetPrice.getIsin());
+							custodian.add(assetPrice.get_custodianAppId());
+							counter++;
+						} else {
+							tmpMultipleIsinBuffer = "(isin=? AND currency_id = ? AND (custodian_id = COALESCE( ?,custodian_id)or custodian_id is null)) OR ";
+							isinBuffer.append(tmpMultipleIsinBuffer);
+							isin.add(assetPrice.getIsin());
+							custodian.add(assetPrice.get_custodianAppId());
+							counter++;
+						}
+					}
+					cnt++;
+				}
+			}
+
+			list11.add(mapJson);
+
+			if (flag == 0) {
+				StringBuilder addIsinAndCustodian;
+
+				addIsinAndCustodian = new StringBuilder(isinBuffer);
+				addIsinAndCustodian.append(custBuffer);
+
+				String tmpQueryBuffer = isinBuffer
+						+ ")) as assetPriceDetails JOIN\r\n"
+						+ "(select concat(isin,custodian_id,currency_id)as assetPriceKey, isin , custodian_id, max_eff_from_date assetPriceMaxDate,currency_id FROM asset_custodianwise_last_date \r\n"
+						+ "where (" + isinBuffer;
+				query.append(tmpQueryBuffer);
+				String addRemQuery = " )AND ( max_eff_from_date_for_config_name = 'ACM1922' ) \r\n"
+						+ ") assetpricemaxdate ON ( assetpricemaxdate.isin = assetpricedetails.isin\r\n"
+						+ "                        AND assetpricemaxdate.currency_id = assetpricedetails.currency_id\r\n"
+						+"AND (assetpricemaxdate.custodian_id = assetpricedetails.custodian_id OR assetpricemaxdate.custodian_id is null) "
+						+ "                             AND assetpricemaxdate.assetpricemaxdate = assetpricedetails.eff_from_date )";
+				query.append(addRemQuery);
+			}
+			log.fatal("query="+query);
+			final int cnt1 = isin.size();
+			String tmpQuery = query.toString();
+			if (cnt1 > 0) {
+
+				Map<String, SqlExtractVO> sqlExtractedMap = new HashMap<String, SqlExtractVO>();
+				if (isin.size() > 0 && custodian.size() > 0)
+					sqlExtractedMap = assetPriceDao.addAssetPriceList(tenantCode, uniqueAssetPriceVOs, tmpQuery);
+//				System.out.println("sqlExtractedMap=" + sqlExtractedMap);
+//				log.fatal("sqlExtractedMap=" + sqlExtractedMap);
+				List<AssetPriceVO> updateList = new ArrayList<AssetPriceVO>();
+				List<AssetPriceVO> insertList = new ArrayList<AssetPriceVO>();
+				List<AssetPriceVO> freshInsertList = new ArrayList<AssetPriceVO>();
+				List<AssetPriceVO> maxDateInsertList = new ArrayList<AssetPriceVO>();
+				List<AssetPriceVO> maxDateUpdateList = new ArrayList<AssetPriceVO>();
+
+				// List will contain objects to be removed from SuccessVOs
+				List<AssetPriceVO> successVOsToBeRemoved = new ArrayList<>();
+
+				// List will contain objects to be removed from totalVOs
+				List<JsonObject> objectsToBeRemoved = new ArrayList<>();
+
+				// List will contain objects to be added from totalVOs
+				List<JsonObject> objectsToBeAdded = new ArrayList<>();
+				Map<String, List<AssetPriceVO>> assetPriceMap1 = new HashMap<String, List<AssetPriceVO>>();
+				for (int i = 0; i < successVOs.size(); i++) {
+
+					if (sqlExtractedMap.size() == 0) {
+						freshInsertList.add(successVOs.get(i));
+						successList.add(successVOs.get(i));
+						maxDateInsertList.add(successVOs.get(i));
+					} else {
+						int flag1 = 0;
+						if ((successVOs.get(i).get_custodianAppId() != null) && (sqlExtractedMap
+								.containsKey(successVOs.get(i).getIsin() + successVOs.get(i).get_custodianAppId()
+										+ successVOs.get(i).get_currencyAppId()))) {
+							flag1 = 1;
+						} else if ((successVOs.get(i).get_custodianAppId() == null) && sqlExtractedMap
+								.containsKey(successVOs.get(i).getIsin() + successVOs.get(i).get_currencyAppId())) {
+							flag1 = 1;
+						}
+
+						if (flag1 == 1) {
+							SqlExtractVO sqlObject;
+							BigDecimal id;
+							if (successVOs.get(i).get_custodianAppId() != null && sqlExtractedMap
+									.containsKey(successVOs.get(i).getIsin() + successVOs.get(i).get_custodianAppId()
+											+ successVOs.get(i).get_currencyAppId())) {
+								sqlObject = sqlExtractedMap
+										.get(successVOs.get(i).getIsin() + successVOs.get(i).get_custodianAppId()
+												+ successVOs.get(i).get_currencyAppId());
+								id = sqlObject.getId();
+
+							} else {
+
+								sqlObject = sqlExtractedMap
+										.get(successVOs.get(i).getIsin() + successVOs.get(i).get_currencyAppId());
+								id = sqlObject.getId();
+
+							}
+
+							String effectiveFromDateInDB = sqlObject.getAssetpricemaxdate();
+							Date effectiveFromDateInRequest = successVOs.get(i).getEffectiveFromDate();
+							SimpleDateFormat sdfo = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+							Date maxDateDB = sdfo.parse(effectiveFromDateInDB);
+							Date effFromDateJson = AssetUtil.DateFormater(effectiveFromDateInRequest);
+
+							if ((effFromDateJson).after(maxDateDB)) {
+								successVOs.get(i).setId(sqlObject.getId());
+								insertList.add(successVOs.get(i));
+								maxDateUpdateList.add(successVOs.get(i));
+								assetPriceMap1
+								.computeIfAbsent(successVOs.get(i).getIsin() + successVOs.get(i).getCurrencyAppConfigName()
+										+ successVOs.get(i).getCustodianAppConfigName(), k -> new ArrayList<>())
+								.add(successVOs.get(i));
+							}
+							if ((effFromDateJson).before(maxDateDB)) {
+
+								FailedVO<AssetPriceVO> failedVO = new FailedVO<AssetPriceVO>();
+								failedVO.setIdentityDetails(successVOs.get(i));
+								failed.add(failedVO);
+								List<ErrorVO> errorList = new ArrayList<ErrorVO>();
+								errorList.add(AssetUtil.getError("BUSAST41"));
+								failedVO.setErrors(errorList);
+								if (null != successVOs.get(i).getThirdPartyProcessorId1()) {
+									successVOs.get(i).setHasError(1);
+									successVOs.get(i).setErrors(errorList);
+								}
+								if (failedVOs != null)
+									failedVOs.add(failedVO);
+
+								successVOsToBeRemoved.add(successVOs.get(i));
+
+								for (JsonObject assetPrice : totalVOs) {
+									if ((!AssetUtil.jsonNullCheck(assetPrice, "uniqueKey"))
+											&& successVOs.get(i).getUniqueKey() != null && assetPrice.get("uniqueKey")
+													.getAsString().equalsIgnoreCase(successVOs.get(i).getUniqueKey())) {
+
+										objectsToBeRemoved.add(assetPrice);
+
+										String assetPrice1 = AssetUtil.fromObjectToJSON(successVOs.get(i));
+										JsonObject jsonObject = AssetUtil.fromJSonToObject(assetPrice1,
+												JsonObject.class);
+
+										objectsToBeAdded.add(jsonObject);
+										break;
+									}
+								}
+
+							}
+							if ((effFromDateJson).equals(maxDateDB)) {
+								successVOs.get(i).setId(sqlObject.getId());
+								updateList.add(successVOs.get(i));
+//									maxDateList.add(successVOs.get(i));
+							}
+						} else {
+							freshInsertList.add(successVOs.get(i));
+							successList.add(successVOs.get(i));
+							maxDateInsertList.add(successVOs.get(i));
+						}
+					}
+				}
+//				System.out.println("successVOs.size()="+successVOs.size());
+				successVOs.removeAll(successVOsToBeRemoved);
+				successVOsToBeRemoved.clear();
+
+				totalVOs.removeAll(objectsToBeRemoved);
+				objectsToBeRemoved.clear();
+
+				totalVOs.addAll(objectsToBeAdded);
+				objectsToBeAdded.clear();
+
+				if (updateList.size() > 0) {
+					log.fatal("updatePriceList started: " + getTimeStamp()+"~"+updateList.size());
+					assetPriceDao.updateListIntoDb(tenantCode, updateList);
+					log.fatal("updatePriceList ended: " + getTimeStamp());
+				}
+				if (assetPriceMap1.size() > 0) {
+					log.fatal("insertListIntoDb started: " + getTimeStamp()+"~"+assetPriceMap1);
+					assetPriceDao.insertListIntoDb(tenantCode, assetPriceMap1);
+					if(insertList!=null && insertList.size()>0) {
+						log.fatal("freshInsert started: " + insertList.size());
+						assetPriceDao.freshInsert(tenantCode, insertList);
+					}
+					log.fatal("insertListIntoDb ended: " + getTimeStamp());
+				}
+				if (freshInsertList.size() > 0) {
+					log.fatal("freshInsert started: " + getTimeStamp());
+					assetPriceDao.freshInsert(tenantCode, freshInsertList);
+					log.fatal("freshInsert ended: " + getTimeStamp());
+				}
+				if (maxDateInsertList.size() > 0) {
+					//log.fatal(maxDateInsertList+ "  insertIntoAssetCustodianWiseLastDate started: " + getTimeStamp());
+//					assetPriceDao.insertIntoAssetCustodianWiseLastDate(tenantCode, maxDateInsertList);
+					//log.fatal("insertIntoAssetCustodianWiseLastDate ended: " + getTimeStamp());
+				}
+				if (maxDateUpdateList.size() > 0) {
+					//log.fatal(maxDateUpdateList+" updateAssetCustodianWiseLastDate started: " + getTimeStamp());
+//					assetPriceDao.updateAssetCustodianWiseLastDate(tenantCode, maxDateUpdateList);
+					//log.fatal("updateAssetCustodianWiseLastDate ended: " + getTimeStamp());
+				}
+			}
+
+		} catch (Exception exp) {
+			log.fatal("Error in addAssetPrice: ", exp);
+			throw exp;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@Override
+	public Map<String, Object> getAssetPrice(String tenantCode, List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO reqParam) throws Exception {
+		ResponseVO<AssetPriceVO, AssetGetRequestVO> response = new ResponseVO<>();
+		List<AssetPriceVO> success = new ArrayList<>();
+		List<FailedVO<AssetGetRequestVO>> failed = new ArrayList<>();
+
+		Map<String, Object> responseMap = new HashMap<>();
+		try {
+			List<Map<String, Object>> mapObject = assetPriceDao.getCategoryList(tenantCode, successVOs);
+
+			Map<String, String> map = new HashMap<String, String>();
+			List<AssetPriceVO> defaultVOs = new ArrayList<AssetPriceVO>();
+			List<AssetGetRequestVO> normalVOs = new ArrayList<AssetGetRequestVO>();
+
+			int flag;
+			for (int i = 0; i < successVOs.size(); i++) {
+				flag = 0;
+				String isin = successVOs.get(i).getIsin();
+				String currency = successVOs.get(i).getCurrencyConfigName();
+				for (int j = 0; j < mapObject.size(); j++) {
+
+					String mapIsin = (String) mapObject.get(j).get("isin");
+					String mapCurrency = (String) mapObject.get(j).get("currency_config_name");
+					if (isin.equals(mapIsin) && currency.equals(mapCurrency)) {
+						flag = 1;
+
+						mapObject.get(j).put("custodian_config_name", successVOs.get(i).getCustodianConfigName());
+
+					}
+
+				}
+
+				if (flag == 0) {
+					FailedVO<AssetGetRequestVO> failedVO = new FailedVO<AssetGetRequestVO>();
+					failedVO.setReferenceDate(reqParam.getReferenceDate());
+					List<ErrorVO> errorList = new ArrayList<>();
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorCode("206");
+					errorVO.setErrorMessage("ISIN AND CURRENCY NOT PRESENT IN MASTER");
+					errorList.add(errorVO);
+					failedVO.setIdentityDetails(successVOs.get(i));
+					failedVO.setErrors(errorList);
+					failedVOs.add(failedVO);
+				}
+
+			}
+
+			for (int i = 0; i < mapObject.size(); i++) {
+
+				String catagoryName = (String) mapObject.get(i).get("category_config_name");
+				if (catagoryName != null && catagoryName.equals("ACM232")) {
+					AssetPriceVO assetPriceVO = new AssetPriceVO();
+					assetPriceVO.setPrice(new BigDecimal("1"));
+					assetPriceVO.setCustodianAppConfigName((String) mapObject.get(i).get("custodian_config_name"));
+					assetPriceVO.setCurrencyAppConfigName((String) mapObject.get(i).get("currency_config_name"));
+					assetPriceVO.setIsin((String) mapObject.get(i).get("isin"));
+					assetPriceVO.setEffectiveFromDate(reqParam.getReferenceDate());
+
+					defaultVOs.add(assetPriceVO);
+				} else if (catagoryName != null && catagoryName.equals("ACM231")) {
+					AssetPriceVO assetPriceVO = new AssetPriceVO();
+					assetPriceVO.setPrice(new BigDecimal("1"));
+					assetPriceVO.setCustodianAppConfigName((String) mapObject.get(i).get("custodian_config_name"));
+					assetPriceVO.setCurrencyAppConfigName((String) mapObject.get(i).get("currency_config_name"));
+					assetPriceVO.setIsin((String) mapObject.get(i).get("isin"));
+					assetPriceVO.setEffectiveFromDate(reqParam.getReferenceDate());
+
+					defaultVOs.add(assetPriceVO);
+				} else {
+					map.put((String) mapObject.get(i).get("isin")
+							+ (String) mapObject.get(i).get("currency_config_name"), "Check ISIN & CURRENCY");
+				}
+			}
+
+			for (int i = 0; i < successVOs.size(); i++) {
+				if (map != null
+						&& map.containsKey(successVOs.get(i).getIsin() + successVOs.get(i).getCurrencyConfigName())) {
+					normalVOs.add(successVOs.get(i));
+				}
+			}
+
+			if (normalVOs.size() > 0) {
+
+				success = assetPriceDao.getAssetPrice(tenantCode, normalVOs,
+						AssetUtil.DateFormater(reqParam.getReferenceDate()));
+
+			}
+			assetBusinessValidator.validateAssetPriceResult(normalVOs, failedVOs, reqParam, success,
+					reqParam.getReferenceDate(), tenantCode);
+
+			if (defaultVOs.size() > 0) {
+				for (int i = 0; i < defaultVOs.size(); i++) {
+					success.add(defaultVOs.get(i));
+				}
+			}
+		} catch (Exception exception) {
+			log.fatal("Error in getAssetPrice: ", exception);
+			throw exception;
+		}
+
+		responseMap.put("successVOs", success);
+		responseMap.put("failedVOs", failedVOs);
+
+		return responseMap;
+	}
+
+	@Override
+	public boolean isStructureProduct(String isin, String Currency, String tenantCode) throws Exception {
+		return assetPriceDao.isStructureProduct(tenantCode, isin, Currency);
+	}
+
+	public Timestamp getTimeStamp() {
+
+		Date date = new Date();
+		Timestamp ts = null;
+		try {
+			long time = date.getTime();
+			ts = new Timestamp(time);
+		} catch (Exception ex) {
+			log.error("Error in getTimeStamp: ", ex);
+			throw ex;
+		}
+
+		return ts;
+	}
+
+}

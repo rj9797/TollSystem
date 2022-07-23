@@ -1,0 +1,48 @@
+package com.klayx.asset.rowmapper;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import javax.swing.tree.TreePath;
+
+import org.springframework.jdbc.core.RowMapper;
+
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.UnderlyingAssetsVO;
+
+public class AssetKeyFigureRowMapper   implements RowMapper<AssetKeyFigureVO>{
+
+	public AssetKeyFigureVO mapRow(ResultSet rs, int rowNum) throws SQLException {
+
+		AssetKeyFigureVO assetKeyFigureVO = new AssetKeyFigureVO();
+		assetKeyFigureVO.setConvexity(rs.getBigDecimal("convexity"));
+		assetKeyFigureVO.set_custodianAppId(rs.getBigDecimal("custodian_id"));
+		assetKeyFigureVO.setDuration(rs.getBigDecimal("duration"));
+		assetKeyFigureVO.setDurationCall(rs.getBigDecimal("duration_call"));
+		assetKeyFigureVO.setEarning(rs.getDouble("earning_perc"));
+		assetKeyFigureVO.setEffectiveFromTo(rs.getTimestamp("eff_to_date"));
+		assetKeyFigureVO.setEffectiveFromDate(rs.getTimestamp("eff_from_date"));
+		assetKeyFigureVO.setEstimatedDividend(rs.getDouble("estimated_dividend_perc"));
+		assetKeyFigureVO.setLtvPercentage(rs.getDouble("ltv_perc"));
+		assetKeyFigureVO.setMaturity(rs.getBigDecimal("maturity"));
+		assetKeyFigureVO.setModifiedDuration(rs.getBigDecimal("modified_duration"));
+		assetKeyFigureVO.setPvbp(rs.getBigDecimal("pvbp"));
+		assetKeyFigureVO.setRemarks(rs.getString("remarks"));
+		assetKeyFigureVO.set_sourceAppId(rs.getBigDecimal("source_id"));
+		assetKeyFigureVO.setSpreadOverRiskfreeRate(rs.getBigDecimal("spread_over_riskfree_rate"));
+		assetKeyFigureVO.setYield(rs.getBigDecimal("yield"));
+		assetKeyFigureVO.setYieldCall(rs.getBigDecimal("yield_call"));
+		assetKeyFigureVO.setAssetID(rs.getBigDecimal("asset_id"));
+		assetKeyFigureVO.setId(rs.getBigDecimal("id"));
+		assetKeyFigureVO.setIsin(rs.getString("isin"));
+        assetKeyFigureVO.set_currencyAppId(rs.getBigDecimal("currency_id"));
+        assetKeyFigureVO.set_currencyAppConfigName(rs.getString("currency_config_name"));
+        assetKeyFigureVO.set_custodianAppConfigName(rs.getString("custodian_config_name"));
+        assetKeyFigureVO.setDiscountedPnL(rs.getBigDecimal("discounted_pnl"));
+        
+        
+		return assetKeyFigureVO;
+
+    }
+}

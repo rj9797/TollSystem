@@ -1,0 +1,660 @@
+package com.klayx.asset.service.impl;
+
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.text.SimpleDateFormat;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IAssetDAO;
+import com.klayx.asset.dao.IAssetSPMetricsDAO;
+import com.klayx.asset.dao.IAssetSPUnderlyingMetricsDAO;
+import com.klayx.asset.model.AssetAddRequestVO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetSPMetricsVO;
+import com.klayx.asset.model.AssetSPUnderlyingMetricsVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.AssetValuationScheduleVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.ResponseVO;
+import com.klayx.asset.service.IAssetSPMetricsService;
+import com.klayx.asset.service.IAssetService;
+import com.klayx.asset.transactionmanager.CustomTransactional;
+import com.klayx.asset.validator.IAssetBusinessValidator;
+
+@Service(AssetConstants.ASSETSPMATRICSSERVICE)
+public class AssetSPMetricsServiceImpl implements IAssetSPMetricsService {
+
+	@Autowired
+	private IAssetSPMetricsDAO assetSPMetricsDAO;
+
+	@Autowired
+	private IAssetSPUnderlyingMetricsDAO assetSPUnderlyingMetricsDAO;
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETDAO)
+	private IAssetDAO assetDao;
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETSERVICE)
+	private IAssetService assetService;
+
+	@Autowired
+	@Qualifier(AssetConstants.BUSINESSVALIDATORSERVICE)
+	private IAssetBusinessValidator assetBusinessValidator;
+
+	private static final Logger log = LogManager.getLogger(AssetSPMetricsServiceImpl.class);
+
+	SimpleDateFormat formatter = new SimpleDateFormat("YYYY-MM-dd");
+	
+	@Override
+	public void setIsActive(String tenantCode,List<AssetVO> assetMasters) {
+		if (assetMasters.size() > 1) {
+			assetSPMetricsDAO.setIsActive(tenantCode,assetMasters);
+			assetSPUnderlyingMetricsDAO.setIsActive(tenantCode,assetMasters);
+		}
+	}
+
+	private List<ErrorVO> validate(AssetVO helperVO) {
+		List<ErrorVO> errors = new ArrayList<>();
+		if (helperVO.getAssetValuationSchedule().get(0).getCouponBarrierPercentage() == -1) {
+			errors.add(setError("P00", "Coupon Barrier Percent is empty."));
+		}
+		if (helperVO.getAssetSPMetrics().getAssetSPUnderlyingMetricsVO().get(0).getCurrentLevelAmt() == null) {
+			errors.add(setError("P00", "Current Level Amount is empty."));
+		}
+		if (helperVO.getUnderlyingAssets().get(0).getInitialLevel() == null) {
+			errors.add(setError("P00", "Initial Level Amt is empty."));
+		}
+		if (helperVO.getAssetSPMetrics().getAutocallPerc() == -1) {
+			errors.add(setError("P00", "Auto Call Perc is empty."));
+		}
+		if (helperVO.getRedemptionFrequencyAppConfigName() == null) {
+			errors.add(setError("P00", "Redemption Config Value is empty."));
+		}
+		if (helperVO.getInterestFrequencyAppConfigName() == null) {
+			errors.add(setError("P00", "Interest Config Value is empty."));
+		}
+//		if (helperVO.getUnderlyingAssets().get(0).getParentAssetId() == null) {
+//			errors.add(setError("P00", "Underlying AssetId is empty."));
+//		}
+		if (helperVO.getAssetSPMetrics().getNextValuationDate() == null) {
+			errors.add(setError("P00", "Next Valuation Date is empty."));
+		}
+		if (helperVO.getAssetSPMetrics().getFinalValuationDate() == null) {
+			errors.add(setError("P00", "Final Valuation Date is empty."));
+		}
+		return errors;
+	}
+
+	private ErrorVO setError(String code, String message) {
+		ErrorVO error = new ErrorVO();
+		error.setErrorCode(code);
+		error.setErrorMessage(message);
+		return error;
+	}
+
+
+	private double getNextCouponPerc(double astsRate, String configValue) {
+		switch (configValue) {
+		case "ACM592":
+			return astsRate / 12;
+		case "ACM593":
+			return astsRate / 4;
+		// return astsRate.divide(BigDecimal.valueOf(90), 6, RoundingMode.DOWN);
+		case "ACM594":
+			return astsRate / 2;
+		// return astsRate.divide(BigDecimal.valueOf(180), 6, RoundingMode.DOWN);
+		case "ACM595":
+			return astsRate / 1;
+		// return astsRate.divide(BigDecimal.valueOf(365), 6, RoundingMode.DOWN);
+		}
+		return 0;
+		// return BigDecimal.valueOf(0);
+	}
+
+	private double getMarginFromAutocallPerc(BigDecimal currentLevelAmt, BigDecimal autocallAmt) {
+		return ((currentLevelAmt.subtract(autocallAmt)).divide(currentLevelAmt, MathContext.DECIMAL128))
+				.multiply(new BigDecimal("100")).doubleValue();
+	}
+
+	private double getMarginBetweenInitialAndCurrentPerc(BigDecimal currentLevelAmt, BigDecimal initialLevelAmt) {
+		log.fatal("initialLevelAmt="+initialLevelAmt +"      currentLevelAmt="+currentLevelAmt);
+		if(initialLevelAmt!=null) {
+		return ((currentLevelAmt.divide(initialLevelAmt, MathContext.DECIMAL128)).subtract(BigDecimal.ONE))
+				//.multiply(new BigDecimal("100"))
+				.doubleValue();
+		}else {
+			return 0;
+		}
+	}
+
+	private double getMarginBetweenCurrentAndBarrierPerc(BigDecimal currentLevelAmt, BigDecimal barrierLevelAmt) {
+
+		return ((currentLevelAmt.subtract(barrierLevelAmt)).divide(currentLevelAmt, MathContext.DECIMAL128))
+				.multiply(new BigDecimal("100")).doubleValue();
+	}
+
+	private int getIsAutoCallLikely(double autocallPerc, double minIndexReturnPerc, BigDecimal assetDaysToNextValuation,
+			String configvalue) {
+		int freqencyDays = 0;
+		switch (configvalue) {
+		case "ACM592":
+			freqencyDays = 30;
+			break;
+		case "ACM593":
+			freqencyDays = 90;
+			break;
+		case "ACM594":
+			freqencyDays = 180;
+			break;
+		case "ACM595":
+			freqencyDays = 365;
+			break;
+		}
+		if (autocallPerc != 0) {
+			if ((minIndexReturnPerc > -0.05)
+					&& (assetDaysToNextValuation.compareTo(new BigDecimal(freqencyDays + 1)) == 0)) {
+				return 1;
+			}
+		}
+		return 0;
+	}
+
+	private double getMarkPerc(int astsIsintrinsicEqualsMark, BigDecimal assetMaturityDaysLeft, double intrinsicPerc) {
+		if (astsIsintrinsicEqualsMark == 1 || assetMaturityDaysLeft.abs().longValue() < 365) {
+			return intrinsicPerc;
+		} else {
+			return 100;
+		}
+	}
+
+	private double getIntrinsicPerc(double distanceToBarrierPerc, String subCategory3, double barrierPerc) {
+
+		if (distanceToBarrierPerc > 0) {
+			return 100;
+		} else {// ACM308 ACM309 ACM310 ACM311 ACM313
+			if (subCategory3.equals("ACM308") || subCategory3.equals("ACM309") || subCategory3.equals("ACM310")
+					|| subCategory3.equals("ACM311") || subCategory3.equals("ACM313")) {
+				return (1 / (1 - distanceToBarrierPerc)) * 100;
+			} else {
+				return (barrierPerc / (1 - distanceToBarrierPerc)) * 100;
+			}
+		}
+	}
+
+	private BigDecimal getDaysLeft(Date date1, Date date2) {
+		LocalDate d1 = LocalDate.parse(AssetUtil.DateFormater(date1).toString(), DateTimeFormatter.ISO_LOCAL_DATE);
+		LocalDate d2 = LocalDate.parse(AssetUtil.DateFormater(date2).toString(), DateTimeFormatter.ISO_LOCAL_DATE);
+		Duration diff = Duration.between(d2.atStartOfDay(), d1.atStartOfDay());
+		return new BigDecimal(diff.toDays());
+	}
+
+	@Override
+	public List<AssetSPMetricsVO> getStructureProductMetricsList(String tenantCode,List<AssetGetRequestVO> successVOs, Date referenceDate) {
+
+		List<AssetSPMetricsVO> success = new ArrayList<>();
+		List<FailedVO<AssetGetRequestVO>> failed = new ArrayList<>();
+		List<AssetSPMetricsVO> assetSPMetricsVOs = assetSPMetricsDAO.getStructureProductMetrics(tenantCode,successVOs,
+				referenceDate);
+		// AssetSPMetricsVO assetSPMetrics =
+		// assetSPMetricsDAO.getStructureProductMetrics(reqParam.get(i).getIsin(),
+		// reqParam.get(i).getCurrencyConfigName(),
+		// AssetUtil.DateFormater(referenceDate));
+//			if (assetSPMetrics == null) {
+//				System.out.println("AssetSPMetrics is Empty");
+//			} else {
+//				success.add(assetSPMetrics);
+//			}
+
+		return assetSPMetricsVOs;
+	}
+
+	@Override
+	public Map<String, Object> getStructureProductMetrics(String tenantCode,List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO reqParam) throws Exception {
+		Map<String, Object> responseMap = new HashMap<>();
+		List<AssetSPMetricsVO> success = new ArrayList<>();
+		List<FailedVO<AssetGetRequestVO>> failed = new ArrayList<>();
+		try {
+			List<AssetSPMetricsVO> assetSPMetricsVOs = assetSPMetricsDAO.getStructureProductMetrics(tenantCode,successVOs,
+					reqParam.getReferenceDate());
+			int flag = 0;
+			success = (assetSPMetricsVOs);
+		} catch (Exception exception) {
+			log.fatal("Error in getStructureProductMetrics: ",exception);
+			throw exception;
+		}
+		responseMap.put("successVOs", success);
+		responseMap.put("failedVOs", failed);
+
+		return responseMap;
+	}
+
+	@Override
+//	@CustomTransactional
+	public ResponseVO<AssetSPMetricsVO, AssetAddRequestVO> addSPMertics(AssetRequestVO requestVO) throws Exception {
+		log.fatal("Entering  addSPMertics ");
+		ResponseVO<AssetSPMetricsVO, AssetAddRequestVO> response = new ResponseVO<>();
+		try {
+			List<AssetSPMetricsVO> success = new ArrayList<>();
+
+			List<FailedVO<AssetAddRequestVO>> failed = new ArrayList<>();
+			log.fatal("before getAssetSPMetrics ");
+			List<AssetVO> assetMasters = assetSPMetricsDAO.getAssetSPMetrics(requestVO.getTenantCode());// structuredProduct
+			List<AssetGetRequestVO> assetGetRequestVOs = new ArrayList<AssetGetRequestVO>();
+			for (int i = 0; i < assetMasters.size(); i++) {
+				AssetGetRequestVO assetGetRequestVO = new AssetGetRequestVO();
+				assetGetRequestVO.setIsin(assetMasters.get(i).getIsin());
+				assetGetRequestVO.setCurrencyConfigName(assetMasters.get(i).getCurrencyAppConfigName());
+				assetGetRequestVOs.add(assetGetRequestVO);
+			}
+			log.fatal("before getAsset ");
+			List<AssetVO> assetVOs = assetDao.getAsset(requestVO.getTenantCode(),assetGetRequestVOs, requestVO.get_tenantId());
+			log.fatal("requestVO.getReferenceDate()  "+requestVO.getReferenceDate());
+			Date computedDate = requestVO.getReferenceDate();
+			if(computedDate==null) {
+				computedDate = new Date();
+			}
+			
+			List<AssetSPMetricsVO> assetSPMetricsVOs = new ArrayList<AssetSPMetricsVO>();
+			for (int i = 0; i < assetVOs.size(); i++) {
+				AssetSPMetricsVO assetSPMetricsVO = new AssetSPMetricsVO();
+				boolean error = false;
+				double callStrikePerc;
+					BigDecimal priceAmt = new BigDecimal("0");
+					
+					// System.out.println(AssetUtil.DateFormater(computedDate));
+				assetSPMetricsVO.setAssetId(assetVOs.get(i).getId());
+				assetSPMetricsVO.setIsin(assetVOs.get(i).getIsin());
+				assetSPMetricsVO.setCurrencyConfigName(assetVOs.get(i).getCurrencyAppConfigName());
+				assetSPMetricsVO.setCurrencyId(assetVOs.get(i).get_currencyAppId());
+				
+				
+				
+				assetSPMetricsVO.setComputedDate(computedDate);
+
+				List<AssetValuationScheduleVO> assetValuationScheduleVOs=assetSPMetricsDAO.getAssetValuation(requestVO.getTenantCode(),assetVOs.get(i).getId());
+				List<AssetValuationScheduleVO> scheduleVOs = new ArrayList<AssetValuationScheduleVO>();
+				// autocall_perc & coupon_barrier_perc
+				if (assetVOs.get(i).getAssetValuationSchedule() != null
+						&& assetVOs.get(i).getAssetValuationSchedule().size() > 0 &&assetValuationScheduleVOs.size()>0) {
+					
+					assetSPMetricsVO.setAutocallPerc(assetValuationScheduleVOs.get(0).getCallStrike());
+				//	}
+					//if(assetValuationScheduleVOs.get(0).getCallStrike()!=0) {
+					assetSPMetricsVO.setBarrierPerc(assetValuationScheduleVOs.get(0).getCouponBarrierPercentage());
+				//	}
+					if(assetValuationScheduleVOs.get(0).getValuationDate()!=null) {
+					assetSPMetricsVO.setNextValuationDate(assetValuationScheduleVOs.get(0).getValuationDate());
+					}
+//					else {
+//						error = true;
+//						assetSPMetricsVO.setError("AssetValuationScheduleVO is not available");
+//						continue;
+//					}
+//					Date date=assetVOs.get(i).getAssetValuationSchedule().get(0).getValuationDate();
+//					for (int j = 0; j < assetVOs.get(i).getAssetValuationSchedule().size(); j++) {
+//						if (assetVOs.get(i).getAssetValuationSchedule().get(j).getValuationDate() != null
+//								&& assetVOs.get(i).getAssetValuationSchedule().get(j).getValuationDate().after(date)) {
+//							scheduleVOs.add(assetVOs.get(i).getAssetValuationSchedule().get(j));
+//							date=assetVOs.get(i).getAssetValuationSchedule().get(j).getValuationDate();
+//						}
+//					}
+//					Date maxDate = scheduleVOs.stream().filter(emp -> emp.getValuationDate() != null)
+//							.map(AssetValuationScheduleVO::getValuationDate).min(Date::compareTo).orElse(new Date());
+					assetSPMetricsVO.setFinalValuationDate(assetSPMetricsDAO.getFinalValuationDate(requestVO.getTenantCode(),assetVOs.get(i).getId()));
+					// System.out.println(AssetUtil.DateFormater(maxDate));
+//					Comparator<AssetValuationScheduleVO> comparator = Comparator
+//							.comparing(AssetValuationScheduleVO::getValuationDate);
+//					AssetValuationScheduleVO maxDatedCallStrike = scheduleVOs.stream()
+//							.filter(emp -> emp.getValuationDate() != null).min(comparator).orElse(null);
+//					System.out.println(" maxDatedEmploye : " + (maxDatedCallStrike));
+//					if (maxDatedCallStrike != null && maxDate != null) {
+//						callStrikePerc = maxDatedCallStrike.getCallStrike();
+//						System.out.println(" getCallStrike : " + (maxDatedCallStrike.getCallStrike()));
+//						assetSPMetricsVO.setAutocallPerc(callStrikePerc);
+//						assetSPMetricsVO.setBarrierPerc(maxDatedCallStrike.getCouponBarrierPercentage());
+//						assetSPMetricsVO.setNextValuationDate(maxDatedCallStrike.getValuationDate());
+//						assetSPMetricsVO.setFinalValuationDate(maxDate);
+//					} else {
+//						error = true;
+//						continue;
+//					}
+				} 
+//				else {
+//					error = true;
+//					continue;
+//				}
+
+				if (assetVOs.get(i).getMaturityDate() != null && computedDate != null) {
+					BigDecimal days = getDaysLeft(assetVOs.get(i).getMaturityDate(), computedDate);
+					if (days != null) {
+						assetSPMetricsVO.setAssetMaturityDaysLeft(days);
+					}
+//					else {
+//						error = true;
+//						continue;
+//					}
+				} 
+//				else {
+//					error = true;
+//					continue;
+//				}
+				if (assetVOs.get(i).getTradeDate() != null && computedDate != null) {
+					BigDecimal days = getDaysLeft(computedDate, assetVOs.get(i).getTradeDate());
+					if (days != null) {
+						assetSPMetricsVO.setAssetDaysFromTrade(days);
+					} 
+//					else {
+//						error = true;
+//						continue;
+//					}
+				} 
+//				else {
+//					error = true;
+//					continue;
+//				}
+				if (assetSPMetricsVO.getFinalValuationDate() != null && computedDate != null) {
+					BigDecimal days = getDaysLeft(assetSPMetricsVO.getFinalValuationDate(),
+							assetSPMetricsVO.getComputedDate());
+					if (days != null) {
+						assetSPMetricsVO.setAssetDaysToFinalValuation(days);
+					}
+						//else {
+//						error = true;
+//						continue;
+//					}
+
+				} 
+//					else {
+//					error = true;
+//					continue;
+//				}
+				if (assetSPMetricsVO.getNextValuationDate() != null && computedDate != null) {
+					BigDecimal days = getDaysLeft(assetSPMetricsVO.getNextValuationDate(), computedDate);
+					if (days != null) {
+						assetSPMetricsVO.setAssetDaysToNextValuation(days);
+					} 
+//					else {
+//						error = true;
+//						continue;
+//					}
+				} 
+//				else {
+//					error = true;
+//					continue;
+//				}
+				if (assetVOs.get(i).getRate() != null && assetVOs.get(i).getInterestFrequencyAppConfigName() != null) {
+
+					assetSPMetricsVO.setNextCouponPerc(getNextCouponPerc(assetVOs.get(i).getRate(),
+							assetVOs.get(i).getInterestFrequencyAppConfigName()));
+				}
+//				else {
+//					error = true;
+//					continue;
+//				}
+
+				// Underlying
+				List<AssetPriceVO> assetPriceVOs = new ArrayList<AssetPriceVO>();
+				AssetPriceVO priceVO = new AssetPriceVO();
+				List<Double> marginBetweenCurrAndBarrList=new ArrayList<Double>();
+				List<Double> marginBetweenInitialAndCurrList=new ArrayList<Double>();
+				List<Double> minIndexReturnPerc=new ArrayList<Double>();
+//				System.out.println(assetVOs.get(i).getId() + " assetVOs.get(i).getUnderlyingAssets().size(" + i + ")="
+//						+ assetVOs.get(i).getUnderlyingAssets().size());
+				if (assetVOs.get(i).getUnderlyingAssets() != null && assetVOs.get(i).getUnderlyingAssets().size() > 0) {
+					List<AssetSPUnderlyingMetricsVO> underlyingMetricsVOs = new ArrayList<AssetSPUnderlyingMetricsVO>();
+					boolean first = true;
+					for (int j = 0; j < assetVOs.get(i).getUnderlyingAssets().size(); j++) {
+						if (assetVOs.get(i).getUnderlyingAssets().get(j).getInitialLevel() != null) {
+							AssetSPUnderlyingMetricsVO assetSPUnderlyingMetricsVO = new AssetSPUnderlyingMetricsVO();
+							assetSPUnderlyingMetricsVO.setUnderlyingIsin(
+									assetVOs.get(i).getUnderlyingAssets().get(j).getUnderlyingAssetIsin());
+							assetSPUnderlyingMetricsVO.setUnderlyingCurrencyConfigName(assetVOs.get(i)
+									.getUnderlyingAssets().get(j).getUnderlyingAssetCurrencyAppConfigName());
+							assetSPUnderlyingMetricsVO.setUnderlyingCurrency(
+									assetVOs.get(i).getUnderlyingAssets().get(j).get_underlyingAssetCurrencyAppId());
+
+							assetSPUnderlyingMetricsVO.setUnderlyingAssetId(
+									assetVOs.get(i).getUnderlyingAssets().get(j).getUnderlyingAssetId());
+							assetSPUnderlyingMetricsVO.setParentAssetId(assetVOs.get(i).getId());
+							assetSPUnderlyingMetricsVO.setComputedDate(computedDate);
+							assetSPUnderlyingMetricsVO
+									.setInitialLevelAmt(assetVOs.get(i).getUnderlyingAssets().get(j).getInitialLevel());
+
+							
+							assetSPUnderlyingMetricsVO
+									.setBarrierLevelAmt(assetSPUnderlyingMetricsVO.getInitialLevelAmt()
+											.multiply(new BigDecimal(Double.toString(assetSPMetricsVO.getBarrierPerc())))
+											.divide(new BigDecimal("100")));// divide by 100
+						
+							assetSPUnderlyingMetricsVO.setAutocallLevelAmt(assetSPUnderlyingMetricsVO.getInitialLevelAmt().multiply(
+									new BigDecimal(Double.toString(assetSPMetricsVO.getAutocallPerc()))).divide(new BigDecimal("100")));
+							//minIndexReturnPerc.add(assetSPUnderlyingMetricsVO.getAutocallLevelAmt());
+							if (assetVOs.get(i).getUnderlyingAssets().get(j).getUnderlyingAssetId() != null) {
+								priceAmt = assetSPUnderlyingMetricsDAO.getCurrentLevelAmount(requestVO.getTenantCode(),
+										assetVOs.get(i).getUnderlyingAssets().get(j).getUnderlyingAssetId());// UnderlyingCall
+							}
+							if (!priceAmt.equals(new BigDecimal("-1"))) {
+								assetSPUnderlyingMetricsVO.setCurrentLevelAmt(priceAmt);
+							}
+//							else {
+//								error = true;
+//								continue;
+//							}
+							if (assetSPUnderlyingMetricsVO.getCurrentLevelAmt() != null
+									&& assetSPUnderlyingMetricsVO.getCurrentLevelAmt().signum() > 0) {
+							
+								if(assetSPUnderlyingMetricsVO.getCurrentLevelAmt() != null && assetSPUnderlyingMetricsVO.getBarrierLevelAmt() != null) {
+									double value=getMarginBetweenCurrentAndBarrierPerc(
+											assetSPUnderlyingMetricsVO.getCurrentLevelAmt(),
+											assetSPUnderlyingMetricsVO.getBarrierLevelAmt());
+									assetSPUnderlyingMetricsVO.setMarginBetweenCurrentAndBarrierPerc(value);
+									marginBetweenCurrAndBarrList.add(value);
+								}
+//								else {
+//									error = true;
+//									continue;
+//								}
+									
+								if (assetSPUnderlyingMetricsVO.getCurrentLevelAmt() != null && assetSPUnderlyingMetricsVO.getInitialLevelAmt() != null) {
+									double perc=getMarginBetweenInitialAndCurrentPerc(assetSPUnderlyingMetricsVO.getCurrentLevelAmt(),assetSPUnderlyingMetricsVO.getInitialLevelAmt());
+								assetSPUnderlyingMetricsVO.setMarginBetweenInitialAndCurrentPerc(perc);
+								marginBetweenInitialAndCurrList.add(perc);
+								}
+//								else {
+//										error = true;
+//										continue;
+//									}
+								if (assetSPUnderlyingMetricsVO.getCurrentLevelAmt() != null && assetSPUnderlyingMetricsVO.getAutocallLevelAmt() != null) {
+									assetSPUnderlyingMetricsVO.setMarginFromAutocallPerc(getMarginFromAutocallPerc(assetSPUnderlyingMetricsVO.getCurrentLevelAmt(),assetSPUnderlyingMetricsVO.getAutocallLevelAmt()));// Amt
+									minIndexReturnPerc.add(assetSPUnderlyingMetricsVO.getMarginFromAutocallPerc());
+								}
+//								else {
+//									error = true;
+//									continue;
+//								}
+							} 
+//							else {
+//								error = true;
+//								continue;
+//							}
+							assetSPUnderlyingMetricsVO.setIsActive(1);
+							// assetSPMetricsVO.setAssetSPUnderlyingMetricsVO(assetSPUnderlyingMetricsVO);
+														
+								underlyingMetricsVOs.add(assetSPUnderlyingMetricsVO);
+						} 
+//						else {
+//							error = true;
+//							continue;
+//						}
+					}
+					if(marginBetweenCurrAndBarrList!=null && marginBetweenCurrAndBarrList.size()>0) {
+						 Collections.sort(marginBetweenCurrAndBarrList);
+						 assetSPMetricsVO.setDistanceToBarrierPerc(marginBetweenCurrAndBarrList.get(0));
+					}
+//					else {
+//						error = true;
+//						continue;
+//					}
+					if(minIndexReturnPerc!=null && minIndexReturnPerc.size()>0) {
+						 Collections.sort(minIndexReturnPerc);
+						 assetSPMetricsVO.setMinIndexReturnPerc(minIndexReturnPerc.get(0));
+					}
+//					else {
+//						error = true;
+//						continue;
+//					}
+					
+					assetSPMetricsVO.setAssetSPUnderlyingMetricsVO(underlyingMetricsVOs);
+			
+				}
+//				else {
+//					error = true;
+//					continue;
+//				}
+				if (assetVOs.get(i).getSubcategory3AppConfigName() != null) {
+					assetSPMetricsVO.setIntrinsicPerc(getIntrinsicPerc(assetSPMetricsVO.getDistanceToBarrierPerc(),
+							assetVOs.get(i).getSubcategory3AppConfigName(), assetSPMetricsVO.getBarrierPerc()));
+				}
+//				else {
+//					error = true;
+//					continue;
+//				}
+				if (assetSPMetricsVO.getAssetMaturityDaysLeft() != null) {
+					
+					assetSPMetricsVO.setMarkPerc(getMarkPerc(assetVOs.get(i).getIntrinsicVsMarkFlag(),
+							assetSPMetricsVO.getAssetMaturityDaysLeft(), assetSPMetricsVO.getIntrinsicPerc()));
+				}
+//				else {
+//					error = true;
+//					continue;
+//				}
+				if (assetVOs.get(i).getRedemptionFrequencyAppConfigName() != null) {
+					assetSPMetricsVO.setIsAutocallLikely(getIsAutoCallLikely(assetSPMetricsVO.getAutocallPerc(),
+							assetSPMetricsVO.getMinIndexReturnPerc(), assetSPMetricsVO.getAssetDaysToNextValuation(),
+							assetVOs.get(i).getRedemptionFrequencyAppConfigName()));
+				}
+//				else {
+//					error = true;
+//					continue;
+//				}
+				// System.out.println("assetSPMetricsVO.getAssetDaysToFinalValuation()="+assetSPMetricsVO.getAssetDaysToFinalValuation());
+				//System.out.println("assetSPMetricsVO634=" + assetSPMetricsVOs.get(i).getAssetSPUnderlyingMetricsVO().size());
+
+				assetSPMetricsVO.setIsActive(1);
+				if (error == false) {
+					// System.out.println("assetSPMetricsVO.getAssetDaysToFinalValuation()="+assetSPMetricsVO.getAssetDaysToFinalValuation());
+					assetSPMetricsVOs.add(assetSPMetricsVO);
+					assetPriceVOs.add(priceVO);
+				}
+
+			//	System.out.println("assetSPMetricsVO=" + assetSPMetricsVOs.get(0).getAssetSPUnderlyingMetricsVO());
+			}
+			if (assetSPMetricsVOs.size() > 0) {
+				List<AssetSPMetricsVO> updateSpMetrics=new ArrayList<AssetSPMetricsVO>();
+				List<AssetSPMetricsVO> insertSpMetrics=new ArrayList<AssetSPMetricsVO>();
+				List<AssetSPMetricsVO> inActiveSpMetrics=new ArrayList<AssetSPMetricsVO>();
+				//System.out.println(" requestVO.getReferenceDate()="+ requestVO.getReferenceDate());
+				
+				//List<AssetSPMetricsVO> existingTableSpMetricsVOs = assetSPMetricsDAO.getSPMetrics(requestVO.getTenantCode(),new Date());
+				List<AssetSPMetricsVO> existingTableSpMetricsVOs = assetSPMetricsDAO.getSPMetrics(requestVO.getTenantCode(),computedDate);
+				//System.out.println(" existingTableSpMetricsVOs="+ existingTableSpMetricsVOs.size());
+				//System.out.println(" assetSPMetricsVOs="+ assetSPMetricsVOs.size());
+				for(int i=0;i<assetSPMetricsVOs.size();i++) {
+					int flag=0;
+					for(int j=0;j<existingTableSpMetricsVOs.size();j++){
+					//	System.out.println("assetSPMetricsVOs.get(i).getComputedDate()="+AssetUtil.DateFormater(assetSPMetricsVOs.get(i).getComputedDate())+"        existingTableSpMetricsVOs.get(j).getComputedDate()="+AssetUtil.DateFormater(existingTableSpMetricsVOs.get(j).getComputedDate()));
+					//	System.out.println("compareTo="+AssetUtil.DateFormater(assetSPMetricsVOs.get(i).getComputedDate()).compareTo(AssetUtil.DateFormater(existingTableSpMetricsVOs.get(j).getComputedDate())));
+						if(assetSPMetricsVOs.get(i).getIsin().equals(existingTableSpMetricsVOs.get(j).getIsin()) &&
+								assetSPMetricsVOs.get(i).getCurrencyConfigName().equals(existingTableSpMetricsVOs.get(j).getCurrencyConfigName())
+								&& (AssetUtil.DateComparision(AssetUtil.DateFormater(assetSPMetricsVOs.get(i).getComputedDate()),AssetUtil.DateFormater(existingTableSpMetricsVOs.get(j).getComputedDate()))==0)) {
+							assetSPMetricsVOs.get(i).setId(existingTableSpMetricsVOs.get(j).getId());
+							updateSpMetrics.add(assetSPMetricsVOs.get(i));
+							flag=1;
+							break;
+						}
+					}
+					if(flag==0) {
+						insertSpMetrics.add(assetSPMetricsVOs.get(i));
+					}
+				}
+				
+				for(int i=0;i<existingTableSpMetricsVOs.size();i++) {
+				int flag=0;
+				//System.out.println("existingTableSpMetricsVOs("+i+")="+existingTableSpMetricsVOs.get(i));
+				for(int j=0;j<assetSPMetricsVOs.size();j++){
+					if(existingTableSpMetricsVOs.get(i).getIsin().equals(assetSPMetricsVOs.get(j).getIsin()) &&
+							existingTableSpMetricsVOs.get(i).getCurrencyConfigName().equals(assetSPMetricsVOs.get(j).getCurrencyConfigName())){
+						flag=1;
+						//System.out.println("existingTableSpMetricsVOs("+i+")="+existingTableSpMetricsVOs.get(i));
+						break;
+					}
+				}
+				if(flag==0) {
+					inActiveSpMetrics.add(existingTableSpMetricsVOs.get(i));
+				}
+			}
+				
+//				for(int i=0;i<existingTableSpMetricsVOs.size();i++) {
+//					int flag=0;
+//					//System.out.println("existingTableSpMetricsVOs("+i+")="+existingTableSpMetricsVOs.get(i));
+//					for(int j=0;j<assetSPMetricsVOs.size();j++){
+//						if(existingTableSpMetricsVOs.get(i).getIsin().equals(assetSPMetricsVOs.get(j).getIsin()) &&
+//								existingTableSpMetricsVOs.get(i).getCurrencyConfigName().equals(assetSPMetricsVOs.get(j).getCurrencyConfigName())
+//								&& (AssetUtil.DateComparision(AssetUtil.DateFormater(existingTableSpMetricsVOs.get(i).getComputedDate()),AssetUtil.DateFormater(assetSPMetricsVOs.get(j).getComputedDate()))==0)){
+//							flag=1;
+//							//System.out.println("existingTableSpMetricsVOs("+i+")="+existingTableSpMetricsVOs.get(i));
+//							break;
+//						}
+//					}
+//					if(flag==0) {
+//						inActiveSpMetrics.add(existingTableSpMetricsVOs.get(i));
+//					}
+//				}
+				if(insertSpMetrics.size()>0) {
+					//System.out.println("INSERT "+insertSpMetrics.size());
+					log.fatal("INSERT "+insertSpMetrics.size());
+				
+					assetSPMetricsDAO.addSPMetricsList(requestVO.getTenantCode(),requestVO,insertSpMetrics, requestVO.get_tenantId());
+				}
+				if(updateSpMetrics.size()>0) {
+					//System.out.println("UPDATE "+updateSpMetrics.size());
+					log.fatal("UPDATE "+updateSpMetrics.size());
+					assetSPMetricsDAO.updateSPMetricsList(requestVO.getTenantCode(),requestVO, updateSpMetrics, requestVO.get_tenantId());
+				}
+				if(inActiveSpMetrics.size()>0) {
+					assetSPMetricsDAO.inActiveSPMetricsList(requestVO.getTenantCode(),requestVO,inActiveSpMetrics, requestVO.get_tenantId());
+				}
+			}
+
+			response.setTotalRecords(assetMasters.size());
+			response.setTotalfailedRecords(failed.size());
+			response.setSuccess(assetSPMetricsVOs);
+			response.setFailed(failed);
+		} catch (Exception e) {
+			log.fatal("Error in addSPMertics: ",e);
+			throw e;
+		}
+		return response;
+	}
+}

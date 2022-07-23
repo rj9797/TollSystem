@@ -1,0 +1,148 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+public class AssetValuationScheduleVO {
+
+	private BigDecimal id;
+	private BigDecimal assetID;
+	private Date valuationDate;
+	private Date paymentDate;
+	private Double couponBarrierPercentage;
+	private Double callStrike;
+	private Double redemptionPercentage;
+	private Double participationLevelPercentage;
+	private Double maxUpsidePercentage;
+	private Double maximumProtectionLevelPercentage;
+	private BigDecimal _thirdPartyProcessorId1;
+	private BigDecimal _thirdPartyProcessorId2;
+
+	private List<ErrorVO> errors;
+	private int hasError;
+
+	public BigDecimal getId() {
+		return id;
+	}
+
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+
+	public BigDecimal getAssetID() {
+		return assetID;
+	}
+
+	public void setAssetID(BigDecimal assetID) {
+		this.assetID = assetID;
+	}
+
+	public Date getValuationDate() {
+		return valuationDate;
+	}
+
+	public void setValuationDate(Date valuationDate) {
+		this.valuationDate = valuationDate;
+	}
+
+	public Date getPaymentDate() {
+		return paymentDate;
+	}
+
+	public void setPaymentDate(Date paymentDate) {
+		this.paymentDate = paymentDate;
+	}
+
+	public Double getCouponBarrierPercentage() {
+		return couponBarrierPercentage;
+	}
+
+	public void setCouponBarrierPercentage(Double couponBarrierPercentage) {
+		this.couponBarrierPercentage = couponBarrierPercentage;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+
+	public void set_thirdPartyProcessorId1(BigDecimal _thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = _thirdPartyProcessorId1;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+
+	public void set_thirdPartyProcessorId2(BigDecimal _thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = _thirdPartyProcessorId2;
+	}
+
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+
+	public int getHasError() {
+		return hasError;
+	}
+
+	public void setHasError(int hasError) {
+		this.hasError = hasError;
+	}
+
+	public Double getCallStrike() {
+		return callStrike;
+	}
+
+	public void setCallStrike(Double callStrike) {
+		this.callStrike = callStrike;
+	}
+
+	public Double getRedemptionPercentage() {
+		return redemptionPercentage;
+	}
+
+	public void setRedemptionPercentage(Double redemptionPercentage) {
+		this.redemptionPercentage = redemptionPercentage;
+	}
+
+	public Double getParticipationLevelPercentage() {
+		return participationLevelPercentage;
+	}
+
+	public void setParticipationLevelPercentage(Double participationLevelPercentage) {
+		this.participationLevelPercentage = participationLevelPercentage;
+	}
+
+	public Double getMaxUpsidePercentage() {
+		return maxUpsidePercentage;
+	}
+
+	public void setMaxUpsidePercentage(Double maxUpsidePercentage) {
+		this.maxUpsidePercentage = maxUpsidePercentage;
+	}
+
+	public Double getMaximumProtectionLevelPercentage() {
+		return maximumProtectionLevelPercentage;
+	}
+
+	public void setMaximumProtectionLevelPercentage(Double maximumProtectionLevelPercentage) {
+		this.maximumProtectionLevelPercentage = maximumProtectionLevelPercentage;
+	}
+
+	@Override
+	public String toString() {
+		return "AssetValuationSchedule [id=" + id + ", assetID=" + assetID + ", valuationDate=" + valuationDate
+				+ ", paymentDate=" + paymentDate + ", couponBarrierPercentage=" + couponBarrierPercentage
+				+ ", callStrike=" + callStrike + ", redemptionPercentage=" + redemptionPercentage
+				+ ", participationLevelPercentage=" + participationLevelPercentage + ", maxUpsidePercentage="
+				+ maxUpsidePercentage + ", maximumProtectionLevelPercentage=" + maximumProtectionLevelPercentage
+				+ ", _thirdPartyProcessorId1=" + _thirdPartyProcessorId1 + ", _thirdPartyProcessorId2="
+				+ _thirdPartyProcessorId2 + ", errors=" + errors + ", hasError=" + hasError + "]";
+	}
+
+}

@@ -1,0 +1,657 @@
+package com.klayx.asset.dao.impl;
+
+import java.lang.reflect.Type;
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCreator;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Repository;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IAssetReturnsDAO;
+import com.klayx.asset.datasourcemanager.DataSourceManager;
+import com.klayx.asset.model.AdditionalInfoVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetReturnsVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.SqlAssetReturnsVO;
+import com.klayx.asset.model.TenantInfoVO;
+import com.klayx.asset.rowmapper.AssetReturnsRowMapper;
+import com.klayx.asset.rowmapper.AssetRowMapper;
+import com.klayx.asset.transactionmanager.CustomTransactional;
+
+@Repository(AssetConstants.ASSETRETURNSEDAO)
+@PropertySource({ "classpath:${DBSQLFILE}.properties" })
+public class AssetReturnsDAOImpl implements IAssetReturnsDAO {
+
+	private static final Logger log = LogManager.getLogger(AssetReturnsDAOImpl.class);
+//	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
+	@Autowired
+	DataSourceManager dataSourceManager;
+
+	@Value("${FRESH_INSERT_ADDN_INFO}")
+	private String FRESH_INSERT_ADDN_INFO;
+
+	@Value("${FETCH_ASSET_RETURNS}")
+	private String FETCH_ASSET_RETURNS;
+
+	@Value("${IS_ASSET_ID_PRESENT}")
+	private String IS_ASSET_ID_PRESENT;
+
+	@Value("${FRESH_INSERT_ASSET_RETURNS}")
+	private String FRESH_INSERT_ASSET_RETURNS;
+
+	@Value("${UPDATE_ASSET_RETURNS}")
+	private String UPDATE_ASSET_RETURNS;
+
+	@Value("${GET_ISIN_CURRENCY}")
+	private String GET_ISIN_CURRENCY;
+
+	@Value("${UPDATE_RETURNS}")
+	private String UPDATE_RETURNS;
+
+	@Value("${UPDATE_ADDN_INFO}")
+	private String UPDATE_ADDN_INFO;
+
+	@Value("${SERVICE_ID}")
+	private BigDecimal SERVICE_ID;
+
+	@Value("${ERROR_INSERT_SQL}")
+	private String errorInsertQuery;
+
+	@Value("${INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE}")
+	private String INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE;
+
+	@Value("${INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE_WITHOUT_CUSTODIAN}")
+	private String INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE_WITHOUT_CUSTODIAN;
+
+	@Value("${UPDATE_ASSET_CUSTODIANWISE_LAST_DATE_WITHOUT_CUSTODIAN}")
+	private String UPDATE_ASSET_CUSTODIANWISE_LAST_DATE_WITHOUT_CUSTODIAN;
+
+	@Value("$GET_ASSET_CUSTODIANWISE_LAST_DATE")
+	private String GET_ASSET_CUSTODIANWISE_LAST_DATE;
+
+	@Value("${GET_TENANT_INFO_URL}")
+	private String getTenantInfoUrl;
+	
+	Gson gson = new Gson();
+	
+	@CustomTransactional
+	@Override
+	public void addAssetReturnsList(String tenantCode, List<AssetReturnsVO> successVOs,
+			String accessToken) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		// isinList = null;
+		// custodianIdList = null;
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			BigDecimal assetId1;
+			// List mapObject = jdbcTemplate.queryForList(FETCH_ASSET_PRICE);
+			StringBuilder query = new StringBuilder();
+			StringBuilder idBuffer = new StringBuilder();
+			StringBuilder custBuffer = new StringBuilder();
+			// List<Map<String,Object>> jsonMap ;
+			List<Map<String, AssetReturnsVO>> list11 = new ArrayList<Map<String, AssetReturnsVO>>();
+			Map<BigDecimal, AssetReturnsVO> mapJson = new HashMap<BigDecimal, AssetReturnsVO>();
+			List<AssetReturnsVO> assetReturnsVOs2;
+			query.append(FETCH_ASSET_RETURNS);
+
+			int cnt = 0;
+			String tmpIdBuffer = null;
+			String tmpCustodianBuffer = null;
+			String tmpMultipleIdBuffer = null;
+			String tmpMultipleCustodianBuffer = null;
+
+			StringBuilder query1 = new StringBuilder();
+			query1.append(GET_ISIN_CURRENCY);
+			for (int i = 0; i < successVOs.size(); i++) {
+				if (i == successVOs.size() - 1) {
+					String last = "(ISIN='" + successVOs.get(i).getIsin() + "' AND currency_config_name='"
+							+ successVOs.get(i).getCurrencyAppConfigName() + "'))";
+					query1.append(last);
+				} else {
+					String last = "(ISIN='" + successVOs.get(i).getIsin() + "' AND currency_config_name='"
+							+ successVOs.get(i).getCurrencyAppConfigName() + "') OR ";
+					query1.append(last);
+				}
+			}
+			List<AssetVO> result = jdbcTemplate.query(query1.toString(), new AssetRowMapper());
+
+			List<AssetReturnsVO> assetReturnsVOs = new ArrayList<AssetReturnsVO>();
+			int flag = 0;
+			for (int i = 0; i < successVOs.size(); i++) {
+				flag = 0;
+				for (int j = 0; j < result.size(); j++) {
+
+					if (result.get(j).getIsin().equals(successVOs.get(i).getIsin())
+							&& successVOs.get(i).get_currencyAppId().equals(result.get(j).get_currencyAppId())) {
+						successVOs.get(i).setAssetId(result.get(j).getId());
+						assetReturnsVOs.add(successVOs.get(i));
+						flag = 1;
+						break;
+					}
+				}
+				if (flag == 0) {
+					successVOs.get(i).setHasError(1);
+					List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorMessage("ISIN and Currency not present in Master Table");
+					errorVO.setErrorCode("ERR203");
+					errorVOs.add(errorVO);
+					successVOs.get(i).setErrors(errorVOs);
+				}
+			}
+
+			int tenantFlag=0;
+			BigDecimal tenantId=null;
+			if (assetReturnsVOs.size() > 0) {
+				for (int i = 0; i < assetReturnsVOs.size(); i++) {
+					if (tenantFlag == 0 && assetReturnsVOs.get(i).get_tenantId() == null) {
+						JsonObject obj = new JsonObject();
+						obj.addProperty("tenantCode", tenantCode);
+						TenantInfoVO tenantInfo = null;
+						String tenantInfoAsStr = AssetUtil.syncHttpCall(gson.toJson(obj), getTenantInfoUrl,
+								accessToken);
+						tenantInfo = AssetUtil.fromJSonToObject(tenantInfoAsStr, TenantInfoVO.class);
+						tenantId=tenantInfo.getId();
+						tenantFlag = 1;
+					}
+					if (assetReturnsVOs.get(i).get_tenantId() == null) {
+						assetReturnsVOs.get(i).set_tenantId(tenantId);
+					}
+//					System.out.println("assetReturnsVOs.get(i)="+assetReturnsVOs.get(i).getUsername());
+//					log.fatal("assetReturnsVOs.get(i)="+assetReturnsVOs.get(i).getUsername());
+					int sz = assetReturnsVOs.size();
+					if (sz - 1 == i) {
+						tmpMultipleIdBuffer = "asset_id= " + assetReturnsVOs.get(i).getAssetId() + ") ";
+						idBuffer.append(tmpMultipleIdBuffer);
+						// query.append(idBuffer);
+						StringBuilder tmpQueryBuffer = new StringBuilder();
+						tmpQueryBuffer.append(idBuffer);
+
+						String str = " group by id,asset_id, eff_from_date, eff_to_date) as assetReturnsDetails JOIN\r\n"
+								+ "(select concat(asset_id)as assetReturnsKey, asset_id , max_eff_from_date assetReturnsMaxDate FROM asset_custodianwise_last_date\r\n"
+								+ "where (";
+						tmpQueryBuffer.append(str);
+						query.append(idBuffer);
+
+//						query.append(idBuffer);
+					} else {
+						tmpMultipleIdBuffer = "asset_id=" + assetReturnsVOs.get(i).getAssetId() + " OR ";
+						idBuffer.append(tmpMultipleIdBuffer);
+					}
+
+				}
+
+				String str = idBuffer.toString();
+
+				String tmpQueryBuffer = " group by id,asset_id, eff_from_date, eff_to_date) as assetReturnsDetails JOIN\r\n"
+						+ "(select concat(asset_id)as assetReturnsKey, asset_id , max_eff_from_date assetReturnsMaxDate FROM asset_custodianwise_last_date\r\n"
+						+ "where (";
+				query.append(tmpQueryBuffer);
+				// query.append(tmpIdBuffer);
+
+				query.append(str);
+
+				// query.append(tmpQueryBuffer);
+				String addRemQuery = " AND (max_eff_from_date_for_config_name='ACM1923')  group by asset_id,max_eff_from_date) assetReturnsMaxDate\r\n"
+						+ "ON (assetReturnsMaxDate.asset_id = assetReturnsDetails.asset_id AND assetReturnsMaxDate.assetReturnsMaxDate=assetReturnsDetails.eff_from_date)\r\n";
+				query.append(addRemQuery);
+
+				List<SqlAssetReturnsVO> extractVOs = jdbcTemplate.query(query.toString(), new AssetReturnsRowMapper());
+				Map<BigDecimal, SqlAssetReturnsVO> sqlExtractedMap = new HashMap<BigDecimal, SqlAssetReturnsVO>();
+				for (SqlAssetReturnsVO sqlExtractVO : extractVOs) {
+					sqlExtractedMap.put(sqlExtractVO.getAssetreturnskey(), sqlExtractVO);
+				}
+				List<AssetReturnsVO> updateList = new ArrayList<AssetReturnsVO>();
+				List<AssetReturnsVO> insertList = new ArrayList<AssetReturnsVO>();
+				List<AssetReturnsVO> freshInsertList = new ArrayList<AssetReturnsVO>();
+				List<AssetReturnsVO> maxDateInsertList = new ArrayList<AssetReturnsVO>();
+				List<AssetReturnsVO> maxDateUpdateList = new ArrayList<AssetReturnsVO>();
+				List<Map<Integer, AdditionalInfoVO>> freshInsertAddnInfoList = new ArrayList<Map<Integer, AdditionalInfoVO>>();
+
+				List<Map<BigDecimal, String>> updateListStatus = new ArrayList<Map<BigDecimal, String>>();
+				List<Map<BigDecimal, String>> insertListStatus = new ArrayList<Map<BigDecimal, String>>();
+				List<Map<BigDecimal, String>> errorListStatus = new ArrayList<Map<BigDecimal, String>>();
+				for (int j = 0; j < successVOs.size(); j++) {
+					// assetReturnsVO.setAssetId(assetId);
+					BigDecimal assetid = (BigDecimal) successVOs.get(j).getAssetId();
+					// boolean stat=keyList.iterator().hasNext();
+
+					if (sqlExtractedMap.containsKey(assetid)) {
+						SqlAssetReturnsVO sqlObject = sqlExtractedMap.get(assetid);
+						BigDecimal id = sqlObject.getId();
+						// System.out.println("SQL :
+						// "+sqlExtractedMap.get(assetReturnsVO.getIsin()+assetReturnsVO.getCustodianAppId()+assetReturnsVO.getStockExchangeAppId()+assetReturnsVO.getCurrencyAppId())+"\t
+						// JSON : "+sqlObject.getAssetpricekey());
+						successVOs.get(j).setId(id); // UPDATE_ASSET_PRICE
+						// assetReturnsVO.setAssetId(assetId);
+
+						String d1 = sqlObject.getAssetreturnsmaxdate().toString();
+						String d2 = successVOs.get(j).getEffectiveFromDate().toString();
+
+						Date maxDateDB = AssetUtil.DateFormater(sqlObject.getAssetreturnsmaxdate());
+						Date effFromDateJson = AssetUtil.DateFormater(successVOs.get(j).getEffectiveFromDate());
+						// System.out.println(":- effFromDateJson :"+effFromDateJson+"\n maxDateDB :
+						// "+maxDateDB);
+						if ((effFromDateJson).after(maxDateDB)) {
+							Map<AssetReturnsVO, Boolean> map = new HashMap<AssetReturnsVO, Boolean>();
+							// map.put(assetReturnsVO,false);
+							successVOs.get(j).setId(sqlObject.getId());
+							insertList.add(successVOs.get(j));
+							maxDateUpdateList.add(successVOs.get(j));
+							// String
+							// uniqueKeyGen=assetReturnsVO.getIsin()+"|"+assetReturnsVO.getCustodianAppId()+"|"+assetReturnsVO.getStockExchangeAppId()+"|"+assetReturnsVO.getCurrencyAppId()+"|"+assetReturnsVO.getEffectiveFromDate();
+							Map<BigDecimal, String> status = new HashMap<BigDecimal, String>();
+
+							status.put((BigDecimal) successVOs.get(j).getAssetId(), "Inserted");// Map(isin:status{Insert})
+							insertListStatus.add(status);
+						}
+						if ((effFromDateJson).before(maxDateDB)) {
+							successVOs.get(j).setId(sqlObject.getId());
+							// errorList.add(assetReturnsVO);
+							// String
+							// uniqueKeyGen=assetReturnsVO.getIsin()+"|"+assetReturnsVO.getCustodianAppId()+"|"+assetReturnsVO.getStockExchangeAppId()+"|"+assetReturnsVO.getCurrencyAppId()+"|"+assetReturnsVO.getEffectiveFromDate();
+							// Map<String,String> status=new HashMap<String,String>();
+							// status.put(uniqueKeyGen, "Error");//Map(isin:status{Insert})
+							// errorListStatus.add(status);
+						}
+						if ((effFromDateJson).equals(maxDateDB)) {
+							successVOs.get(j).setId(sqlObject.getId());
+							updateList.add(successVOs.get(j));
+//							maxDateList.add(successVOs.get(j));
+							Map<String, String> status = new HashMap<String, String>();
+							// String
+							// uniqueKeyGen=assetReturnsVO.getIsin()+"|"+assetReturnsVO.getCustodianAppId()+"|"+assetReturnsVO.getStockExchangeAppId()+"|"+assetReturnsVO.getCurrencyAppId()+"|"+assetReturnsVO.getEffectiveFromDate();
+							// status.put(uniqueKeyGen, "Updated");////Map(isin:Update{Insert})
+							// updateListStatus.add(status);
+						}
+
+					} else {
+						// this.insertListIntoDb(assetReturnsVO,true);
+						freshInsertList.add(successVOs.get(j));
+						maxDateInsertList.add(successVOs.get(j));
+					}
+				}
+
+				if (updateList.size() > 0) {
+					log.fatal(updateList.size() + " records updated");
+					for (int i1 = 0; i1 < updateList.size(); i1++) {
+						this.updateListIntoDb(tenantCode, updateList.get(i1));
+					}
+				}
+				if (insertList.size() > 0) {
+					log.fatal(insertList.size() + " records inserted ");
+					for (int i1 = 0; i1 < insertList.size(); i1++) {
+						this.insertListIntoDb(tenantCode, insertList.get(i1));
+					}
+				}
+				if (freshInsertList.size() > 0) {
+					log.fatal(freshInsertList.size() + " records freshly Inserted");
+					for (int i1 = 0; i1 < freshInsertList.size(); i1++) {
+						this.freshInsert(tenantCode, freshInsertList.get(i1));
+					}
+				}
+				if (maxDateInsertList.size() > 0) {
+					log.fatal(maxDateInsertList.size() + " records Inserted into AssetCustodianWiseLastDate");
+					this.insertIntoAssetCustodianWiseLastDate(tenantCode, maxDateInsertList);
+				} //
+				if (maxDateUpdateList.size() > 0) {
+					log.fatal(maxDateUpdateList.size() + " records Inserted into AssetCustodianWiseLastDate");
+					this.updateAssetCustodianWiseLastDate(tenantCode, maxDateUpdateList);
+				}
+			}
+		} catch (Exception exception) {
+			log.fatal("Exception: " + exception);
+			throw exception;
+		}
+
+	}
+
+	List<AdditionalInfoVO> insert = new ArrayList<>();
+	Map<Integer, AssetReturnsVO> map1 = new HashMap<Integer, AssetReturnsVO>();
+
+	@CustomTransactional
+	public void updateListIntoDb(String tenantCode, AssetReturnsVO assetReturnsVOs) {
+		String query = UPDATE_ASSET_RETURNS;
+		KeyHolder keyHolder = new GeneratedKeyHolder();
+
+		BigDecimal assetId = (BigDecimal) assetReturnsVOs.getAssetId();
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			jdbcTemplate.update(new PreparedStatementCreator() {
+
+				@Override
+				public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+
+					PreparedStatement preparedStatement = connection.prepareStatement(query, new String[] { "id" });
+
+					preparedStatement.setBigDecimal(1, assetReturnsVOs.get_sourceAppId());
+					preparedStatement.setString(2, assetReturnsVOs.getRemarks());
+					preparedStatement.setString(3, assetReturnsVOs.getSourceAppConfigName());
+					preparedStatement.setString(4, assetReturnsVOs.getUsername());
+					preparedStatement.setBigDecimal(5, assetReturnsVOs.getId()); // for where condn
+
+					return preparedStatement;
+				}
+			}, keyHolder);
+		} catch (Exception exception) {
+			log.fatal("Error: " + exception);
+		}
+		BigDecimal pk = (BigDecimal) keyHolder.getKey();
+		assetReturnsVOs.setId(pk);
+		this.updateAddnInfoDb(tenantCode, assetReturnsVOs, assetId);
+
+	}
+
+	@CustomTransactional
+	public void updateAddnInfoDb(String tenantCode, AssetReturnsVO assetReturnsVO, BigDecimal assetId) {
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			jdbcTemplate.batchUpdate(UPDATE_ADDN_INFO, new BatchPreparedStatementSetter() {
+
+				@Override
+				public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+
+					preparedStatement.setString(1, assetReturnsVO.getUsername());
+					preparedStatement.setString(2, assetReturnsVO.getAdditionalInfos().get(i).getInfoKey());
+					preparedStatement.setBigDecimal(3, assetReturnsVO.getAdditionalInfos().get(i).getInfoValue());
+					preparedStatement.setBigDecimal(4, assetId); // -99 Logic need to replace with update logic
+					preparedStatement.setString(5, assetReturnsVO.getAdditionalInfos().get(i).getInfoKey());
+
+				}
+
+				@Override
+				public int getBatchSize() {
+					// TODO Auto-generated method stub
+					return assetReturnsVO.getAdditionalInfos().size();
+				}
+
+			});
+		} catch (Exception e) {
+			log.fatal("Error in updateAddnInfoDb: ", e);
+			throw e;
+		}
+		// Don't call this method
+		// freshInsertAddnInfo(assetReturnsVO.getAdditionalInfos(), assetId,
+		// assetReturnsVO.getId());
+	}
+
+	@CustomTransactional
+	public void insertListIntoDb(String tenantCode, AssetReturnsVO assetReturnsVOs) throws Exception {
+		// String query=assetPriceQuery;
+		KeyHolder keyHolder = new GeneratedKeyHolder();
+
+		jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+		// Update Eff_to_date
+		int[] status;
+		// AssetReturnsVO insertUpdNewRec = new ArrayList<AssetReturnsVO>();
+		jdbcTemplate.update(new PreparedStatementCreator() {
+			@Override
+			public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+				PreparedStatement preparedStatement = connection.prepareStatement(UPDATE_RETURNS,
+						new String[] { "id" });
+				DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+				Date myDate = null;
+
+				myDate = AssetUtil.DateFormater(assetReturnsVOs.getEffectiveFromDate());
+				Date oneDayBefore = new Date(myDate.getTime() - 2);
+				preparedStatement.setString(1, assetReturnsVOs.getUsername());
+				preparedStatement.setDate(2, AssetUtil.DateFormater(oneDayBefore));
+				preparedStatement.setBigDecimal(3, assetReturnsVOs.getId());
+				return preparedStatement;
+			}
+		}, keyHolder);
+
+		BigDecimal pk = (BigDecimal) keyHolder.getKey();
+		this.freshInsert(tenantCode, assetReturnsVOs);
+		this.updateAddnInfoDb(tenantCode, assetReturnsVOs, assetReturnsVOs.getAssetId());
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@CustomTransactional
+	public void freshInsert(String tenantCode, AssetReturnsVO assetReturnsVOs) throws Exception {
+		KeyHolder keyHolder = new GeneratedKeyHolder();
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			StringBuilder query1 = new StringBuilder();
+			query1.append(GET_ISIN_CURRENCY);
+			String last = "(ISIN='" + assetReturnsVOs.getIsin() + "' AND currency_config_name='"
+					+ assetReturnsVOs.getCurrencyAppConfigName() + "'))";
+			query1.append(last);
+			List<AssetVO> result = jdbcTemplate.query(query1.toString(), new AssetRowMapper());
+			List<AssetReturnsVO> assetReturnsVO = new ArrayList<AssetReturnsVO>();
+			int flag = 0;
+			if (result.size() > 0) {
+				if (result.get(0).getIsin().equals(assetReturnsVOs.getIsin())
+						&& assetReturnsVOs.get_currencyAppId().equals(result.get(0).get_currencyAppId())) {
+					assetReturnsVOs.setAssetId(result.get(0).getId());
+					assetReturnsVO.add(assetReturnsVOs);
+					flag = 1;
+				}
+
+				if (flag == 0) {
+					assetReturnsVOs.setHasError(1);
+					List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorMessage("ISIN and Currency not present in Master Table");
+					errorVO.setErrorCode("ERR203");
+					errorVOs.add(errorVO);
+					assetReturnsVOs.setErrors(errorVOs);
+				}
+			}
+
+			if (assetReturnsVO.size() > 0) {
+				jdbcTemplate.update(new PreparedStatementCreator() {
+					@Override
+					public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+						PreparedStatement preparedStatement = connection.prepareStatement(FRESH_INSERT_ASSET_RETURNS,
+								new String[] { "id" });
+
+						preparedStatement.setBigDecimal(1, assetReturnsVO.get(0).getAssetId());
+						preparedStatement.setDate(2,
+								AssetUtil.DateFormater(assetReturnsVO.get(0).getEffectiveFromDate()));
+						preparedStatement.setBigDecimal(3, assetReturnsVO.get(0).get_sourceAppId());
+						preparedStatement.setString(4, assetReturnsVO.get(0).getRemarks());
+						preparedStatement.setString(5, assetReturnsVO.get(0).getUsername());
+						preparedStatement.setBigDecimal(6, SERVICE_ID);
+						preparedStatement.setBigDecimal(7, assetReturnsVO.get(0).get_tenantId());
+						preparedStatement.setString(8, assetReturnsVO.get(0).getSourceAppConfigName());
+						preparedStatement.setString(9, assetReturnsVO.get(0).getIsin());
+						preparedStatement.setString(10, assetReturnsVO.get(0).getCurrencyAppConfigName());
+						preparedStatement.setBigDecimal(11, assetReturnsVO.get(0).get_currencyAppId());
+						return preparedStatement;
+					}
+
+				}, keyHolder);
+				BigDecimal pk = (BigDecimal) keyHolder.getKey();
+				assetReturnsVOs.setId(pk);
+				this.freshInsertAddnInfo(tenantCode, assetReturnsVOs.getAdditionalInfos(), assetReturnsVOs.getAssetId(),
+						assetReturnsVOs);
+			}
+		} catch (Exception exception) {
+			log.fatal("Error in freshInsert: ", exception);
+			throw exception;
+		}
+
+	}
+
+	@CustomTransactional
+	public void freshInsertAddnInfo(String tenantCode, List<AdditionalInfoVO> additionalInfos, BigDecimal assetID,
+			AssetReturnsVO assetReturnsVO) {
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			jdbcTemplate.batchUpdate(FRESH_INSERT_ADDN_INFO, new BatchPreparedStatementSetter() {
+				@Override
+				public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+
+					preparedStatement.setBigDecimal(1, assetID);
+					preparedStatement.setBigDecimal(2, assetReturnsVO.getId());
+					preparedStatement.setBigDecimal(4, additionalInfos.get(i).getInfoValue());
+					preparedStatement.setString(3, additionalInfos.get(i).getInfoKey());
+					preparedStatement.setInt(5, 1); // isActive
+					preparedStatement.setString(6, assetReturnsVO.getUsername());
+					preparedStatement.setBigDecimal(7, SERVICE_ID);
+					preparedStatement.setBigDecimal(8, additionalInfos.get(i).getTenantId());
+				}
+
+				@Override
+				public int getBatchSize() {
+					return additionalInfos.size();
+				}
+			});
+
+		} catch (Exception exception) {
+			log.fatal("Error: " + exception);
+		}
+
+	}
+
+	public void insertIntoAssetCustodianWiseLastDate(String tenantCode, List<AssetReturnsVO> insertList)
+			throws Exception {
+		// TODO Auto-generated method stub
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+//			List<AssetReturnsVO> insertList = new ArrayList<AssetReturnsVO>();
+//			List<AssetReturnsVO> updateList = new ArrayList<AssetReturnsVO>();
+//
+//			for (AssetReturnsVO assetReturnsVO : maxDateList) {
+//				String query = "select id from asset_custodianwise_last_date where isin='" + assetReturnsVO.getIsin()
+//						+ "' and currency_config_name = '" + assetReturnsVO.getCurrencyAppConfigName()
+//						+ "' and max_eff_from_date_for_config_name = '"+AssetConstants.ASSETRETURNSCONFIGNAME+"'";
+//				List<BigDecimal> ids = jdbcTemplate.queryForList(query, BigDecimal.class);
+//				BigDecimal id;
+//				if(ids.isEmpty()) {
+//					id=null;
+//				}else {
+//					id=ids.get(0);
+//				}
+//				if (id != null) {
+//					updateList.add(assetReturnsVO);
+//				} else {
+//					insertList.add(assetReturnsVO);
+//				}
+//			}
+
+//			final RowMapper<AssetPriceVO> MAPPER_ACCOUNT =
+//			        (rs, i) -> new AssetPriceVO(rs.getBigDecimal("ID"));
+//			 
+//			        jdbcTemplate.query(
+//			        		GET_ASSET_CUSTODIANWISE_LAST_DATE,
+//			                rs -> rs.next() ? MAPPER_ACCOUNT.mapRow(rs, 1) : null,
+//			                1,2,3);
+			if (insertList.size() > 0) {
+				jdbcTemplate.batchUpdate(INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE_WITHOUT_CUSTODIAN,
+						new BatchPreparedStatementSetter() {
+							@Override
+							public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+								int j = 0;
+								preparedStatement.setBigDecimal(++j, insertList.get(i).get_tenantId());
+								preparedStatement.setBigDecimal(++j, SERVICE_ID);
+								preparedStatement.setBigDecimal(++j, insertList.get(i).getAssetId());
+								preparedStatement.setString(++j, insertList.get(i).getIsin());
+								preparedStatement.setString(++j, insertList.get(i).getCurrencyAppConfigName());
+								preparedStatement.setBigDecimal(++j, insertList.get(i).get_currencyAppId());
+								preparedStatement.setBigDecimal(++j, AssetConstants.ASSETRETURNSID);
+								preparedStatement.setString(++j, AssetConstants.ASSETRETURNSCONFIGNAME);
+
+								try {
+									preparedStatement.setTimestamp(++j,
+											AssetUtil.stringToTimestamp(insertList.get(i).getEffectiveFromDate()));
+								} catch (Exception e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+								preparedStatement.setString(++j, insertList.get(i).getUsername());
+							}
+
+							@Override
+							public int getBatchSize() {
+								return insertList.size();
+							}
+						});
+			}
+
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+			throw e;
+
+		}
+	}
+
+	public void updateAssetCustodianWiseLastDate(String tenantCode, List<AssetReturnsVO> updateList) throws Exception {
+		// TODO Auto-generated method stub
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+			if (updateList.size() > 0) {
+				jdbcTemplate.batchUpdate(UPDATE_ASSET_CUSTODIANWISE_LAST_DATE_WITHOUT_CUSTODIAN,
+						new BatchPreparedStatementSetter() {
+							@Override
+							public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+								int j = 0;
+								try {
+									preparedStatement.setTimestamp(++j,
+											AssetUtil.stringToTimestamp(updateList.get(i).getEffectiveFromDate()));
+								} catch (Exception e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+								preparedStatement.setString(++j, updateList.get(i).getUsername());
+								preparedStatement.setString(++j, updateList.get(i).getIsin());
+								preparedStatement.setString(++j, updateList.get(i).getCurrencyAppConfigName());
+								preparedStatement.setString(++j, AssetConstants.ASSETRETURNSCONFIGNAME);
+							}
+
+							@Override
+							public int getBatchSize() {
+								return updateList.size();
+							}
+						});
+			}
+		} catch (Exception e) {
+			// TODO: handle exception
+			throw e;
+		}
+	}
+}

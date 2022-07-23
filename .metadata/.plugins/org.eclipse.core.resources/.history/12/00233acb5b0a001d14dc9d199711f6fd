@@ -1,0 +1,2980 @@
+package com.klayx.asset.common;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
+import com.klayx.asset.controller.AssetController;
+import com.klayx.asset.model.AssetAddRequestVO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetReturnsVO;
+import com.klayx.asset.model.AssetSPMetricsVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.ExchangeRateVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.PreferredAssetGroupVO;
+import com.klayx.asset.model.UniverseStockDetailsByBrokerVO;
+import com.klayx.asset.model.UniverseStockDetailsByTerminalVO;
+import com.klayx.asset.model.UniverseStockVO;
+import com.klayx.asset.model.UnderlyingAssetsVO;
+
+@Component
+public class AssetRequestValidator {
+
+	// private static final Logger log =
+	// LoggerFactory.getLogger(EntityRequestValidator.class);
+
+	/*********************************
+	 * validation For_Add_Request
+	 *********************************************/
+	private static final Logger log = LogManager.getLogger(AssetController.class);
+
+	@Value("${AMT_ROUNDING_PRECISION}")
+	private int amtRoundingPrecision;
+
+	@Value("${AMT_SCALE}")
+	private int amtScale;
+
+	private static int staticAmtRoundingPrecision;
+	private static int staticAmtScale;
+
+	@Value("${AMT_ROUNDING_PRECISION}")
+	public void setNameStaticPrecision(int amtRoundingPrecision) {
+		AssetRequestValidator.staticAmtRoundingPrecision = amtRoundingPrecision;
+	}
+
+	@Value("${AMT_SCALE}")
+	public void setNameStaticScale(int amtScale) {
+		AssetRequestValidator.staticAmtScale = amtScale;
+	}
+
+	public static Map<String, Object> validateAssetPriceAddRequest(AssetRequestVO requestVO) {
+
+		Map<String, Object> validationMap = new HashMap<>();
+		if (requestVO != null && requestVO.getAssetAddRequest() != null && requestVO.getAssetAddRequest().size() > 0) {
+			List<AssetAddRequestVO> addRequestVOs = requestVO.getAssetAddRequest();
+			AssetPriceVO assetVO = addRequestVOs.get(0).getAssetPrice(); // change
+			if (assetVO == null) {
+				assetVO = addRequestVOs.get(2).getAssetPrice();
+			}
+			if (assetVO != null) {
+				boolean isInterfaceRequest = false;
+				if (assetVO.get_thirdPartyProcessorId1() != null) {
+					isInterfaceRequest = true;
+					List<AssetPriceVO> totalVOs = new ArrayList<>();
+					List<AssetPriceVO> successVOs = new ArrayList<>();
+					List<FailedVO<AssetPriceVO>> failedVOs = new ArrayList<>();
+
+					for (AssetAddRequestVO addRequestVO : addRequestVOs) {
+						AssetPriceVO asset = addRequestVO.getAssetPrice();
+						if (asset != null) {
+							AssetRequestValidator.validateAssetPrice(asset, isInterfaceRequest, null);
+							totalVOs.add(asset);
+							if (asset.getHasError() != 1) {
+								successVOs.add(asset);
+							}
+						}
+					}
+					validationMap.put("successVOs", successVOs);
+					validationMap.put("totalVOs", totalVOs);
+					validationMap.put("failedVOs", failedVOs);
+					validationMap.put("isInterfaceRequest", isInterfaceRequest);
+
+				} else {
+					List<AssetPriceVO> totalVOs = new ArrayList<>();
+					List<AssetPriceVO> successVOs = new ArrayList<>();
+					List<FailedVO<AssetPriceVO>> failedVOs = new ArrayList<>();
+
+					for (AssetAddRequestVO addRequestVO : addRequestVOs) {
+						AssetPriceVO asset = addRequestVO.getAssetPrice(); // change
+						List<ErrorVO> errorVOs = new ArrayList<>();
+						AssetRequestValidator.validateAssetPrice(asset, isInterfaceRequest, errorVOs);
+						totalVOs.add(asset);
+						if (errorVOs.size() > 0) {
+							FailedVO<AssetPriceVO> failedVO = new FailedVO<>();
+							failedVO.set_tenantId(requestVO.get_tenantId());
+							failedVO.setTenantCode(requestVO.getTenantCode());
+							failedVO.setErrors(errorVOs);
+							failedVO.setIdentityDetails(asset);
+							failedVOs.add(failedVO);
+						} else {
+							successVOs.add(asset);
+						}
+					}
+					validationMap.put("successVOs", successVOs);
+					validationMap.put("totalVOs", totalVOs);
+					validationMap.put("failedVOs", failedVOs);
+					validationMap.put("isInterfaceRequest", isInterfaceRequest);
+				}
+			}
+		}
+		return validationMap;
+	}
+
+	public static Map<String, Object> validateAssetAddRequest(AssetRequestVO requestVO) {
+
+		Map<String, Object> validationMap = new HashMap<>();
+		List<AssetVO> successList = new ArrayList<>();
+		if (requestVO != null && requestVO.getAssetAddRequest() != null && requestVO.getAssetAddRequest().size() > 0) {
+			List<AssetAddRequestVO> addRequestVOs = requestVO.getAssetAddRequest();
+			AssetVO assetVO = addRequestVOs.get(0).getAsset(); // need to check
+			if (assetVO != null) {
+				boolean isInterfaceRequest = false;
+				if (assetVO.get_thirdPartyProcessorId1() != null) {
+					isInterfaceRequest = true;
+					List<AssetVO> totalVOs = new ArrayList<>();
+					List<AssetVO> successVOs = new ArrayList<>();
+					List<FailedVO<AssetVO>> failedVOs = new ArrayList<>();
+
+					for (AssetAddRequestVO addRequestVO : addRequestVOs) {
+						AssetVO asset = addRequestVO.getAsset();
+						if (asset != null) {
+							AssetRequestValidator.validateAsset(asset, isInterfaceRequest, null);
+							totalVOs.add(asset);
+							if (asset.getHasError() != 1) {
+								successVOs.add(asset);
+							}
+						}
+					}
+					validationMap.put("successVOs", successVOs);
+					validationMap.put("totalVOs", totalVOs);
+					validationMap.put("failedVOs", failedVOs);
+					validationMap.put("isInterfaceRequest", isInterfaceRequest);
+
+				} else {
+					List<AssetVO> totalVOs = new ArrayList<>();
+					List<AssetVO> successVOs = new ArrayList<>();
+					List<FailedVO<AssetVO>> failedVOs = new ArrayList<>();
+
+					for (AssetAddRequestVO addRequestVO : addRequestVOs) {
+						AssetVO asset = addRequestVO.getAsset(); // change
+						List<ErrorVO> errorVOs = new ArrayList<>();
+						AssetRequestValidator.validateAsset(asset, isInterfaceRequest, errorVOs);
+						totalVOs.add(asset);
+						if (errorVOs.size() > 0) {
+							FailedVO<AssetVO> failedVO = new FailedVO<>();
+							failedVO.set_tenantId(requestVO.get_tenantId());
+							failedVO.setTenantCode(requestVO.getTenantCode());
+							failedVO.setErrors(errorVOs);
+							failedVO.setIdentityDetails(asset);
+							failedVOs.add(failedVO);
+						} else {
+							successVOs.add(asset);
+						}
+					}
+
+					validationMap.put("successVOs", successVOs);
+					validationMap.put("totalVOs", totalVOs);
+					validationMap.put("failedVOs", failedVOs);
+					validationMap.put("isInterfaceRequest", isInterfaceRequest);
+				}
+			}
+		}
+		return validationMap;
+	}
+
+	private static void validateAsset(AssetVO asset, boolean isInterfaceRequest, List<ErrorVO> errors) {
+		// TODO Auto-generated method stub
+
+		if (asset != null) {
+			List<ErrorVO> errorVOs = isInterfaceRequest || errors == null ? new ArrayList<>() : errors;
+			boolean hasError = false;
+			if (isNull(asset.getEffectiveFromDate())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST1"));
+			}
+//			if (asset.getName() == null) {
+//				hasError = true;
+//				errorVOs.add(AssetUtil.getError("BUSAST10"));
+//			}
+			if (isNull(asset.getIsin())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST11"));
+			}
+//			if(asset.getDescription_1() == null)
+//			{
+//				hasError = true;
+//				errorVOs.add(AssetUtil.getError("BUSAST12"));
+//			}
+			if (asset.get_categoryAppId() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST21"));
+			}
+			if (asset.getCategoryAppConfigName() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST16"));
+			}
+			if (asset.get_subcategory1AppId() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST22"));
+			}
+			if (asset.get_subcategory2AppId() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST23"));
+			}
+			if (asset.get_subcategory3AppId() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST24"));
+			}
+			if (asset.getSubcategory1AppConfigName() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST13"));
+			}
+			if (asset.getSubcategory2AppConfigName() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST14"));
+			}
+			if (asset.getSubcategory3AppConfigName() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST15"));
+			}
+			if (asset.getCurrencyAppConfigName() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST17"));
+			}
+			if (asset.get_currencyAppId() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST19"));
+			}
+			if (asset.getStatusAppConfigName() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST25"));
+			}
+			if (asset.get_statusAppId() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST26"));
+			}
+
+			if (hasError && isInterfaceRequest) {
+				asset.setHasError(1);
+				asset.setErrors(errorVOs.size() > 0 ? errorVOs : null);
+			}
+		}
+	}
+
+	public static Map<String, Object> validateAssetSPMetricsAddRequest(AssetRequestVO requestVO) {
+
+		Map<String, Object> validationMap = new HashMap<>();
+		List<AssetRequestVO> totalVOs = new ArrayList<>();
+		List<AssetRequestVO> successVOs = new ArrayList<>();
+		List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+		if (requestVO != null) {
+
+			if (requestVO.get_tenantId() == null || requestVO.getTenantCode() == null) {
+				List<ErrorVO> errorVOs = new ArrayList<>();
+				// AssetRequestValidator.validateAsset(asset, isInterfaceRequest, errorVOs);
+				totalVOs.add(requestVO);
+				FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+				failedVO.set_tenantId(requestVO.get_tenantId());
+				failedVO.setTenantCode(requestVO.getTenantCode());
+				failedVO.setErrors(errorVOs);
+				// failedVO.setIdentityDetails(requestVO);
+				failedVO.set_tenantId(requestVO.get_tenantId());
+				failedVO.setTenantCode(requestVO.getTenantCode());
+				ErrorVO errorVO = new ErrorVO();
+				errorVO.setErrorMessage("Tenant_id or Tenant_code is null.");
+				errorVOs.add(errorVO);
+				failedVO.setErrors(errorVOs);
+				failedVOs.add(failedVO);
+			} else {
+				successVOs.add(requestVO);
+			}
+		}
+		validationMap.put("successVOs", successVOs);
+		validationMap.put("totalVOs", totalVOs);
+		validationMap.put("failedVOs", failedVOs);
+		validationMap.put("isInterfaceRequest", 0);
+
+		return validationMap;
+	}
+
+	public static Map<String, Object> addAssetSPMetricsValidator(String requestVO) throws Exception {
+		Map<String, Object> validationMap = new HashMap<>();
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		if (requestVO != null) {
+			JsonObject spMetricsObject = gson.fromJson(requestVO, JsonObject.class);
+
+			List<JsonObject> totalVOs = new ArrayList<>();
+			List<AssetRequestVO> successVOs = new ArrayList<>();
+			List<FailedVO<AssetSPMetricsVO>> failedVOs = new ArrayList<>();
+			boolean isInterfaceRequest = true;
+
+			List<String> errors = null;
+
+			errors = AssetUtil.jsonSchemaValidator(requestVO, "./jsonschema/AddSPMetrics.json");
+			if (errors != null && errors.size() > 0) {
+				List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+				for (String s : errors) {
+					ErrorVO e = new ErrorVO();
+					e.setErrorCode("JSAST999");
+					// e.setErrorMessage(s);
+					errorVOs.add(e);
+					log.fatal(s);
+				}
+				// spMetricsObject.addProperty("hasError",1);
+				// spMetricsObject.addProperty("errors",AssetUtil.fromObjectToJSON(errorVOs));
+				FailedVO failedVO = new FailedVO<AssetRequestVO>();
+				failedVO.setErrors(errorVOs);
+				failedVO.setIdentityDetails(spMetricsObject);
+
+				failedVOs.add(failedVO);
+			} else {
+				successVOs.add(AssetUtil.fromJSonToObject(spMetricsObject.toString(), AssetRequestVO.class));
+			}
+			totalVOs.add(spMetricsObject);
+
+			validationMap.put("successVOs", successVOs);
+			validationMap.put("totalVOs", totalVOs);
+			validationMap.put("failedVOs", failedVOs);
+			validationMap.put("isInterfaceRequest", isInterfaceRequest);
+		}
+		return validationMap;
+	}
+
+	/*
+	 * public static Map<String, Object>
+	 * validateEntityToEntityRoleMapAddRequest(EntityRequestVO requestVO) {
+	 * Map<String, Object> validationMap = new HashMap<>(); if (requestVO != null &&
+	 * requestVO.getEntityAddRequest() != null &&
+	 * requestVO.getEntityAddRequest().size() > 0) { List<AssetAddRequestVO>
+	 * addRequestVOs = requestVO.getEntityAddRequest(); EntityToEntityRoleMapVO
+	 * entityToEntityRoleMapVO = addRequestVOs.get(0).getEntityToEntityRoleMap(); //
+	 * change if (entityToEntityRoleMapVO != null) { boolean isInterfaceRequest =
+	 * false; if (entityToEntityRoleMapVO.get_thirdPartyProcessorId1() != null) {
+	 * isInterfaceRequest = true; List<EntityToEntityRoleMapVO> totalVOs = new
+	 * ArrayList<>(); List<EntityToEntityRoleMapVO> successVOs = new ArrayList<>();
+	 * 
+	 * for (EntityAddRequestVO addRequestVO : addRequestVOs) {
+	 * EntityToEntityRoleMapVO entityRoleMap =
+	 * addRequestVO.getEntityToEntityRoleMap(); // change
+	 * EntityRequestValidator.validateEntityToEntityRoleMap(entityRoleMap,
+	 * isInterfaceRequest, null); // change totalVOs.add(entityRoleMap); if
+	 * (entityRoleMap.getHasError() != 1) { successVOs.add(entityRoleMap); } }
+	 * validationMap.put("successVOs", successVOs); validationMap.put("totalVOs",
+	 * totalVOs); validationMap.put("failedVOs", null);
+	 * validationMap.put("isInterfaceRequest", isInterfaceRequest); } else {
+	 * 
+	 * List<EntityToEntityRoleMapVO> totalVOs = new ArrayList<>();
+	 * List<EntityToEntityRoleMapVO> successVOs = new ArrayList<>();
+	 * List<FailedVO<EntityToEntityRoleMapVO>> failedVOs = new ArrayList<>();
+	 * 
+	 * for (EntityAddRequestVO addRequestVO : addRequestVOs) {
+	 * EntityToEntityRoleMapVO entityRoleMap =
+	 * addRequestVO.getEntityToEntityRoleMap(); // change List<ErrorVO> errorVOs =
+	 * new ArrayList<>();
+	 * EntityRequestValidator.validateEntityToEntityRoleMap(entityRoleMap,
+	 * isInterfaceRequest, errorVOs); totalVOs.add(entityRoleMap); if
+	 * (errorVOs.size() > 0) { FailedVO<EntityToEntityRoleMapVO> failedVO = new
+	 * FailedVO<>(); failedVO.set_tenantId(requestVO.get_tenantId());
+	 * failedVO.setTenantCode(requestVO.getTenantCode());
+	 * failedVO.setErrors(errorVOs); failedVO.setIdentityDetails(entityRoleMap);
+	 * 
+	 * failedVOs.add(failedVO); } else { successVOs.add(entityRoleMap); } }
+	 * validationMap.put("successVOs", successVOs); validationMap.put("totalVOs",
+	 * totalVOs); validationMap.put("failedVOs", failedVOs);
+	 * validationMap.put("isInterfaceRequest", isInterfaceRequest); } } } return
+	 * validationMap; }
+	 */
+	public static void validateAssetPrice(AssetPriceVO assetPriceVO, boolean isInterfaceRequest, List<ErrorVO> errors) {
+
+		if (assetPriceVO != null) {
+			List<ErrorVO> errorVOs = isInterfaceRequest || errors == null ? new ArrayList<>() : errors;
+			boolean hasError = false;
+			if (isNull(assetPriceVO.getEffectiveFromDate())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST1"));
+			}
+			if (isInterfaceRequest && assetPriceVO.get_thirdPartyProcessorId1() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST2"));
+			}
+			if (assetPriceVO.getIsin() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST11"));
+			}
+			if (isNull(assetPriceVO.getPrice())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST18"));
+			}
+			if (isNull(assetPriceVO.getCurrencyAppConfigName())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST18"));
+			}
+			if (isNull(assetPriceVO.get_currencyAppId())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST21"));
+			}
+			if (hasError && isInterfaceRequest) {
+				assetPriceVO.setHasError(1);
+				assetPriceVO.setErrors(errorVOs.size() > 0 ? errorVOs : null);
+			}
+		}
+	}
+
+	public static Map<String, Object> validateAssetKeyFigRequest(AssetRequestVO requestVO) {
+
+		Map<String, Object> validationMap = new HashMap<>();
+		if (requestVO != null && requestVO.getAssetAddRequest() != null && requestVO.getAssetAddRequest().size() > 0) {
+			List<AssetAddRequestVO> addRequestVOs = requestVO.getAssetAddRequest();
+			AssetKeyFigureVO assetVO = addRequestVOs.get(0).getAssetKeyFigure(); // change
+			if (assetVO != null) {
+				boolean isInterfaceRequest = false;
+				if (assetVO.get_thirdPartyProcessorId1() != null) {
+					isInterfaceRequest = true;
+					List<AssetKeyFigureVO> totalVOs = new ArrayList<>();
+					List<AssetKeyFigureVO> successVOs = new ArrayList<>();
+					List<FailedVO<AssetKeyFigureVO>> failedVOs = new ArrayList<>();
+
+					for (AssetAddRequestVO addRequestVO : addRequestVOs) {
+						AssetKeyFigureVO asset = addRequestVO.getAssetKeyFigure();
+						AssetRequestValidator.validateAssetKeyFig(asset, isInterfaceRequest, null);
+						totalVOs.add(asset);
+						if (asset.getHasError() != 1) {
+							successVOs.add(asset);
+						}
+					}
+
+					validationMap.put("successVOs", successVOs);
+					validationMap.put("totalVOs", totalVOs);
+					validationMap.put("failedVOs", failedVOs);
+					validationMap.put("isInterfaceRequest", isInterfaceRequest);
+
+				} else {
+					List<AssetKeyFigureVO> totalVOs = new ArrayList<>();
+					List<AssetKeyFigureVO> successVOs = new ArrayList<>();
+					List<FailedVO<AssetKeyFigureVO>> failedVOs = new ArrayList<>();
+
+					for (AssetAddRequestVO addRequestVO : addRequestVOs) {
+						AssetKeyFigureVO asset = addRequestVO.getAssetKeyFigure(); // change
+						List<ErrorVO> errorVOs = new ArrayList<>();
+						AssetRequestValidator.validateAssetKeyFig(asset, isInterfaceRequest, errorVOs);
+						totalVOs.add(asset);
+						if (errorVOs.size() > 0) {
+							FailedVO<AssetKeyFigureVO> failedVO = new FailedVO<>();
+							failedVO.set_tenantId(requestVO.get_tenantId());
+							failedVO.setTenantCode(requestVO.getTenantCode());
+							failedVO.setErrors(errorVOs);
+							failedVO.setIdentityDetails(asset);
+							failedVOs.add(failedVO);
+						} else {
+							successVOs.add(asset);
+						}
+					}
+					validationMap.put("successVOs", successVOs);
+					validationMap.put("totalVOs", totalVOs);
+					validationMap.put("failedVOs", failedVOs);
+					validationMap.put("isInterfaceRequest", isInterfaceRequest);
+				}
+			}
+		}
+		return validationMap;
+	}
+
+	private static void validateAssetKeyFig(AssetKeyFigureVO asset, boolean isInterfaceRequest, List<ErrorVO> errors) {
+		// TODO Auto-generated method stub
+
+		if (asset != null) {
+			List<ErrorVO> errorVOs = isInterfaceRequest || errors == null ? new ArrayList<>() : errors;
+			boolean hasError = false;
+			if (isNull(asset.getEffectiveFromDate())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST1"));
+			}
+			if (isInterfaceRequest && asset.get_thirdPartyProcessorId1() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST2"));
+			}
+			if (isNull(asset.get_currencyAppConfigName())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST17"));
+			}
+			if (isNull(asset.get_currencyAppId())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST19"));
+			}
+			if (isNull(asset.getIsin())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST11"));
+			}
+//			if(isNull(asset.get_custodianAppConfigName())) {
+//				hasError = true;
+//				errorVOs.add(AssetUtil.getError("BUSAST20"));
+//			}
+			if (hasError && isInterfaceRequest) {
+				asset.setHasError(1);
+				asset.setErrors(errorVOs.size() > 0 ? errorVOs : null);
+			}
+		}
+	}
+
+	public static Map<String, Object> addAssetKeyFigRequestValidator(String reqParam) throws Exception {
+
+		Map<String, Object> validationMap = new HashMap<>();
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		if (reqParam != null) {
+			JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+
+			JsonArray assetKeyFigureAddRequestList = null;
+			JsonElement assetKeyFigureAddRequest = jsonObject.get("assetAddRequest").getAsJsonArray();
+
+			assetKeyFigureAddRequestList = jsonObject.get("assetAddRequest").getAsJsonArray();
+
+			JsonObject assetKeyFigureObj = assetKeyFigureAddRequestList.get(0).getAsJsonObject().get("assetKeyFigure")
+					.getAsJsonObject();
+
+			if (assetKeyFigureObj != null) {
+				List<JsonObject> totalVOs = null;
+				List<AssetKeyFigureVO> successVOs = null;
+				List<FailedVO<AssetKeyFigureVO>> failedVOs = null;
+				boolean isInterfaceRequest = false;
+				if (assetKeyFigureObj.has("_thirdPartyProcessorId1")
+						&& !AssetUtil.jsonNullCheck(assetKeyFigureObj, "_thirdPartyProcessorId1")) {
+					isInterfaceRequest = true;
+					totalVOs = new ArrayList<>();
+					successVOs = new ArrayList<>();
+					failedVOs = new ArrayList<>();
+
+					Iterator<JsonElement> iterator = assetKeyFigureAddRequestList.iterator();
+					while (iterator.hasNext()) {
+						assetKeyFigureAddRequest = iterator.next();
+						JsonObject assetKeyFigure = assetKeyFigureAddRequest.getAsJsonObject().get("assetKeyFigure")
+								.getAsJsonObject();
+						assetKeyFigure.add("username", jsonObject.get("username"));
+						List<String> errors = null;
+						errors = AssetUtil.jsonSchemaValidator(assetKeyFigure.toString(),
+								"./jsonschema/AddAssetKeyFigure.json");
+
+						if (errors != null && errors.size() > 0) {
+							List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+							for (String s : errors) {
+								ErrorVO e = new ErrorVO();
+								e.setErrorCode("JSAST999");
+								e.setErrorMessage(AssetUtil.formatErrorMessage(s));
+								errorVOs.add(e);
+								log.fatal(e);
+							}
+
+							assetKeyFigure.addProperty("hasError", 1);
+							assetKeyFigure.addProperty("errors", gson.toJson(errorVOs));
+						} else {
+							successVOs
+									.add(AssetUtil.fromJSonToObject(assetKeyFigure.toString(), AssetKeyFigureVO.class));
+						}
+						totalVOs.add(assetKeyFigure);
+					}
+				} else {
+					totalVOs = new ArrayList<>();
+					successVOs = new ArrayList<>();
+					failedVOs = new ArrayList<>();
+
+					Iterator<JsonElement> iterator = assetKeyFigureAddRequestList.iterator();
+					while (iterator.hasNext()) {
+						assetKeyFigureAddRequest = iterator.next();
+						JsonElement assetKeyFigure = assetKeyFigureAddRequest.getAsJsonObject().get("assetKeyFigure")
+								.getAsJsonObject();
+
+						List<String> errors = null;
+						errors = AssetUtil.jsonSchemaValidator(assetKeyFigure.toString(),
+								"./jsonschema/AddAssetKeyFigure.json");
+						if (errors != null && errors.size() > 0) {
+							List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+							for (String error : errors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								// errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+								log.fatal(errorVO);
+							}
+
+							FailedVO<AssetKeyFigureVO> failedVO = new FailedVO<>();
+							failedVO.setErrors(errorVOs);
+							failedVO.setIdentityDetailsAsString(assetKeyFigure.getAsJsonObject());
+							failedVOs.add(failedVO);
+						} else {
+							successVOs
+									.add(AssetUtil.fromJSonToObject(assetKeyFigure.toString(), AssetKeyFigureVO.class));
+						}
+						totalVOs.add(assetKeyFigure.getAsJsonObject());
+					}
+				}
+				validationMap.put("successVOs", successVOs);
+				validationMap.put("totalVOs", totalVOs);
+				validationMap.put("failedVOs", failedVOs);
+				validationMap.put("isInterfaceRequest", isInterfaceRequest);
+			}
+		}
+		return validationMap;
+	}
+
+	public static Map<String, Object> validateExchangeRateAddRequest(AssetRequestVO requestVO) {
+
+		Map<String, Object> validationMap = new HashMap<>();
+		if (requestVO != null && requestVO.getAssetAddRequest() != null && requestVO.getAssetAddRequest().size() > 0) {
+			List<AssetAddRequestVO> addRequestVOs = requestVO.getAssetAddRequest();
+			ExchangeRateVO assetVO = addRequestVOs.get(0).getExchangeRate(); // change
+			if (assetVO != null) {
+				boolean isInterfaceRequest = false;
+				if (assetVO.get_thirdPartyProcessorId1() != null) {
+					isInterfaceRequest = true;
+					List<ExchangeRateVO> totalVOs = new ArrayList<>();
+					List<ExchangeRateVO> successVOs = new ArrayList<>();
+					List<FailedVO<ExchangeRateVO>> failedVOs = new ArrayList<>();
+					if (addRequestVOs != null) {
+						for (AssetAddRequestVO addRequestVO : addRequestVOs) {
+							ExchangeRateVO asset = addRequestVO.getExchangeRate();
+							AssetRequestValidator.validateExchangeRate(asset, isInterfaceRequest, null);
+							totalVOs.add(asset);
+							if (asset.getHasError() != 1) {
+								successVOs.add(asset);
+							}
+						}
+					}
+					validationMap.put("successVOs", successVOs);
+					validationMap.put("totalVOs", totalVOs);
+					validationMap.put("failedVOs", failedVOs);
+					validationMap.put("isInterfaceRequest", isInterfaceRequest);
+
+				} else {
+					List<ExchangeRateVO> totalVOs = new ArrayList<>();
+					List<ExchangeRateVO> successVOs = new ArrayList<>();
+					List<FailedVO<ExchangeRateVO>> failedVOs = new ArrayList<>();
+					int i = 0;
+					for (AssetAddRequestVO addRequestVO : addRequestVOs) {
+						ExchangeRateVO asset = addRequestVO.getExchangeRate(); // change
+						List<ErrorVO> errorVOs = new ArrayList<>();
+						AssetRequestValidator.validateExchangeRate(asset, isInterfaceRequest, errorVOs);
+						totalVOs.add(asset);
+						if (errorVOs.size() > 0) {
+							FailedVO<ExchangeRateVO> failedVO = new FailedVO<>();
+							failedVO.set_tenantId(requestVO.get_tenantId());
+							failedVO.setTenantCode(requestVO.getTenantCode());
+							failedVO.setErrors(errorVOs);
+							failedVO.setIdentityDetails(asset);
+							failedVOs.add(failedVO);
+						} else {
+							successVOs.add(asset);
+						}
+						i++;
+					}
+
+					validationMap.put("successVOs", successVOs);
+					validationMap.put("totalVOs", totalVOs);
+					validationMap.put("failedVOs", failedVOs);
+					validationMap.put("isInterfaceRequest", isInterfaceRequest);
+				}
+			}
+		}
+		return validationMap;
+	}
+
+	private static void validateExchangeRate(ExchangeRateVO asset, boolean isInterfaceRequest, List<ErrorVO> errors) {
+		// TODO Auto-generated method stub
+
+		if (asset != null) {
+			List<ErrorVO> errorVOs = isInterfaceRequest || errors == null ? new ArrayList<>() : errors;
+			boolean hasError = false;
+			if (isNull(asset.getEffectiveFromDate())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST1"));
+			}
+			if (isInterfaceRequest && asset.get_thirdPartyProcessorId1() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST2"));
+			}
+
+			if (isNull(asset.get_fromCurrencyAppConfigName())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST29"));
+			}
+			if (isNull(asset.get_fromCurrencyAppId())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST30"));
+			}
+			if (isNull(asset.get_toCurrencyAppConfigName())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST27"));
+			}
+			if (isNull(asset.get_toCurrencyAppId())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST28"));
+			}
+			if (isNull(asset.getPriceAmt())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST18"));
+			}
+			if (hasError && isInterfaceRequest) {
+				asset.setHasError(1);
+				asset.setErrors(errorVOs.size() > 0 ? errorVOs : null);
+			}
+		}
+	}
+
+	public static Map<String, Object> validateAssetReturns(AssetRequestVO requestVO) {
+
+		Map<String, Object> validationMap = new HashMap<>();
+		if (requestVO != null && requestVO.getAssetAddRequest() != null && requestVO.getAssetAddRequest().size() > 0) {
+			List<AssetAddRequestVO> addRequestVOs = requestVO.getAssetAddRequest();
+			AssetReturnsVO assetVO = addRequestVOs.get(0).getAssetReturns(); // change
+			if (assetVO == null) {
+				assetVO = addRequestVOs.get(1).getAssetReturns();
+			}
+			if (assetVO != null) {
+				boolean isInterfaceRequest = false;
+				if (assetVO.get_thirdPartyProcessorId1() != null) {
+					isInterfaceRequest = true;
+					List<AssetReturnsVO> totalVOs = new ArrayList<>();
+					List<AssetReturnsVO> successVOs = new ArrayList<>();
+					List<FailedVO<AssetReturnsVO>> failedVOs = new ArrayList<>();
+
+					for (AssetAddRequestVO addRequestVO : addRequestVOs) {
+						AssetReturnsVO asset = addRequestVO.getAssetReturns();
+						if (asset != null) {
+							AssetRequestValidator.validateAssetReturns(asset, isInterfaceRequest, null);
+							totalVOs.add(asset);
+							if (asset.getHasError() != 1) {
+								successVOs.add(asset);
+							}
+						}
+					}
+					validationMap.put("successVOs", successVOs);
+					validationMap.put("totalVOs", totalVOs);
+					validationMap.put("failedVOs", failedVOs);
+					validationMap.put("isInterfaceRequest", isInterfaceRequest);
+
+				} else {
+					List<AssetReturnsVO> totalVOs = new ArrayList<>();
+					List<AssetReturnsVO> successVOs = new ArrayList<>();
+					List<FailedVO<AssetReturnsVO>> failedVOs = new ArrayList<>();
+
+					for (AssetAddRequestVO addRequestVO : addRequestVOs) {
+						AssetReturnsVO asset = addRequestVO.getAssetReturns(); // change
+						List<ErrorVO> errorVOs = new ArrayList<>();
+						AssetRequestValidator.validateAssetReturns(asset, isInterfaceRequest, errorVOs);
+						totalVOs.add(asset);
+						if (errorVOs.size() > 0) {
+							FailedVO<AssetReturnsVO> failedVO = new FailedVO<>();
+							failedVO.set_tenantId(requestVO.get_tenantId());
+							failedVO.setTenantCode(requestVO.getTenantCode());
+							failedVO.setErrors(errorVOs);
+							failedVO.setIdentityDetails(asset);
+							failedVOs.add(failedVO);
+						} else {
+							successVOs.add(asset);
+						}
+					}
+					validationMap.put("successVOs", successVOs);
+					validationMap.put("totalVOs", totalVOs);
+					validationMap.put("failedVOs", failedVOs);
+					validationMap.put("isInterfaceRequest", isInterfaceRequest);
+				}
+			}
+		}
+		return validationMap;
+	}
+
+	private static void validateAssetReturns(AssetReturnsVO asset, boolean isInterfaceRequest, List<ErrorVO> errors) {
+		// TODO Auto-generated method stub
+
+		if (asset != null) {
+			List<ErrorVO> errorVOs = isInterfaceRequest || errors == null ? new ArrayList<>() : errors;
+			boolean hasError = false;
+			if (isNull(asset.getEffectiveFromDate())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST1"));
+			}
+			if (isInterfaceRequest && asset.get_thirdPartyProcessorId1() == null) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST2"));
+			}
+			if (isNull(asset.getIsin()) || isNull(asset.get_currencyAppId())) {
+				hasError = true;
+				errorVOs.add(AssetUtil.getError("BUSAST11"));
+			}
+			if (hasError && isInterfaceRequest) {
+				asset.setHasError(1);
+				asset.setErrors(errorVOs.size() > 0 ? errorVOs : null);
+			}
+		}
+	}
+
+	/*
+	 * public static void validateEntityToEntityRoleMap(EntityToEntityRoleMapVO
+	 * entityToEntityRoleMapVO, boolean isInterfaceRequest, List<ErrorVO> errors) {
+	 * if (entityToEntityRoleMapVO != null) { List<ErrorVO> errorVOs =
+	 * isInterfaceRequest || errors == null ? new ArrayList<>() : errors; boolean
+	 * hasError = false; if (isNull(entityToEntityRoleMapVO.getEffectiveFromDate()))
+	 * { hasError = true; errorVOs.add(AssetUtil.getError("er001")); } if
+	 * (isInterfaceRequest && entityToEntityRoleMapVO.get_thirdPartyProcessorId1()
+	 * == null) { hasError = true; errorVOs.add(AssetUtil.getError("BUSAST2")); }
+	 * 
+	 * if (hasError && isInterfaceRequest) { entityToEntityRoleMapVO.setHasError(1);
+	 * entityToEntityRoleMapVO.setErrors(errorVOs.size() > 0 ? errorVOs : null); } }
+	 * }
+	 * 
+	 * public static void validateIndividualBasicDetail(IndividualBasicDetailVO
+	 * individualBasicDetailVO, boolean isInterfaceRequest, List<ErrorVO> errors) {
+	 * if (individualBasicDetailVO != null) { List<ErrorVO> errorVOs =
+	 * isInterfaceRequest || errors == null ? new ArrayList<>() : errors; boolean
+	 * hasError = false; if
+	 * (isNull(individualBasicDetailVO.getGenderAppConfigName())) { hasError = true;
+	 * errorVOs.add(AssetUtil.getError("BUSAST4")); } if (isInterfaceRequest &&
+	 * individualBasicDetailVO.get_thirdPartyProcessorId1() == null) { hasError =
+	 * true; errorVOs.add(AssetUtil.getError("BUSAST2")); }
+	 * 
+	 * if (hasError && isInterfaceRequest) { individualBasicDetailVO.setHasError(1);
+	 * individualBasicDetailVO.setErrors(errorVOs.size() > 0 ? errorVOs : null); } }
+	 * }
+	 * 
+	 * public static void validateCorporateBasicDetail(CorporateBasicDetailVO
+	 * corporateBasicDetailVO, boolean isInterfaceRequest, List<ErrorVO> errors) {
+	 * if (corporateBasicDetailVO != null) { List<ErrorVO> errorVOs =
+	 * isInterfaceRequest || errors == null ? new ArrayList<>() : errors; boolean
+	 * hasError = false; if (isInterfaceRequest &&
+	 * corporateBasicDetailVO.get_thirdPartyProcessorId1() == null) { hasError =
+	 * true; errorVOs.add(AssetUtil.getError("BUSAST2")); }
+	 * 
+	 * if (hasError && isInterfaceRequest) { corporateBasicDetailVO.setHasError(1);
+	 * corporateBasicDetailVO.setErrors(errorVOs.size() > 0 ? errorVOs : null); } }
+	 * }
+	 * 
+	 * public static void validateEntityBusinessRoleMap(EntityBusinessRoleMapVO
+	 * entityBusinessRoleMapVO, boolean isInterfaceRequest, List<ErrorVO> errors) {
+	 * if (entityBusinessRoleMapVO != null) { List<ErrorVO> errorVOs =
+	 * isInterfaceRequest || errors == null ? new ArrayList<>() : errors; boolean
+	 * hasError = false; if (isInterfaceRequest &&
+	 * entityBusinessRoleMapVO.get_thirdPartyProcessorId1() == null) { hasError =
+	 * true; errorVOs.add(AssetUtil.getError("BUSAST2")); }
+	 * 
+	 * // for 1st child List<AdditionalInfoVO> additionalInfoVOs =
+	 * entityBusinessRoleMapVO.getAdditionalInfos(); if (additionalInfoVOs != null)
+	 * { for (AdditionalInfoVO additionalInfoVO : additionalInfoVOs) if
+	 * (additionalInfoVO != null) { validateAdditionalInfo(additionalInfoVO,
+	 * isInterfaceRequest, errors); if (additionalInfoVO.getHasError() == 1) {
+	 * hasError = true; } } } if (hasError && isInterfaceRequest) {
+	 * entityBusinessRoleMapVO.setHasError(1);
+	 * entityBusinessRoleMapVO.setErrors(errorVOs.size() > 0 ? errorVOs : null); } }
+	 * }
+	 */
+	/*
+	 * public static void validateAdditionalInfo(AdditionalInfoVO additionalInfoVO,
+	 * boolean isInterfaceRequest, List<ErrorVO> errors) { if (additionalInfoVO !=
+	 * null) { List<ErrorVO> errorVOs = isInterfaceRequest || errors == null ? new
+	 * ArrayList<>() : errors; boolean hasError = false; /* if (isInterfaceRequest
+	 * && additionalInfoVO.get_thirdPartyProcessorId1() == null) { hasError = true;
+	 * errorVOs.add(AssetUtil.getError("BUSAST2")); }
+	 * 
+	 * if (hasError && isInterfaceRequest) { additionalInfoVO.setHasError(1);
+	 * additionalInfoVO.setErrors(errorVOs.size() > 0 ? errorVOs : null); } } }
+	 */
+	/********************************
+	 * validation For_Get_Request
+	 ****************************************************/
+	public static Map<String, Object> validateAssetGetRequest(AssetRequestVO requestVO) {
+		Map<String, Object> validationMap = new HashMap<>();
+		if (requestVO != null && requestVO.getAssetGetRequest() != null && requestVO.getAssetGetRequest().size() > 0) {
+			List<AssetGetRequestVO> getRequestVOs = requestVO.getAssetGetRequest();
+			if (getRequestVOs != null) {
+				List<AssetGetRequestVO> totalVOs = new ArrayList<>();
+				List<AssetGetRequestVO> successVOs = new ArrayList<>();
+				List<FailedVO<AssetGetRequestVO>> failedVOs = new ArrayList<>();
+				for (AssetGetRequestVO getRequestVO : getRequestVOs) {
+					List<ErrorVO> errorVOs = new ArrayList<>();
+					AssetRequestValidator.validateAssetGetRequest(getRequestVO, errorVOs);
+					totalVOs.add(getRequestVO);
+
+					if (errorVOs.size() > 0) {
+						FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+						failedVO.set_tenantId(requestVO.get_tenantId());
+						failedVO.setTenantCode(requestVO.getTenantCode());
+						failedVO.setErrors(errorVOs);
+						failedVO.setIdentityDetails(getRequestVO);
+						failedVOs.add(failedVO);
+					} else {
+						successVOs.add(getRequestVO);
+					}
+				}
+				validationMap.put("successVOs", successVOs);
+				validationMap.put("totalVOs", totalVOs);
+				validationMap.put("failedVOs", failedVOs);
+			}
+		}
+		return validationMap;
+	}
+
+	public static Map<String, Object> validateExchangeRateGetRequest(AssetRequestVO requestVO) {
+		Map<String, Object> validationMap = new HashMap<>();
+		if (requestVO != null && requestVO.getAssetGetRequest() != null && requestVO.getAssetGetRequest().size() > 0) {
+			List<AssetGetRequestVO> getRequestVOs = requestVO.getAssetGetRequest();
+			if (getRequestVOs != null) {
+				List<AssetGetRequestVO> totalVOs = new ArrayList<>();
+				List<AssetGetRequestVO> successVOs = new ArrayList<>();
+				List<FailedVO<AssetGetRequestVO>> failedVOs = new ArrayList<>();
+				for (AssetGetRequestVO getRequestVO : getRequestVOs) {
+					List<ErrorVO> errorVOs = new ArrayList<>();
+					AssetRequestValidator.validateExchangeRateGetRequest(getRequestVO, errorVOs);
+					totalVOs.add(getRequestVO);
+
+					if (errorVOs.size() > 0) {
+						FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+						failedVO.set_tenantId(requestVO.get_tenantId());
+						failedVO.setTenantCode(requestVO.getTenantCode());
+						failedVO.setErrors(errorVOs);
+						failedVO.setIdentityDetails(getRequestVO);
+						failedVOs.add(failedVO);
+					} else {
+						successVOs.add(getRequestVO);
+					}
+				}
+				validationMap.put("successVOs", successVOs);
+				validationMap.put("totalVOs", totalVOs);
+				validationMap.put("failedVOs", failedVOs);
+			}
+		}
+		return validationMap;
+	}
+
+	private static void validateExchangeRateGetRequest(AssetGetRequestVO getRequestVO, List<ErrorVO> errors) {
+		if (getRequestVO != null) {
+			List<ErrorVO> errorVOs = errors == null ? new ArrayList<>() : errors;
+			if (isNull(getRequestVO.getToCurrencyConfigName())) {
+				errorVOs.add(AssetUtil.getError("BUSAST27"));
+			}
+			if (isNull(getRequestVO.getFromCurrencyConfigName())) {
+				errorVOs.add(AssetUtil.getError("BUSAST29"));
+			}
+		}
+
+	}
+
+	public static void validateAssetGetRequest(AssetGetRequestVO entityGetRequestVO, List<ErrorVO> errors) {
+		if (entityGetRequestVO != null) {
+			List<ErrorVO> errorVOs = errors == null ? new ArrayList<>() : errors;
+			if (isNull(entityGetRequestVO.getIsin())) {
+				errorVOs.add(AssetUtil.getError("BUSAST11"));
+			}
+			if (isNull(entityGetRequestVO.getCurrencyConfigName())) {
+				errorVOs.add(AssetUtil.getError("BUSAST17"));
+			}
+		}
+	}
+
+	public static Map<String, Object> validateAssetGetRequestForIds(AssetRequestVO requestVO) {
+		Map<String, Object> validationMap = new HashMap<>();
+		if (requestVO != null && requestVO.getAssetGetRequest() != null && requestVO.getAssetGetRequest().size() > 0) {
+			List<AssetGetRequestVO> getRequestVOs = requestVO.getAssetGetRequest();
+			if (getRequestVOs != null) {
+				List<AssetGetRequestVO> totalVOs = new ArrayList<>();
+				List<AssetGetRequestVO> successVOs = new ArrayList<>();
+				List<FailedVO<AssetGetRequestVO>> failedVOs = new ArrayList<>();
+				for (AssetGetRequestVO getRequestVO : getRequestVOs) {
+					List<ErrorVO> errorVOs = new ArrayList<>();
+					AssetRequestValidator.validateAssetGetRequestForIds(getRequestVO, errorVOs);
+					totalVOs.add(getRequestVO);
+					if (errorVOs.size() > 0) {
+						FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+						failedVO.set_tenantId(requestVO.get_tenantId());
+						failedVO.setTenantCode(requestVO.getTenantCode());
+						failedVO.setErrors(errorVOs);
+						failedVO.setIdentityDetails(getRequestVO);
+						failedVOs.add(failedVO);
+					} else {
+						successVOs.add(getRequestVO);
+					}
+				}
+				validationMap.put("successVOs", successVOs);
+				validationMap.put("totalVOs", totalVOs);
+				validationMap.put("failedVOs", failedVOs);
+			}
+		}
+		return validationMap;
+	}
+
+	public static void validateAssetGetRequestForIds(AssetGetRequestVO entityGetRequestVO, List<ErrorVO> errors) {
+		if (entityGetRequestVO != null) {
+			List<ErrorVO> errorVOs = errors == null ? new ArrayList<>() : errors;
+			if (isNull(entityGetRequestVO.get_id())) {
+				errorVOs.add(AssetUtil.getError("BUSAST3"));
+			}
+		}
+	}
+
+	/*****************************************************/
+	// core validations
+	private static boolean isNull(Object object) {
+		return object == null;
+	}
+
+	public static Map<String, Object> validateAssetAddRequest(String reqParam) throws Exception {
+
+		Map<String, Object> validationMap = new HashMap<>();
+		List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+		List<JsonObject> totalVOs = new ArrayList<>();
+		List<AssetVO> successVOs = new ArrayList<>();
+
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+		boolean isInterfaceRequest = false;
+		JsonArray assetAddRequestList = null;
+		JsonElement assetAddRequest = null;
+		List<JsonObject> jsonArray = new ArrayList();
+
+		assetAddRequestList = jsonObject.get("assetAddRequest").getAsJsonArray();
+		JsonObject assetObj = assetAddRequestList.size() > 0
+				? assetAddRequestList.get(0).getAsJsonObject().get("asset").getAsJsonObject()
+				: null;
+
+		if (assetObj != null && assetObj.has("_thirdPartyProcessorId1")
+				&& !AssetUtil.jsonNullCheck(assetObj, "_thirdPartyProcessorId1")) {
+
+			isInterfaceRequest = true;
+			Iterator<JsonElement> iterator = assetAddRequestList.iterator();
+			while (iterator.hasNext()) {
+				boolean hasError = false;
+				assetAddRequest = iterator.next();
+				JsonObject asset = assetAddRequest.getAsJsonObject().get("asset").getAsJsonObject();
+				asset.add("username", jsonObject.get("username"));
+				List<String> assetErrors = AssetUtil.jsonSchemaValidator(asset.toString(),
+						"./jsonschema/addAssetSchema.json");
+				if (assetErrors != null && assetErrors.size() > 0) {
+					asset.addProperty("hasError", 1);
+					List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+					for (String error : assetErrors) {
+						ErrorVO errorVO = new ErrorVO();
+						errorVO.setErrorCode("JSAST999");
+						errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+						errorVOs.add(errorVO);
+					}
+					log.fatal(assetErrors);
+					// asset.addProperty("errors",
+					// AssetUtil.objectToJsonString(AssetUtil.fromObjectToJSON(errorVOs)));
+					asset.addProperty("errors", gson.toJson(errorVOs));
+					hasError = true;
+				}
+
+				// Adding errors in child object 1
+				JsonArray underlyingAssetList = null;
+				JsonObject underlyingAsset = null;
+
+				if (!AssetUtil.jsonNullCheck(asset, "underlyingAssets")) {
+					underlyingAssetList = asset.getAsJsonArray("underlyingAssets");
+				}
+				if (underlyingAssetList != null && underlyingAssetList.size() > 0) {
+					Iterator<JsonElement> iterator1 = underlyingAssetList.iterator();
+					while (iterator1.hasNext()) {
+
+						underlyingAsset = iterator1.next().getAsJsonObject();
+						List<String> underlyingAssetErrors = AssetUtil.jsonSchemaValidator(underlyingAsset.toString(),
+								"./jsonschema/UnderlyingAsset.json");
+
+						if (underlyingAssetErrors != null && underlyingAssetErrors.size() > 0) {
+							underlyingAsset.addProperty("hasError", 1);
+							List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+							for (String error : underlyingAssetErrors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+								log.fatal(error);
+							}
+							underlyingAsset.addProperty("errors", gson.toJson(errorVOs));
+							hasError = true;
+						}
+					}
+				}
+
+				// Adding errors in child object 2
+				JsonArray assetValuationScheduleList = null;
+				JsonObject assetValuationSchedule = null;
+
+				if (!AssetUtil.jsonNullCheck(asset, "assetValuationSchedule")) {
+					assetValuationScheduleList = asset.getAsJsonArray("assetValuationSchedule");
+				}
+				if (assetValuationScheduleList != null && assetValuationScheduleList.size() > 0) {
+					Iterator<JsonElement> iterator1 = assetValuationScheduleList.iterator();
+					while (iterator1.hasNext()) {
+						assetValuationSchedule = iterator1.next().getAsJsonObject();
+
+						List<String> assetValuationScheduleErrors = AssetUtil.jsonSchemaValidator(
+								assetValuationSchedule.toString(), "./jsonschema/AssetValuationSchedule.json");
+
+						if (assetValuationScheduleErrors != null && assetValuationScheduleErrors.size() > 0) {
+							assetValuationSchedule.addProperty("hasError", 1);
+							List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+							for (String error : assetValuationScheduleErrors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+								log.fatal(error);
+							}
+							assetValuationSchedule.addProperty("errors", gson.toJson(errorVOs));
+							hasError = true;
+						}
+					}
+				}
+
+				if (hasError == false) {
+					AssetVO assetVO = AssetUtil.fromJSonToObject(asset.toString(), AssetVO.class);
+					int precision = assetVO.getStrikePrice() != null ? assetVO.getStrikePrice().precision() : 0;
+					int scale = assetVO.getStrikePrice() != null ? assetVO.getStrikePrice().scale() : 0;
+					if (precision > staticAmtRoundingPrecision || scale > staticAmtScale) {
+						List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+						ErrorVO e = new ErrorVO();
+						e.setErrorCode("JSAST999");
+						e.setErrorMessage("Numeric overflow");
+						errorVOs.add(e);
+						log.fatal(e);
+						asset.addProperty("hasError", 1);
+						asset.addProperty("errors", AssetUtil.fromObjectToJSON(errorVOs));
+					} else {
+						successVOs.add(AssetUtil.fromJSonToObject(asset.toString(), AssetVO.class));
+					}
+				}
+				jsonArray.add(asset);
+				totalVOs.add(asset);
+			}
+		} else {
+
+			Iterator<JsonElement> iterator = assetAddRequestList.iterator();
+			while (iterator.hasNext()) {
+				List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+
+				boolean hasError = false;
+				assetAddRequest = iterator.next();
+				JsonObject asset = assetAddRequest.getAsJsonObject().get("asset").getAsJsonObject();
+				List<String> assetErrors = AssetUtil.jsonSchemaValidator(asset.toString(),
+						"./jsonschema/addAssetSchema.json");
+				if (assetErrors != null && assetErrors.size() > 0) {
+
+					for (String error : assetErrors) {
+						ErrorVO errorVO = new ErrorVO();
+						errorVO.setErrorCode("JSAST999");
+						// errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+						errorVOs.add(errorVO);
+						log.fatal(error);
+					}
+					hasError = true;
+				}
+
+				// Adding errors in child object 1
+				JsonArray underlyingAssetList = null;
+				JsonObject underlyingAsset = null;
+				if (!AssetUtil.jsonNullCheck(asset, "underlyingAssets")) {
+					underlyingAssetList = asset.getAsJsonArray("underlyingAssets");
+				}
+				if (underlyingAssetList != null && underlyingAssetList.size() > 0) {
+					Iterator<JsonElement> iterator1 = underlyingAssetList.iterator();
+					while (iterator1.hasNext()) {
+						underlyingAsset = iterator1.next().getAsJsonObject();
+						List<String> underlyingAssetErrors = AssetUtil.jsonSchemaValidator(underlyingAsset.toString(),
+								"./jsonschema/UnderlyingAsset.json");
+						if (underlyingAssetErrors != null && underlyingAssetErrors.size() > 0) {
+
+							for (String error : underlyingAssetErrors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								// errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+								log.fatal(error);
+							}
+							hasError = true;
+						}
+					}
+				}
+
+				// Adding errors in child object 2
+				JsonArray assetValuationScheduleList = null;
+				JsonObject assetValuationSchedule = null;
+				if (!AssetUtil.jsonNullCheck(asset, "assetValuationSchedule")) {
+					assetValuationScheduleList = asset.getAsJsonArray("assetValuationSchedule");
+				}
+				if (assetValuationScheduleList != null && assetValuationScheduleList.size() > 0) {
+					Iterator<JsonElement> iterator1 = assetValuationScheduleList.iterator();
+					while (iterator1.hasNext()) {
+						assetValuationSchedule = iterator1.next().getAsJsonObject();
+						List<String> assetValuationScheduleErrors = AssetUtil.jsonSchemaValidator(
+								assetValuationSchedule.toString(), "./jsonschema/AssetValuationSchedule.json");
+						if (assetValuationScheduleErrors != null && assetValuationScheduleErrors.size() > 0) {
+
+							for (String error : assetValuationScheduleErrors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								// errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+								log.fatal(error);
+							}
+							hasError = true;
+						}
+					}
+				}
+
+				jsonArray.add(asset);
+				totalVOs.add(asset);
+				if (hasError == false) {
+					AssetVO assetVO = AssetUtil.fromJSonToObject(asset.toString(), AssetVO.class);
+					int precision = assetVO.getStrikePrice().precision();
+					int scale = assetVO.getStrikePrice().scale();
+
+					if (precision > staticAmtRoundingPrecision || scale > staticAmtScale) {
+						// List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+						ErrorVO e = new ErrorVO();
+						e.setErrorCode("JSAST999");
+						e.setErrorMessage("Numeric overflow");
+						errorVOs.add(e);
+						log.fatal(e);
+						FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+						failedVO.setErrors(errorVOs);
+						failedVO.setIdentityDetailsAsString(asset);
+						failedVOs.add(failedVO);
+					} else {
+						successVOs.add(AssetUtil.fromJSonToObject(asset.toString(), AssetVO.class));
+					}
+				} else {
+					FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+					failedVO.setErrors(errorVOs);
+					failedVO.setIdentityDetailsAsString(asset);
+					failedVOs.add(failedVO);
+				}
+			}
+		}
+
+		validationMap.put("successVOs", successVOs);
+		validationMap.put("totalVOs", totalVOs);
+		validationMap.put("failedVOs", failedVOs);
+		validationMap.put("isInterfaceRequest", isInterfaceRequest);
+		return validationMap;
+	}
+
+	public static Map<String, Object> validateAssetGetRequest(String jsonRequest, AssetRequestVO requestVO,
+			String jsonSchemaName) throws Exception {
+		Map<String, Object> validationMap = new HashMap<>();
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		try {
+			if (requestVO != null && requestVO.getAssetGetRequest() != null
+					&& requestVO.getAssetGetRequest().size() > 0) {
+				List<AssetGetRequestVO> getRequestVOs = requestVO.getAssetGetRequest();
+				if (getRequestVOs != null) {
+					List<AssetGetRequestVO> totalVOs = new ArrayList<>();
+					List<AssetGetRequestVO> successVOs = new ArrayList<>();
+					List<FailedVO<AssetGetRequestVO>> failedVOs = new ArrayList<>();
+
+					JsonObject jsonObject = gson.fromJson(jsonRequest, JsonObject.class);
+					JsonArray assetGetRequestList = null;
+					JsonElement assetGetRequest = null;
+
+					assetGetRequestList = jsonObject.get("assetGetRequest").getAsJsonArray();
+
+					Iterator<JsonElement> iterator = assetGetRequestList.iterator();
+					while (iterator.hasNext()) {
+
+						assetGetRequest = iterator.next();
+						List<String> errors = AssetUtil.jsonSchemaValidator(assetGetRequest.toString(), jsonSchemaName);
+						if (errors != null && errors.size() > 0) {
+
+							List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+							for (String s : errors) {
+								ErrorVO e = new ErrorVO();
+								e.setErrorCode("JSAST999");
+								e.setErrorMessage(AssetUtil.formatErrorMessage(s));
+								errorVOs.add(e);
+								log.fatal(s);
+							}
+							FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+							failedVO.set_tenantId(requestVO.get_tenantId());
+							failedVO.setTenantCode(requestVO.getTenantCode());
+							failedVO.setErrors(errorVOs);
+							failedVO.setIdentityDetails(
+									AssetUtil.fromJSonToObject(assetGetRequest.toString(), AssetGetRequestVO.class));
+
+							failedVOs.add(failedVO);
+
+						} else {
+							successVOs.add(
+									AssetUtil.fromJSonToObject(assetGetRequest.toString(), AssetGetRequestVO.class));
+						}
+					}
+					validationMap.put("successVOs", successVOs);
+					validationMap.put("totalVOs", totalVOs);
+					validationMap.put("failedVOs", failedVOs);
+				}
+			}
+		} catch (JsonSyntaxException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			throw e;
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			throw e;
+		}
+		return validationMap;
+	}
+
+	public static Map<String, Object> assetPriceAddRequestValidator(String reqParam) throws Exception {
+
+		Map<String, Object> validationMap = new HashMap<>();
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		try {
+			if (reqParam != null) {
+				JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+
+				JsonArray assetPriceAddRequestList = null;
+				JsonElement assetPriceAddRequest = jsonObject.get("assetAddRequest").getAsJsonArray();
+
+				assetPriceAddRequestList = jsonObject.get("assetAddRequest").getAsJsonArray();
+
+				JsonObject assetPriceObj = assetPriceAddRequestList.get(0).getAsJsonObject().get("assetPrice")
+						.getAsJsonObject();
+				if (assetPriceObj != null) {
+					List<JsonObject> totalVOs = null;
+					List<AssetPriceVO> successVOs = null;
+					List<FailedVO<AssetPriceVO>> failedVOs = null;
+					boolean isInterfaceRequest = false;
+					if (assetPriceObj.has("_thirdPartyProcessorId1")
+							&& !AssetUtil.jsonNullCheck(assetPriceObj, "_thirdPartyProcessorId1")) {
+						isInterfaceRequest = true;
+						totalVOs = new ArrayList<>();
+						successVOs = new ArrayList<>();
+						failedVOs = new ArrayList<>();
+
+						Iterator<JsonElement> iterator = assetPriceAddRequestList.iterator();
+						while (iterator.hasNext()) {
+							assetPriceAddRequest = iterator.next();
+							JsonObject assetPrice = assetPriceAddRequest.getAsJsonObject().get("assetPrice")
+									.getAsJsonObject();
+							assetPrice.add("username", jsonObject.get("username"));
+							List<String> errors = null;
+
+							errors = AssetUtil.jsonSchemaValidator(assetPrice.toString(),
+									"./jsonschema/AddAssetPrice.json");
+							if (errors != null && errors.size() > 0) {
+								List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+								for (String s : errors) {
+									ErrorVO e = new ErrorVO();
+									e.setErrorCode("JSAST999");
+									e.setErrorMessage(AssetUtil.formatErrorMessage(s));
+									errorVOs.add(e);
+									log.fatal(e);
+								}
+
+								assetPrice.addProperty("hasError", 1);
+								assetPrice.addProperty("errors", gson.toJson(errorVOs));
+							} else {
+								AssetPriceVO assetPriceVO = AssetUtil.fromJSonToObject(assetPrice.toString(),
+										AssetPriceVO.class);
+								if (assetPriceVO.getPrice() != null
+										&& (assetPriceVO.getPrice().precision() > staticAmtRoundingPrecision
+												|| assetPriceVO.getPrice().scale() > staticAmtScale)
+										|| assetPriceVO.getDirtyPrice() != null && (assetPriceVO.getDirtyPrice()
+												.precision() > staticAmtRoundingPrecision
+												|| assetPriceVO.getDirtyPrice().scale() > staticAmtScale)
+										|| assetPriceVO.getOpen() != null
+												&& (assetPriceVO.getOpen().precision() > staticAmtRoundingPrecision
+														|| assetPriceVO.getOpen().scale() > staticAmtScale)
+										|| assetPriceVO.getClose() != null
+												&& (assetPriceVO.getClose().precision() > staticAmtRoundingPrecision
+														|| assetPriceVO.getClose().scale() > staticAmtScale)
+										|| assetPriceVO.getHigh() != null
+												&& (assetPriceVO.getHigh().precision() > staticAmtRoundingPrecision
+														|| assetPriceVO.getHigh().scale() > staticAmtScale)
+										|| assetPriceVO.getLow() != null
+												&& (assetPriceVO.getLow().precision() > staticAmtRoundingPrecision
+														|| assetPriceVO.getLow().scale() > staticAmtScale)
+										|| assetPriceVO.getAsk() != null
+												&& (assetPriceVO.getAsk().precision() > staticAmtRoundingPrecision
+														|| assetPriceVO.getAsk().scale() > staticAmtScale)) {
+									List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+									ErrorVO e = new ErrorVO();
+									e.setErrorCode("JSAST999");
+									e.setErrorMessage("Numeric value Overflow");
+									errorVOs.add(e);
+									log.fatal(e);
+									assetPrice.addProperty("hasError", 1);
+									assetPrice.addProperty("errors", gson.toJson(errorVOs));
+								} else {
+									successVOs
+											.add(AssetUtil.fromJSonToObject(assetPrice.toString(), AssetPriceVO.class));
+								}
+							}
+							totalVOs.add(assetPrice);
+						}
+					} else {
+						totalVOs = new ArrayList<>();
+						successVOs = new ArrayList<>();
+						failedVOs = new ArrayList<>();
+
+						Iterator<JsonElement> iterator = assetPriceAddRequestList.iterator();
+						while (iterator.hasNext()) {
+							assetPriceAddRequest = iterator.next();
+							JsonObject assetPrice = assetPriceAddRequest.getAsJsonObject().get("assetPrice")
+									.getAsJsonObject();
+							assetPrice.add("username", jsonObject.get("username"));
+							List<String> errors = null;
+
+							errors = AssetUtil.jsonSchemaValidator(assetPrice.toString(),
+									"./jsonschema/AddAssetPrice.json");
+
+							if (errors != null && errors.size() > 0) {
+								List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+								for (String error : errors) {
+									ErrorVO errorVO = new ErrorVO();
+									errorVO.setErrorCode("JSAST999");
+									// errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+									errorVOs.add(errorVO);
+									log.fatal(errorVO);
+								}
+								FailedVO<AssetPriceVO> failedVO = new FailedVO<>();
+								failedVO.setErrors(errorVOs);
+								failedVO.setIdentityDetailsAsString(assetPrice.getAsJsonObject());
+								failedVOs.add(failedVO);
+							} else {
+								AssetPriceVO assetPriceVO = AssetUtil.fromJSonToObject(assetPrice.toString(),
+										AssetPriceVO.class);
+								if (assetPriceVO.getPrice() != null
+										&& (assetPriceVO.getPrice().precision() > staticAmtRoundingPrecision
+												|| assetPriceVO.getPrice().scale() > staticAmtScale)
+										|| assetPriceVO.getDirtyPrice() != null && (assetPriceVO.getDirtyPrice()
+												.precision() > staticAmtRoundingPrecision
+												|| assetPriceVO.getDirtyPrice().scale() > staticAmtScale)
+										|| assetPriceVO.getOpen() != null
+												&& (assetPriceVO.getOpen().precision() > staticAmtRoundingPrecision
+														|| assetPriceVO.getOpen().scale() > staticAmtScale)
+										|| assetPriceVO.getClose() != null
+												&& (assetPriceVO.getClose().precision() > staticAmtRoundingPrecision
+														|| assetPriceVO.getClose().scale() > staticAmtScale)
+										|| assetPriceVO.getHigh() != null
+												&& (assetPriceVO.getHigh().precision() > staticAmtRoundingPrecision
+														|| assetPriceVO.getHigh().scale() > staticAmtScale)
+										|| assetPriceVO.getLow() != null
+												&& (assetPriceVO.getLow().precision() > staticAmtRoundingPrecision
+														|| assetPriceVO.getLow().scale() > staticAmtScale)
+										|| assetPriceVO.getAsk() != null
+												&& (assetPriceVO.getAsk().precision() > staticAmtRoundingPrecision
+														|| assetPriceVO.getAsk().scale() > staticAmtScale)) {
+									List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+									ErrorVO e = new ErrorVO();
+									e.setErrorCode("JSAST999");
+									e.setErrorMessage("Numeric value Overflow");
+									errorVOs.add(e);
+									log.fatal(e);
+									FailedVO<AssetPriceVO> failedVO = new FailedVO<>();
+									failedVO.setErrors(errorVOs);
+									failedVO.setIdentityDetailsAsString(assetPrice.getAsJsonObject());
+									failedVOs.add(failedVO);
+								} else {
+									successVOs
+											.add(AssetUtil.fromJSonToObject(assetPrice.toString(), AssetPriceVO.class));
+								}
+							}
+							totalVOs.add(assetPrice.getAsJsonObject());
+						}
+					}
+					validationMap.put("successVOs", successVOs);
+					validationMap.put("totalVOs", totalVOs);
+					validationMap.put("failedVOs", failedVOs);
+					validationMap.put("isInterfaceRequest", isInterfaceRequest);
+				}
+			}
+		} catch (JsonSyntaxException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			throw e;
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			throw e;
+		}
+		return validationMap;
+	}
+
+	public static Map<String, Object> validateExchangeRateAddRequest(String jsonRequest) throws Exception {
+
+		try {
+			Map<String, Object> validationMap = new HashMap<>();
+			Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+					.create();
+			if (jsonRequest != null
+			// && requestVO.getAssetAddRequest() != null &&
+			// requestVO.getAssetAddRequest().size() > 0
+			) {
+				// List<AssetAddRequestVO> addRequestVOs = requestVO.getAssetAddRequest();
+				// ExchangeRateVO assetVO = addRequestVOs.get(0).getExchangeRate(); // change
+				JsonObject jsonObject = gson.fromJson(jsonRequest, JsonObject.class);
+
+				JsonArray exchangeRateAddRequestList = null;
+				JsonElement exchangeRateAddRequest = null;
+
+				exchangeRateAddRequestList = jsonObject.get("assetAddRequest").getAsJsonArray();
+
+				JsonObject exchangeRateObj = exchangeRateAddRequestList.get(0).getAsJsonObject().get("exchangeRate")
+						.getAsJsonObject();
+
+				if (exchangeRateObj != null) {
+					List<JsonObject> totalVOs = null;
+					List<ExchangeRateVO> successVOs = null;
+					List<FailedVO<ExchangeRateVO>> failedVOs = null;
+					boolean isInterfaceRequest = false;
+					// +" _thirdPartyProcessorId2"+( !AssetUtil.jsonNullCheck(exchangeRateObj,
+					// "_thirdPartyProcessorId1")));
+					if (exchangeRateObj.has("_thirdPartyProcessorId1")
+							&& !AssetUtil.jsonNullCheck(exchangeRateObj, "_thirdPartyProcessorId1")) {
+
+						isInterfaceRequest = true;
+						totalVOs = new ArrayList<>();
+						successVOs = new ArrayList<>();
+						failedVOs = new ArrayList<>();
+
+						Iterator<JsonElement> iterator = exchangeRateAddRequestList.iterator();
+						while (iterator.hasNext()) {
+
+							exchangeRateAddRequest = iterator.next();
+							JsonObject exchangeRate = exchangeRateAddRequest.getAsJsonObject().get("exchangeRate")
+									.getAsJsonObject();
+							exchangeRate.add("username", jsonObject.get("username"));
+							// ExchangeRateVO exchangeRateVO =
+							// AssetUtil.fromJSonToObject(exchangeRate.toString(), ExchangeRateVO.class);;
+							List<String> errors = null;
+
+							errors = AssetUtil.jsonSchemaValidator(exchangeRate.toString(),
+									"./jsonschema/AddExchangeRateInterface.json");
+							if (errors != null && errors.size() > 0) {
+
+								List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+								for (String s : errors) {
+									ErrorVO e = new ErrorVO();
+									e.setErrorCode("JSAST999");
+									e.setErrorMessage(AssetUtil.formatErrorMessage(s));
+									errorVOs.add(e);
+									log.fatal("Error while validating JsonSchema " + s);
+								}
+
+								exchangeRate.addProperty("hasError", 1);
+								exchangeRate.addProperty("errors", AssetUtil.fromObjectToJSON(errorVOs));
+//							exchangeRateVO.setHasError(1);
+//							exchangeRateVO.setErrors(errorVOs);
+							} else {
+								ExchangeRateVO exchangeRateVO = AssetUtil.fromJSonToObject(exchangeRate.toString(),
+										ExchangeRateVO.class);
+								int precision = exchangeRateVO.getPriceAmt().precision();
+								int scale = exchangeRateVO.getPriceAmt().scale();
+
+								if (precision > staticAmtRoundingPrecision || scale > staticAmtScale) {
+									List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+									ErrorVO e = new ErrorVO();
+									e.setErrorCode("JSAST999");
+									e.setErrorMessage("Numeric overflow");
+									errorVOs.add(e);
+									log.fatal(e);
+									exchangeRate.addProperty("hasError", 1);
+									exchangeRate.addProperty("errors", AssetUtil.fromObjectToJSON(errorVOs));
+								} else {
+									successVOs.add(
+											AssetUtil.fromJSonToObject(exchangeRate.toString(), ExchangeRateVO.class));
+								}
+							}
+
+							// Adding object in totalVO
+							totalVOs.add(exchangeRate);
+						}
+
+					} else {
+
+						totalVOs = new ArrayList<>();
+						successVOs = new ArrayList<>();
+						failedVOs = new ArrayList<>();
+
+						Iterator<JsonElement> iterator = exchangeRateAddRequestList.iterator();
+						while (iterator.hasNext()) {
+
+							exchangeRateAddRequest = iterator.next();
+							JsonObject exchangeRate = exchangeRateAddRequest.getAsJsonObject().get("exchangeRate")
+									.getAsJsonObject();
+							exchangeRate.add("username", jsonObject.get("username"));
+							List<String> errors = null;
+
+							errors = AssetUtil.jsonSchemaValidator(exchangeRate.toString(),
+									"./jsonschema/AddExchangeRate.json");
+
+							if (errors != null && errors.size() > 0) {
+
+								List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+								for (String error : errors) {
+									ErrorVO errorVO = new ErrorVO();
+									errorVO.setErrorCode("JSAST999");
+									// errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+									errorVOs.add(errorVO);
+									log.fatal(errorVO);
+								}
+
+								FailedVO<ExchangeRateVO> failedVO = new FailedVO<>();
+								// failedVO.set_tenantId(requestVO.get_tenantId());
+								// failedVO.setTenantCode(requestVO.getTenantCode());
+								failedVO.setErrors(errorVOs);
+								failedVO.setIdentityDetailsAsString(exchangeRate.getAsJsonObject());
+								failedVOs.add(failedVO);
+							} else {
+								ExchangeRateVO exchangeRateVO = AssetUtil.fromJSonToObject(exchangeRate.toString(),
+										ExchangeRateVO.class);
+								int precision = exchangeRateVO.getPriceAmt().precision();
+								int scale = exchangeRateVO.getPriceAmt().scale();
+								FailedVO<ExchangeRateVO> failedVO = new FailedVO<>();
+								if (precision > staticAmtRoundingPrecision || scale > staticAmtScale) {
+									List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+									ErrorVO e = new ErrorVO();
+									e.setErrorCode("JSAST999");
+									e.setErrorMessage("Numeric overflow");
+									errorVOs.add(e);
+									log.fatal(e);
+									failedVO.setErrors(errorVOs);
+									failedVO.setIdentityDetailsAsString(exchangeRate.getAsJsonObject());
+									failedVOs.add(failedVO);
+								} else {
+									successVOs.add(
+											AssetUtil.fromJSonToObject(exchangeRate.toString(), ExchangeRateVO.class));
+								}
+							}
+
+							totalVOs.add(exchangeRate.getAsJsonObject());
+						}
+
+					}
+					validationMap.put("successVOs", successVOs);
+					validationMap.put("totalVOs", totalVOs);
+					validationMap.put("failedVOs", failedVOs);
+					validationMap.put("isInterfaceRequest", isInterfaceRequest);
+				}
+			}
+			return validationMap;
+		} catch (JsonSyntaxException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			throw e;
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			throw e;
+		}
+	}
+
+	public static Map<String, Object> addAssetReturnValidator(String reqParam) throws Exception {
+
+		Map<String, Object> validationMap = new HashMap<>();
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		if (reqParam != null) {
+			JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+
+			JsonArray assetReturnAddRequestList = null;
+			JsonElement assetReturnAddRequest = jsonObject.get("assetAddRequest").getAsJsonArray();
+
+			assetReturnAddRequestList = jsonObject.get("assetAddRequest").getAsJsonArray();
+
+			JsonObject assetReturnObj = assetReturnAddRequestList.get(0).getAsJsonObject().get("assetReturns")
+					.getAsJsonObject();
+
+			if (assetReturnObj != null) {
+				List<JsonObject> totalVOs = null;
+				List<AssetReturnsVO> successVOs = null;
+				List<FailedVO<AssetReturnsVO>> failedVOs = null;
+				boolean isInterfaceRequest = false;
+
+				if (assetReturnObj.has("_thirdPartyProcessorId1")
+						&& !AssetUtil.jsonNullCheck(assetReturnObj, "_thirdPartyProcessorId1")) {
+					isInterfaceRequest = true;
+					totalVOs = new ArrayList<>();
+					successVOs = new ArrayList<>();
+					failedVOs = new ArrayList<>();
+
+					Iterator<JsonElement> iterator = assetReturnAddRequestList.iterator();
+					while (iterator.hasNext()) {
+						boolean hasError = false;
+						assetReturnAddRequest = iterator.next();
+						JsonObject assetReturn = assetReturnAddRequest.getAsJsonObject().get("assetReturns")
+								.getAsJsonObject();
+						assetReturn.add("username", jsonObject.get("username"));
+						List<String> errors = null;
+						JsonObject additionalInfo = null;
+						errors = AssetUtil.jsonSchemaValidator(assetReturn.toString(),
+								"./jsonschema/AddAssetReturn.json");
+						if (errors != null && errors.size() > 0) {
+							List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+							for (String s : errors) {
+								ErrorVO e = new ErrorVO();
+								e.setErrorCode("JSAST999");
+								e.setErrorMessage(AssetUtil.formatErrorMessage(s));
+								errorVOs.add(e);
+								log.fatal(e);
+							}
+
+							assetReturn.addProperty("hasError", 1);
+							assetReturn.addProperty("errors", AssetUtil.fromObjectToJSON(errorVOs));
+							hasError = true;
+						}
+						if (!assetReturn.getAsJsonObject().get("additionalInfos").equals(null)) {
+							JsonArray addtnInfo = assetReturn.get("additionalInfos").getAsJsonArray();
+
+							Iterator<JsonElement> iterator2 = addtnInfo.iterator();
+							while (iterator2.hasNext()) {
+								additionalInfo = iterator2.next().getAsJsonObject();
+								List<String> addtnInfoErrors = AssetUtil.jsonSchemaValidator(additionalInfo.toString(),
+										"./jsonschema/AddAssetReturnAddtnInfo.json");
+
+								if (addtnInfoErrors != null && addtnInfoErrors.size() > 0) {
+									assetReturn.addProperty("hasError", 1);
+									additionalInfo.addProperty("hasError", 1);
+									List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+									for (int i = 0; i < addtnInfoErrors.size(); i++) {
+										ErrorVO errorVO = new ErrorVO();
+										errorVO.setErrorCode("JSAST999");
+										errorVO.setErrorMessage(AssetUtil.formatErrorMessage(addtnInfoErrors.get(i)));
+										errorVOs.add(errorVO);
+									}
+									additionalInfo.addProperty("errors",
+											AssetUtil.objectToJsonString(AssetUtil.fromObjectToJSON(errorVOs)));
+									hasError = true;
+								}
+							}
+						}
+						if (hasError == false) {
+							AssetReturnsVO assetReturnsVO = AssetUtil.fromJSonToObject(assetReturn.toString(),
+									AssetReturnsVO.class);
+							int flag = 0;
+							for (int i = 0; i < assetReturnsVO.getAdditionalInfos().size(); i++) {
+								if (assetReturnsVO.getAdditionalInfos().get(i).getInfoValue()
+										.precision() > staticAmtRoundingPrecision
+										|| assetReturnsVO.getAdditionalInfos().get(i).getInfoValue().scale() > 18) {
+									List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+									ErrorVO errorVO = new ErrorVO();
+									errorVO.setErrorCode("JSAST999");
+									errorVO.setErrorMessage("Numeric value Overflow");
+									errorVOs.add(errorVO);
+									additionalInfo.addProperty("errors",
+											AssetUtil.objectToJsonString(AssetUtil.fromObjectToJSON(errorVOs)));
+									flag = 1;
+								}
+							}
+							if (flag == 0) {
+								successVOs.add(assetReturnsVO);
+							}
+						}
+						totalVOs.add(assetReturn);
+					}
+				} else {
+					totalVOs = new ArrayList<>();
+					successVOs = new ArrayList<>();
+					failedVOs = new ArrayList<>();
+
+					Iterator<JsonElement> iterator = assetReturnAddRequestList.iterator();
+					while (iterator.hasNext()) {
+
+						List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+						boolean hasError = false;
+						assetReturnAddRequest = iterator.next();
+						JsonObject assetReturn = assetReturnAddRequest.getAsJsonObject().get("assetReturns")
+								.getAsJsonObject();
+						assetReturn.add("username", jsonObject.get("username"));
+						List<String> errors = null;
+
+						errors = AssetUtil.jsonSchemaValidator(assetReturn.toString(),
+								"./jsonschema/AddAssetReturn.json");
+
+						if (errors != null && errors.size() > 0) {
+							for (String error : errors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								// errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+								log.fatal(errorVO);
+							}
+							FailedVO<AssetReturnsVO> failedVO = new FailedVO<>();
+							failedVO.setErrors(errorVOs);
+							failedVO.setIdentityDetailsAsString(assetReturn.getAsJsonObject());
+							failedVOs.add(failedVO);
+						}
+						if (assetReturn.getAsJsonObject().get("additionalInfos") != null) {
+							JsonArray addtnInfo = assetReturn.get("additionalInfos").getAsJsonArray();
+
+							Iterator<JsonElement> iterator2 = addtnInfo.iterator();
+							while (iterator2.hasNext()) {
+								JsonObject additionalInfo = iterator2.next().getAsJsonObject();
+								List<String> addtnInfoErrors = AssetUtil.jsonSchemaValidator(additionalInfo.toString(),
+										"./jsonschema/AddAssetReturnAddtnInfo.json");
+								if (addtnInfoErrors != null && addtnInfoErrors.size() > 0) {
+									for (int i = 0; i < addtnInfoErrors.size(); i++) {
+										ErrorVO errorVO = new ErrorVO();
+										errorVO.setErrorCode("JSAST999");
+										// errorVO.setErrorMessage(AssetUtil.formatErrorMessage(addtnInfoErrors.get(i)));
+										errorVOs.add(errorVO);
+										log.fatal(AssetUtil.formatErrorMessage(addtnInfoErrors.get(i)));
+									}
+									hasError = true;
+								}
+							}
+						}
+						if (hasError == false) {
+							AssetReturnsVO assetReturnsVO = AssetUtil.fromJSonToObject(assetReturn.toString(),
+									AssetReturnsVO.class);
+							int flag = 0;
+							for (int i = 0; i < assetReturnsVO.getAdditionalInfos().size(); i++) {
+								if (assetReturnsVO.getAdditionalInfos().get(i).getInfoValue()
+										.precision() > staticAmtRoundingPrecision
+										|| assetReturnsVO.getAdditionalInfos().get(i).getInfoValue().scale() > 18) {
+									ErrorVO errorVO = new ErrorVO();
+									errorVO.setErrorCode("JSAST999");
+									errorVO.setErrorMessage("Numeric value Overflow");
+									errorVOs.add(errorVO);
+									flag = 1;
+									FailedVO<AssetReturnsVO> failedVO = new FailedVO<>();
+									failedVO.setErrors(errorVOs);
+									failedVO.setIdentityDetailsAsString(assetReturn.getAsJsonObject());
+									failedVOs.add(failedVO);
+								}
+							}
+							if (flag == 0) {
+								successVOs
+										.add(AssetUtil.fromJSonToObject(assetReturn.toString(), AssetReturnsVO.class));
+							}
+						} else {
+							FailedVO<AssetReturnsVO> failedVO = new FailedVO<>();
+							failedVO.setErrors(errorVOs);
+							failedVO.setIdentityDetailsAsString(assetReturn.getAsJsonObject());
+							failedVOs.add(failedVO);
+						}
+						totalVOs.add(assetReturn.getAsJsonObject());
+					}
+				}
+				validationMap.put("successVOs", successVOs);
+				validationMap.put("totalVOs", totalVOs);
+				validationMap.put("failedVOs", failedVOs);
+				validationMap.put("isInterfaceRequest", isInterfaceRequest);
+			}
+		}
+		return validationMap;
+	}
+
+	public static Map<String, Object> validateAssetAddRequest(String reqParam, boolean isCompositeRequest,
+			AssetRequestVO assetRequestVO) throws Exception {
+
+		String add_Asset_Json_Schema = null;
+		String asset_underlying_Json_schema = null;
+		String asset_Valuation_Json_schema = null;
+		if (isCompositeRequest) {
+			add_Asset_Json_Schema = "./jsonschema/addAssetCompositeSchema.json";
+			asset_underlying_Json_schema = "./jsonschema/CompositeUnderlyingSchema.json";
+			asset_Valuation_Json_schema = "./jsonschema/CompositeAssetValuationScheduleSchema.json";
+
+		} else {
+			add_Asset_Json_Schema = "./jsonschema/addAssetSchema.json";
+			asset_underlying_Json_schema = "./jsonschema/UnderlyingAsset.json";
+			asset_Valuation_Json_schema = "./jsonschema/AssetValuationSchedule.json";
+		}
+
+		Map<String, Object> validationMap = new HashMap<>();
+		List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+		List<JsonObject> totalVOs = new ArrayList<>();
+		List<AssetVO> successVOs = new ArrayList<>();
+
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+		boolean isInterfaceRequest = false;
+		JsonArray assetAddRequestList = null;
+		JsonElement assetAddRequest = null;
+		List<JsonObject> jsonArray = new ArrayList();
+
+		assetAddRequestList = jsonObject.get("assetAddRequest").getAsJsonArray();
+		JsonObject assetObj = assetAddRequestList.size() > 0
+				? assetAddRequestList.get(0).getAsJsonObject().get("asset").getAsJsonObject()
+				: null;
+
+		if (assetObj != null && assetObj.has("_thirdPartyProcessorId1")
+				&& !AssetUtil.jsonNullCheck(assetObj, "_thirdPartyProcessorId1")) {
+
+			isInterfaceRequest = true;
+			Iterator<JsonElement> iterator = assetAddRequestList.iterator();
+			while (iterator.hasNext()) {
+				boolean hasError = false;
+				assetAddRequest = iterator.next();
+				JsonObject asset = assetAddRequest.getAsJsonObject().get("asset").getAsJsonObject();
+				asset.addProperty("username", assetRequestVO.getUsername());
+				List<String> assetErrors = AssetUtil.jsonSchemaValidator(asset.toString(), add_Asset_Json_Schema);
+				if (assetErrors != null && assetErrors.size() > 0) {
+					asset.addProperty("hasError", 1);
+					// List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+					JsonArray errors = new JsonArray();
+					for (String error : assetErrors) {
+//						ErrorVO errorVO = new ErrorVO();
+//						errorVO.setErrorCode("JSAST999");
+//						errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+//						errorVOs.add(errorVO);
+						JsonObject e1 = new JsonObject();
+						e1.addProperty("errorCode", "JSAST999");
+						e1.addProperty("errorMessage", AssetUtil.formatErrorMessage(error));
+
+						errors.add(e1);
+					}
+
+					// asset.addProperty("errors", gson.toJson(errorVOs));
+					asset.add("errors", errors);
+					hasError = true;
+				}
+
+				// Adding errors in child object 1
+				JsonArray underlyingAssetList = null;
+				JsonObject underlyingAsset = null;
+
+				if (!AssetUtil.jsonNullCheck(asset, "underlyingAssets")) {
+					underlyingAssetList = asset.getAsJsonArray("underlyingAssets");
+				}
+				if (underlyingAssetList != null && underlyingAssetList.size() > 0) {
+					Iterator<JsonElement> iterator1 = underlyingAssetList.iterator();
+					while (iterator1.hasNext()) {
+
+						underlyingAsset = iterator1.next().getAsJsonObject();
+						List<String> underlyingAssetErrors = AssetUtil.jsonSchemaValidator(underlyingAsset.toString(),
+								asset_underlying_Json_schema);
+
+						if (underlyingAssetErrors != null && underlyingAssetErrors.size() > 0) {
+							underlyingAsset.addProperty("hasError", 1);
+							List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+							for (String error : underlyingAssetErrors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+							}
+							underlyingAsset.addProperty("errors", gson.toJson(errorVOs));
+							hasError = true;
+						}
+					}
+				}
+
+				// Adding errors in child object 2
+				JsonArray assetValuationScheduleList = null;
+				JsonObject assetValuationSchedule = null;
+
+				if (!AssetUtil.jsonNullCheck(asset, "assetValuationSchedule")) {
+					assetValuationScheduleList = asset.getAsJsonArray("assetValuationSchedule");
+				}
+				if (assetValuationScheduleList != null && assetValuationScheduleList.size() > 0) {
+					Iterator<JsonElement> iterator1 = assetValuationScheduleList.iterator();
+					while (iterator1.hasNext()) {
+						assetValuationSchedule = iterator1.next().getAsJsonObject();
+
+						List<String> assetValuationScheduleErrors = AssetUtil
+								.jsonSchemaValidator(assetValuationSchedule.toString(), asset_Valuation_Json_schema);
+
+						if (assetValuationScheduleErrors != null && assetValuationScheduleErrors.size() > 0) {
+							assetValuationSchedule.addProperty("hasError", 1);
+							List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+							for (String error : assetValuationScheduleErrors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+							}
+							assetValuationSchedule.addProperty("errors", gson.toJson(errorVOs));
+							hasError = true;
+						}
+					}
+				}
+
+				if (hasError == false) {
+					successVOs.add(AssetUtil.fromJSonToObject(asset.toString(), AssetVO.class));
+				}
+				jsonArray.add(asset);
+				totalVOs.add(asset);
+			}
+		} else {
+
+			Iterator<JsonElement> iterator = assetAddRequestList.iterator();
+			while (iterator.hasNext()) {
+				List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+
+				boolean hasError = false;
+				assetAddRequest = iterator.next();
+				JsonObject asset = assetAddRequest.getAsJsonObject().get("asset").getAsJsonObject();
+				asset.addProperty("username", assetRequestVO.getUsername());
+				List<String> assetErrors = AssetUtil.jsonSchemaValidator(asset.toString(), add_Asset_Json_Schema);
+				if (assetErrors != null && assetErrors.size() > 0) {
+
+					for (String error : assetErrors) {
+						ErrorVO errorVO = new ErrorVO();
+						errorVO.setErrorCode("JSAST999");
+						// errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+						log.fatal(AssetUtil.formatErrorMessage(error));
+						errorVOs.add(errorVO);
+					}
+					hasError = true;
+				}
+
+				// Adding errors in child object 1
+				JsonArray underlyingAssetList = null;
+				JsonObject underlyingAsset = null;
+				if (!AssetUtil.jsonNullCheck(asset, "underlyingAssets")) {
+					underlyingAssetList = asset.getAsJsonArray("underlyingAssets");
+				}
+				if (underlyingAssetList != null && underlyingAssetList.size() > 0) {
+					Iterator<JsonElement> iterator1 = underlyingAssetList.iterator();
+					while (iterator1.hasNext()) {
+						underlyingAsset = iterator1.next().getAsJsonObject();
+						List<String> underlyingAssetErrors = AssetUtil.jsonSchemaValidator(underlyingAsset.toString(),
+								asset_underlying_Json_schema);
+						if (underlyingAssetErrors != null && underlyingAssetErrors.size() > 0) {
+
+							for (String error : underlyingAssetErrors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								// errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+								log.fatal(AssetUtil.formatErrorMessage(error));
+							}
+							hasError = true;
+						}
+					}
+				}
+
+				// Adding errors in child object 2
+				JsonArray assetValuationScheduleList = null;
+				JsonObject assetValuationSchedule = null;
+				if (!AssetUtil.jsonNullCheck(asset, "assetValuationSchedule")) {
+					assetValuationScheduleList = asset.getAsJsonArray("assetValuationSchedule");
+				}
+				if (assetValuationScheduleList != null && assetValuationScheduleList.size() > 0) {
+					Iterator<JsonElement> iterator1 = assetValuationScheduleList.iterator();
+					while (iterator1.hasNext()) {
+						assetValuationSchedule = iterator1.next().getAsJsonObject();
+						List<String> assetValuationScheduleErrors = AssetUtil
+								.jsonSchemaValidator(assetValuationSchedule.toString(), asset_Valuation_Json_schema);
+						if (assetValuationScheduleErrors != null && assetValuationScheduleErrors.size() > 0) {
+
+							for (String error : assetValuationScheduleErrors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								// errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+								log.fatal(AssetUtil.formatErrorMessage(error));
+							}
+							hasError = true;
+						}
+					}
+				}
+
+				jsonArray.add(asset);
+				totalVOs.add(asset);
+				if (hasError == false) {
+					successVOs.add(AssetUtil.fromJSonToObject(asset.toString(), AssetVO.class));
+				} else {
+					FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+					failedVO.setErrors(errorVOs);
+					failedVO.setIdentityDetailsAsString(asset);
+					failedVOs.add(failedVO);
+				}
+			}
+		}
+
+		validationMap.put("successVOs", successVOs);
+		validationMap.put("totalVOs", totalVOs);
+		validationMap.put("failedVOs", failedVOs);
+		validationMap.put("isInterfaceRequest", isInterfaceRequest);
+		return validationMap;
+	}
+
+	public static String getAssetReturnsOuterStructureResponse(String reqParam, List<String> response, String vo)
+			throws Exception {
+		List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+		List<ErrorVO> errorVOs = new ArrayList<>();
+		FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+		String responseString;
+
+		for (String error : response) {
+			ErrorVO e1 = new ErrorVO();
+			e1.setErrorCode("400");
+			e1.setErrorMessage((AssetUtil.fromObjectToJSON(error)));
+			errorVOs.add(e1);
+		}
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+
+		JsonArray assetReturnAddRequestList = null;
+		JsonElement assetReturnAddRequest = null;
+		List<JsonObject> jsonArray = new ArrayList();
+		assetReturnAddRequestList = jsonObject.get("assetAddRequest").getAsJsonArray();
+		JsonObject assetReturnObj = assetReturnAddRequestList.get(0).getAsJsonObject().get("assetReturns")
+				.getAsJsonObject();
+		if (assetReturnObj.has("_thirdPartyProcessorId1")
+				&& !AssetUtil.jsonNullCheck(assetReturnObj, "_thirdPartyProcessorId1")) {
+			Iterator<JsonElement> iterator = assetReturnAddRequestList.iterator();
+			while (iterator.hasNext()) {
+
+				assetReturnAddRequest = iterator.next();
+				JsonObject assetReturn = assetReturnAddRequest.getAsJsonObject().get("assetReturns").getAsJsonObject();
+				assetReturn.addProperty("hasError", 1);
+				assetReturn.addProperty("errors", AssetUtil.objectToJsonString(AssetUtil.fromObjectToJSON(errorVOs)));
+				jsonArray.add(assetReturn);
+			}
+
+			responseString = AssetUtil.fromObjectToJSON(jsonArray);
+		} else {
+			failedVO.setErrors(errorVOs);
+			failedVO.setIdentityDetailsAsString(jsonObject);
+			failedVOs.add(failedVO);
+			responseString = AssetUtil.getResponse(null, failedVOs);
+		}
+		return responseString;
+	}
+
+	public static String getAssetPriceOuterStructureResponse(String reqParam, List<String> response, String vo)
+			throws Exception {
+		List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+		List<ErrorVO> errorVOs = new ArrayList<>();
+		FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+		String responseString;
+
+		for (String error : response) {
+			ErrorVO e1 = new ErrorVO();
+			e1.setErrorCode("400");
+			e1.setErrorMessage((AssetUtil.fromObjectToJSON(error)));
+			errorVOs.add(e1);
+		}
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+
+		JsonArray assetPriceAddRequestList = null;
+		JsonElement assetPriceAddRequest = null;
+		List<JsonObject> jsonArray = new ArrayList();
+		assetPriceAddRequestList = jsonObject.get("assetAddRequest").getAsJsonArray();
+		JsonObject assetPriceObj = assetPriceAddRequestList.get(0).getAsJsonObject().get("assetPrice")
+				.getAsJsonObject();
+		if (assetPriceObj.has("_thirdPartyProcessorId1")
+				&& !AssetUtil.jsonNullCheck(assetPriceObj, "_thirdPartyProcessorId1")) {
+			Iterator<JsonElement> iterator = assetPriceAddRequestList.iterator();
+			while (iterator.hasNext()) {
+
+				assetPriceAddRequest = iterator.next();
+				JsonObject assetPrice = assetPriceAddRequest.getAsJsonObject().get("assetPrice").getAsJsonObject();
+				assetPrice.addProperty("hasError", 1);
+				assetPrice.addProperty("errors", AssetUtil.objectToJsonString(AssetUtil.fromObjectToJSON(errorVOs)));
+				jsonArray.add(assetPrice);
+			}
+
+			responseString = AssetUtil.fromObjectToJSON(jsonArray);
+		} else {
+			failedVO.setErrors(errorVOs);
+			failedVO.setIdentityDetailsAsString(jsonObject);
+			failedVOs.add(failedVO);
+			responseString = AssetUtil.getResponse(null, failedVOs);
+		}
+		return responseString;
+	}
+	
+	public static Map<String, Object> validateUniverseStockAddRequest(String reqParam,AssetRequestVO assetRequestVO) throws Exception {
+
+		Map<String, Object> validationMap = new HashMap<>();
+		List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+		List<JsonObject> totalVOs = new ArrayList<>();
+		List<UniverseStockVO> successVOs = new ArrayList<>();
+
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+		boolean isInterfaceRequest = false;
+		JsonArray assetAddRequestList = null;
+		JsonElement assetAddRequest = null;
+		List<JsonObject> jsonArray = new ArrayList();
+
+		assetAddRequestList = jsonObject.get("assetAddRequest").getAsJsonArray();
+		JsonObject universeStockObj = assetAddRequestList.size() > 0
+				? assetAddRequestList.get(0).getAsJsonObject().get("universeStock").getAsJsonObject()
+				: null;
+
+		if (universeStockObj != null && universeStockObj.has("_thirdPartyProcessorId1")
+				&& !AssetUtil.jsonNullCheck(universeStockObj, "_thirdPartyProcessorId1")) {
+			isInterfaceRequest = true;
+			Iterator<JsonElement> iterator = assetAddRequestList.iterator();
+			while (iterator.hasNext()) {
+				boolean hasError = false;
+				assetAddRequest = iterator.next();
+				JsonObject universeStock = assetAddRequest.getAsJsonObject().get("universeStock").getAsJsonObject();
+				universeStock.addProperty("username", assetRequestVO.getUsername());
+				List<String> universeStockErrors = AssetUtil.jsonSchemaValidator(universeStock.toString(),
+						"./jsonschema/addUniverseStockSchema.json");
+				if (universeStockErrors != null && universeStockErrors.size() > 0) {
+					universeStock.addProperty("hasError", 1);
+					List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+					for (String error : universeStockErrors) {
+						ErrorVO errorVO = new ErrorVO();
+						errorVO.setErrorCode("JSAST999");
+						errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+						errorVOs.add(errorVO);
+					}
+					log.fatal(universeStockErrors);
+
+					universeStock.addProperty("errors", gson.toJson(errorVOs));
+					hasError = true;
+				}
+
+				if (hasError == false) {
+					successVOs.add(AssetUtil.fromJSonToObject(universeStock.toString(), UniverseStockVO.class));
+				}
+				
+				jsonArray.add(universeStock);
+				totalVOs.add(universeStock);
+			}
+		} else {
+
+			Iterator<JsonElement> iterator = assetAddRequestList.iterator();
+			while (iterator.hasNext()) {
+				List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+
+				boolean hasError = false;
+				assetAddRequest = iterator.next();
+				JsonObject universeStock = assetAddRequest.getAsJsonObject().get("universeStock").getAsJsonObject();
+				
+				universeStock.addProperty("username", assetRequestVO.getUsername());
+				List<String> universeStockErrors = AssetUtil.jsonSchemaValidator(universeStock.toString(),
+						"./jsonschema/addUniverseStockSchema.json");
+				if (universeStockErrors != null && universeStockErrors.size() > 0) {
+
+					for (String error : universeStockErrors) {
+						ErrorVO errorVO = new ErrorVO();
+						errorVO.setErrorCode("JSAST999");
+						errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+						errorVOs.add(errorVO);
+						log.fatal(error);
+					}
+					hasError = true;
+				}
+
+				jsonArray.add(universeStock);
+				totalVOs.add(universeStock);
+				if (hasError == false) {
+					successVOs.add(AssetUtil.fromJSonToObject(universeStock.toString(), UniverseStockVO.class));
+				} else {
+					FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+					failedVO.setErrors(errorVOs);
+					failedVO.setIdentityDetailsAsString(universeStock);
+					failedVOs.add(failedVO);
+				}
+			}
+		}
+
+		validationMap.put("successVOs", successVOs);
+		validationMap.put("totalVOs", totalVOs);
+		validationMap.put("failedVOs", failedVOs);
+		validationMap.put("isInterfaceRequest", isInterfaceRequest);
+		return validationMap;
+	}
+	
+	public static Map<String, Object> validateUniverseStockByTerminal(String reqParam, AssetRequestVO assetRequestVO) throws Exception {
+		Map<String, Object> validationMap = new HashMap<>();
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+			if (reqParam != null) {
+				JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+	
+				JsonArray assetAddReqList = null;
+				JsonElement assetAddRequest = jsonObject.get("assetAddRequest").getAsJsonArray();
+	
+				assetAddReqList = jsonObject.get("assetAddRequest").getAsJsonArray();
+	
+				JsonObject universeStockByTerminalObj = assetAddReqList.size() > 0?
+						assetAddReqList.get(0).getAsJsonObject().get("universeStockDetails")
+						.getAsJsonObject() : 
+							null;
+				List<JsonObject> jsonArray = new ArrayList();
+				if (universeStockByTerminalObj != null ) {
+				List<JsonObject> totalVOs = totalVOs = new ArrayList<>();;
+				List<UniverseStockDetailsByTerminalVO> successVOs = successVOs = new ArrayList<>();;
+				List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+				boolean isInterfaceRequest = false;
+				
+				if (universeStockByTerminalObj != null && universeStockByTerminalObj.has("_thirdPartyProcessorId1")
+						&& !AssetUtil.jsonNullCheck(universeStockByTerminalObj, "_thirdPartyProcessorId1")) {
+					isInterfaceRequest = true;
+					Iterator<JsonElement> iterator = assetAddReqList.iterator();
+
+
+					while (iterator.hasNext()) {
+						boolean hasError = false;
+						assetAddRequest = iterator.next();
+						JsonObject universeStockDetailByTerminalObj = assetAddRequest.getAsJsonObject().get("universeStockDetails").getAsJsonObject();
+						universeStockDetailByTerminalObj.addProperty("username", assetRequestVO.getUsername());
+//						JsonElement universeStockByTerminal = assetAddRequest.getAsJsonObject().get("universeStockDetails")
+//								.getAsJsonObject();
+
+						List<String> errors = null;
+						errors = AssetUtil.jsonSchemaValidator(universeStockDetailByTerminalObj.toString(),
+								"./jsonschema/UniverseStockDetailsReq.json");
+						if (errors != null && errors.size() > 0) {
+							universeStockDetailByTerminalObj.addProperty("hasError", 1);
+							List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+							for (String error : errors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+							}
+
+							universeStockDetailByTerminalObj.addProperty("errors", gson.toJson(errorVOs));
+							hasError = true;
+						} 
+						if (hasError == false) {
+							successVOs.add(AssetUtil.fromJSonToObject(universeStockDetailByTerminalObj.toString(), UniverseStockDetailsByTerminalVO.class));
+						}
+						
+						jsonArray.add(universeStockDetailByTerminalObj);
+						totalVOs.add(universeStockDetailByTerminalObj);
+					}
+				}else {
+					Iterator<JsonElement> iterator = assetAddReqList.iterator();
+					while (iterator.hasNext()) {
+						List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+						boolean hasError = false;
+						assetAddRequest = iterator.next();
+						JsonObject universeStockDetailByTerminalObj = assetAddRequest.getAsJsonObject().get("universeStockDetails").getAsJsonObject();
+						universeStockDetailByTerminalObj.addProperty("username", assetRequestVO.getUsername());
+						
+						List<String> universeStockErrors = AssetUtil.jsonSchemaValidator(universeStockDetailByTerminalObj.toString(),
+								"./jsonschema/UniverseStockDetailsReq.json");
+						if (universeStockErrors != null && universeStockErrors.size() > 0) {
+
+							for (String error : universeStockErrors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+								log.fatal(error);
+							}
+							hasError = true;
+						}
+
+						jsonArray.add(universeStockDetailByTerminalObj);
+						totalVOs.add(universeStockDetailByTerminalObj);
+						if (hasError == false) {
+							successVOs.add(AssetUtil.fromJSonToObject(universeStockDetailByTerminalObj.toString(), UniverseStockDetailsByTerminalVO.class));
+						} else {
+							FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+							failedVO.setErrors(errorVOs);
+							failedVO.setIdentityDetailsAsString(universeStockDetailByTerminalObj);
+							failedVOs.add(failedVO);
+						}
+					}
+				}
+				validationMap.put("successVOs", successVOs);
+				validationMap.put("totalVOs", totalVOs);
+				validationMap.put("failedVOs", failedVOs);
+				validationMap.put("isInterfaceRequest", isInterfaceRequest);
+			  }
+			}
+		return validationMap;
+	}
+
+	public static Map<String,Object> getBrokerRatingHistoryValidated(String jsonString) throws Exception
+	{
+		Boolean validated=true;
+		Map<String, Object> validationMap = new HashMap<>();
+		List<AssetGetRequestVO> totalVOs = new ArrayList<>();
+		List<AssetGetRequestVO> successVOs = new ArrayList<>();
+		List<FailedVO<AssetGetRequestVO>> failedVOs = new ArrayList<>();
+		JsonObject req=AssetUtil.fromJSonToObject(jsonString, JsonObject.class);
+		JsonArray arraylevel1=req.getAsJsonArray("assetGetRequest");
+		if(arraylevel1==null ||  (arraylevel1!=null && arraylevel1.size()<=0) )
+		{
+			List<ErrorVO> errorVOS=new ArrayList<>();
+			errorVOS.add(AssetUtil.getError("JSPORT999"));
+			FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+			failedVO.setTenantCode(null);
+			failedVO.setErrors(errorVOS);
+			failedVO.setIdentityDetails(null);
+			failedVOs.add(failedVO);
+			validated=false;
+		}
+		for(int i=0;i<arraylevel1.size();i++)
+		{
+			String individualOnes=arraylevel1.get(i).getAsJsonObject().toString();
+			List<String> errors=AssetUtil.jsonSchemaValidator(individualOnes,"./jsonschema/brokerRatingHistory.json");
+			List<ErrorVO> errorOutput=new ArrayList<>();
+			if(errors!=null && errors.size()>0)
+			{
+				validated=false;
+				for (String s : errors)
+				{
+					//erroroutput.add(AssetUtil.getError("JSPORT999"));
+					// for debugging
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorCode("JSAST999");
+					errorVO.setErrorMessage(AssetUtil.formatErrorMessage(s));
+					errorOutput.add(errorVO);
+					// for debugging
+
+					log.fatal(s);
+				}
+				FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+				failedVO.setTenantCode(null);
+				failedVO.setErrors(errorOutput);
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(individualOnes,AssetGetRequestVO.class));
+				failedVOs.add(failedVO);
+			}
+			else
+			{
+				successVOs.add(AssetUtil.fromJSonToObject(individualOnes,AssetGetRequestVO.class));
+			}
+		}
+		if(failedVOs.size()>=1  || !validated)
+		{
+			successVOs=null;
+		}
+		validationMap.put("successVOs", successVOs);
+		validationMap.put("totalVOs", totalVOs);
+		validationMap.put("failedVOs", failedVOs);
+		return validationMap;
+	}
+	
+	public static Map<String, Object> validateUniverseStockDetailsByBrokerAddRequest(String reqParam,AssetRequestVO assetRequestVO) throws Exception {
+
+		Map<String, Object> validationMap = new HashMap<>();
+		List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+		List<JsonObject> totalVOs = new ArrayList<>();
+		List<UniverseStockDetailsByBrokerVO> successVOs = new ArrayList<>();
+
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+		boolean isInterfaceRequest = false;
+		JsonArray assetAddRequestList = null;
+		JsonElement assetAddRequest = null;
+		List<JsonObject> jsonArray = new ArrayList();
+
+		assetAddRequestList = jsonObject.get("assetAddRequest").getAsJsonArray();
+		JsonObject universeStockDetailsByBrokerObj = assetAddRequestList.size() > 0
+				? assetAddRequestList.get(0).getAsJsonObject().get("universeStockDetailsByBroker").getAsJsonObject()
+				: null;
+
+		if (universeStockDetailsByBrokerObj != null && universeStockDetailsByBrokerObj.has("_thirdPartyProcessorId1")
+				&& !AssetUtil.jsonNullCheck(universeStockDetailsByBrokerObj, "_thirdPartyProcessorId1")) {
+			isInterfaceRequest = true;
+			Iterator<JsonElement> iterator = assetAddRequestList.iterator();
+			while (iterator.hasNext()) {
+				boolean hasError = false;
+				assetAddRequest = iterator.next();
+				JsonObject universeStock = assetAddRequest.getAsJsonObject().get("universeStockDetailsByBroker").getAsJsonObject();
+				universeStock.addProperty("username", assetRequestVO.getUsername());
+				List<String> universeStockErrors = AssetUtil.jsonSchemaValidator(universeStock.toString(),
+						"./jsonschema/addUniverseStockDetailsByBrokerSchema.json");
+				if (universeStockErrors != null && universeStockErrors.size() > 0) {
+					universeStock.addProperty("hasError", 1);
+					List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+					for (String error : universeStockErrors) {
+						ErrorVO errorVO = new ErrorVO();
+						errorVO.setErrorCode("JSAST999");
+						errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+						errorVOs.add(errorVO);
+					}
+					log.fatal(universeStockErrors);
+
+					universeStock.addProperty("errors", gson.toJson(errorVOs));
+					hasError = true;
+				}
+
+				if (hasError == false) {
+					successVOs.add(AssetUtil.fromJSonToObject(universeStock.toString(), UniverseStockDetailsByBrokerVO.class));
+				}
+				
+				jsonArray.add(universeStock);
+				totalVOs.add(universeStock);
+			}
+		} else {
+
+			Iterator<JsonElement> iterator = assetAddRequestList.iterator();
+			while (iterator.hasNext()) {
+				List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+
+				boolean hasError = false;
+				assetAddRequest = iterator.next();
+				JsonObject universeStockDetailsByBroker = assetAddRequest.getAsJsonObject().get("universeStockDetailsByBroker").getAsJsonObject();
+				
+				universeStockDetailsByBroker.addProperty("username", assetRequestVO.getUsername());
+				List<String> universeStockErrors = AssetUtil.jsonSchemaValidator(universeStockDetailsByBroker.toString(),
+						"./jsonschema/addUniverseStockDetailsByBrokerSchema.json");
+				if (universeStockErrors != null && universeStockErrors.size() > 0) {
+
+					for (String error : universeStockErrors) {
+						ErrorVO errorVO = new ErrorVO();
+						errorVO.setErrorCode("JSAST999");
+						errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+						errorVOs.add(errorVO);
+						log.fatal(error);
+					}
+					hasError = true;
+				}
+
+				jsonArray.add(universeStockDetailsByBroker);
+				totalVOs.add(universeStockDetailsByBroker);
+				if (hasError == false) {
+					successVOs.add(AssetUtil.fromJSonToObject(universeStockDetailsByBroker.toString(), UniverseStockDetailsByBrokerVO.class));
+				} else {
+					FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+					failedVO.setErrors(errorVOs);
+					failedVO.setIdentityDetailsAsString(universeStockDetailsByBroker);
+					failedVOs.add(failedVO);
+				}
+			}
+		}
+
+		validationMap.put("successVOs", successVOs);
+		validationMap.put("totalVOs", totalVOs);
+		validationMap.put("failedVOs", failedVOs);
+		validationMap.put("isInterfaceRequest", isInterfaceRequest);
+		return validationMap;
+	}
+
+	
+	
+	public static Map<String, Object> validateAssetUnderLying(String reqParam, AssetRequestVO assetRequestVO) throws Exception {
+		Map<String, Object> validationMap = new HashMap<>();
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+			if (reqParam != null) {
+				JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+	
+				JsonArray assetAddReqList = null;
+				JsonElement assetAddRequest = jsonObject.get("assetAddRequest").getAsJsonArray();
+	
+				assetAddReqList = jsonObject.get("assetAddRequest").getAsJsonArray();
+	
+				JsonObject underLyingAssetObject = assetAddReqList.size() > 0?
+						assetAddReqList.get(0).getAsJsonObject().get("underlyingAssets")
+						.getAsJsonObject() : 
+							null;
+				List<JsonObject> jsonArray = new ArrayList();
+				if (underLyingAssetObject != null ) {
+				List<JsonObject> totalVOs = totalVOs = new ArrayList<>();;
+				List<UnderlyingAssetsVO> successVOs = successVOs = new ArrayList<>();;
+				List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+				boolean isInterfaceRequest = false;
+				
+				if (underLyingAssetObject != null && underLyingAssetObject.has("_thirdPartyProcessorId1")
+						&& !AssetUtil.jsonNullCheck(underLyingAssetObject, "_thirdPartyProcessorId1")) {
+					isInterfaceRequest = true;
+					Iterator<JsonElement> iterator = assetAddReqList.iterator();
+
+
+					while (iterator.hasNext()) {
+						boolean hasError = false;
+						assetAddRequest = iterator.next();
+						JsonObject assetUnderlyingObject = assetAddRequest.getAsJsonObject().get("underlyingAssets").getAsJsonObject();
+						assetUnderlyingObject.addProperty("userName", assetRequestVO.getUsername());
+
+
+						List<String> errors = null;
+						errors = AssetUtil.jsonSchemaValidator(assetUnderlyingObject.toString(),
+								"./jsonschema/UnderlyingAsset.json");
+						if (errors != null && errors.size() > 0) {
+							assetUnderlyingObject.addProperty("hasError", 1);
+							List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+							for (String error : errors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+							}
+
+							assetUnderlyingObject.addProperty("errors", gson.toJson(errorVOs));
+							hasError = true;
+						} 
+						if (hasError == false) {
+							successVOs.add(AssetUtil.fromJSonToObject(assetUnderlyingObject.toString(), UnderlyingAssetsVO.class));
+						}
+						
+						jsonArray.add(assetUnderlyingObject);
+						totalVOs.add(assetUnderlyingObject);
+					}
+				}else {
+					Iterator<JsonElement> iterator = assetAddReqList.iterator();
+					while (iterator.hasNext()) {
+						List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+						boolean hasError = false;
+						assetAddRequest = iterator.next();
+						JsonObject assetUnderlyingObject = assetAddRequest.getAsJsonObject().get("underlyingAssets").getAsJsonObject();
+						assetUnderlyingObject.addProperty("userName", assetRequestVO.getUsername());
+						List<String> underLyingAssetErrors=null;
+						underLyingAssetErrors =AssetUtil.jsonSchemaValidator(assetUnderlyingObject.toString(),
+								"./jsonschema/UnderlyingAsset.json");
+						if (underLyingAssetErrors != null && underLyingAssetErrors.size() > 0) {
+
+							for (String error : underLyingAssetErrors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+								log.fatal(error);
+							}
+							hasError = true;
+						}
+
+						jsonArray.add(assetUnderlyingObject);
+						totalVOs.add(assetUnderlyingObject);
+						if (hasError == false) {
+							successVOs.add(AssetUtil.fromJSonToObject(assetUnderlyingObject.toString(), UnderlyingAssetsVO.class));
+						} else {
+							FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+							failedVO.setErrors(errorVOs);
+							failedVO.setIdentityDetailsAsString(assetUnderlyingObject);
+							failedVOs.add(failedVO);
+						}
+					}
+				}
+				validationMap.put("successVOs", successVOs);
+				validationMap.put("totalVOs", totalVOs);
+				validationMap.put("failedVOs", failedVOs);
+				validationMap.put("isInterfaceRequest", isInterfaceRequest);
+			  }
+			}
+		return validationMap;
+	}
+	
+		/**
+	 *
+	 * @param jsonString : json string from req
+	 * @param signal : an indicator for segreration of api  i.e /preferredassetsinfo and /preferredassetsbycode
+	 * 1 ->   /preferredassetsinfo and 2 -> /preferredassetsbycode
+	 * @return
+	 * @throws Exception
+	 */
+	public static Map<String, Object> preferredassetsValidationbyinfo(String jsonString) throws Exception
+	{
+		int preferredassetsinfo=1,preferredassetsbycode=2;
+		Map<String, Object> validationMap = new HashMap<>();
+		List<AssetGetRequestVO> totalVOs = new ArrayList<>();
+		List<AssetGetRequestVO> successVOs = new ArrayList<>();
+		List<FailedVO<AssetGetRequestVO>> failedVOs = new ArrayList<>();
+		JsonObject obj1=AssetUtil.fromJSonToObject(jsonString, JsonObject.class);
+		JsonArray portfolioGetReq=null;
+		if(obj1!=null && obj1.getAsJsonArray("assetGetRequest")!=null && obj1.getAsJsonArray("assetGetRequest").size()>=1)
+		{
+			portfolioGetReq=obj1.getAsJsonArray("assetGetRequest");
+		}
+		if(portfolioGetReq!=null || portfolioGetReq.size()>=1)
+		{
+			for(int i=0;i<portfolioGetReq.size();i++)
+			{
+				JsonObject req=portfolioGetReq.get(i).getAsJsonObject();
+				String portfoliogetrequestvostr=req.toString();
+				if(portfoliogetrequestvostr!=null && portfoliogetrequestvostr.length()>=1 &&
+						!portfoliogetrequestvostr.isBlank()  && !portfoliogetrequestvostr.isEmpty())
+				{
+					List<String> errors = null;
+					if(true)
+					{
+						errors=AssetUtil.jsonSchemaValidator(portfoliogetrequestvostr
+								,"./jsonschema/PreferredAssetsByInfo.json");
+					}
+					else
+					{
+						errors=AssetUtil.jsonSchemaValidator(portfoliogetrequestvostr
+								,"./jsonschema/preferredassets1.1.json");
+					}
+
+					if (errors != null && errors.size() > 0)
+					{
+						List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+						for (String s : errors)
+						{
+							errorVOs.add(AssetUtil.getError("JSPORT999"));
+							log.fatal(s);
+						}
+
+						FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+						failedVO.setTenantCode(null);
+						failedVO.setErrors(errorVOs);
+						try
+						{
+							failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(portfoliogetrequestvostr,AssetGetRequestVO.class));
+						} catch (Exception e)
+						{
+							log.fatal(e);
+							throw e;
+						}
+						failedVOs.add(failedVO);
+					}
+					else
+					{
+						successVOs.add(AssetUtil.fromJSonToObject(portfoliogetrequestvostr,
+								AssetGetRequestVO.class));
+					}
+				}
+				else
+				{
+					List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+					errorVOs=null;
+					errorVOs = new ArrayList<ErrorVO>();
+					errorVOs.add(AssetUtil.getError("JSPORT999"));
+					FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+					failedVO.setTenantCode(null);
+					failedVO.setErrors(errorVOs);
+					failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(portfoliogetrequestvostr,AssetGetRequestVO.class));
+					failedVOs.add(failedVO);
+				}
+
+			}
+		}
+		else
+		{
+			List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+			errorVOs.add(AssetUtil.getError("JSPORT999"));
+			FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+			failedVO.setTenantCode(null);
+			failedVO.setErrors(errorVOs);
+			failedVO.setIdentityDetails(new AssetGetRequestVO());
+			failedVOs.add(failedVO);
+		}
+		if(failedVOs.size()>=1)
+		{
+			successVOs=null;
+		}
+		validationMap.put("successVOs", successVOs);
+		validationMap.put("totalVOs", totalVOs);
+		validationMap.put("failedVOs", failedVOs);
+		return validationMap;
+	}
+	
+	
+	 /*
+	 * @param jsonString : json string from req
+	 * @param signal : an indicator for segreration of api  i.e /preferredassetsinfo and /preferredassetsbycode
+	 * 1 ->   /preferredassetsinfo and 2 -> /preferredassetsbycode
+	 * @return
+	 * @throws Exception
+	 */
+	public static Map<String, Object> preferredassetsValidationbycode(String jsonString) throws Exception
+	{
+		int preferredassetsinfo=1,preferredassetsbycode=2;
+		Map<String, Object> validationMap = new HashMap<>();
+		List<AssetGetRequestVO> totalVOs = new ArrayList<>();
+		List<AssetGetRequestVO> successVOs = new ArrayList<>();
+		List<FailedVO<AssetGetRequestVO>> failedVOs = new ArrayList<>();
+		JsonObject obj1=AssetUtil.fromJSonToObject(jsonString, JsonObject.class);
+		JsonArray portfolioGetReq=null;
+		if(obj1!=null && obj1.getAsJsonArray("assetGetRequest")!=null && obj1.getAsJsonArray("assetGetRequest").size()>=1)
+		{
+			portfolioGetReq=obj1.getAsJsonArray("assetGetRequest");
+		}
+		if(portfolioGetReq!=null || portfolioGetReq.size()>=1)
+		{
+			// check level List<feeVO>  : level 2
+			for(int i=0;i<portfolioGetReq.size();i++)
+			{
+				JsonObject req=portfolioGetReq.get(i).getAsJsonObject();
+				String portfoliogetrequestvostr=req.toString();
+				if(portfoliogetrequestvostr!=null && portfoliogetrequestvostr.length()>=1 &&
+						!portfoliogetrequestvostr.isBlank()  && !portfoliogetrequestvostr.isEmpty())
+				{
+					List<String> errors = null;
+					if(true)
+					{
+						errors=AssetUtil.jsonSchemaValidator(portfoliogetrequestvostr
+								,"./jsonschema/PreferredAssetsByCode.json");
+					}
+					else
+					{
+						errors=AssetUtil.jsonSchemaValidator(portfoliogetrequestvostr
+								,"./jsonschema/preferredassets1.1.json");
+					}
+
+					if (errors != null && errors.size() > 0)
+					{
+						List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+						for (String s : errors)
+						{
+							errorVOs.add(AssetUtil.getError("JSPORT999"));
+							log.fatal(s);
+						}
+						FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+						failedVO.setTenantCode(null);
+						failedVO.setErrors(errorVOs);
+						try
+						{
+							failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(portfoliogetrequestvostr,AssetGetRequestVO.class));
+						} catch (Exception e)
+						{
+							log.fatal(e);
+							throw e;
+						}
+						failedVOs.add(failedVO);
+					}
+					else
+					{
+						successVOs.add(AssetUtil.fromJSonToObject(portfoliogetrequestvostr,
+								AssetGetRequestVO.class));
+					}
+				}
+				else
+				{
+					List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+					errorVOs=null;
+					errorVOs = new ArrayList<ErrorVO>();
+					errorVOs.add(AssetUtil.getError("JSPORT999"));
+					FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+					failedVO.setTenantCode(null);
+					failedVO.setErrors(errorVOs);
+					failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(portfoliogetrequestvostr,AssetGetRequestVO.class));
+					failedVOs.add(failedVO);
+				}
+
+			}
+		}
+		else
+		{
+			List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+			errorVOs.add(AssetUtil.getError("JSPORT999"));
+			FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+			failedVO.setTenantCode(null);
+			failedVO.setErrors(errorVOs);
+			failedVO.setIdentityDetails(new AssetGetRequestVO());
+			failedVOs.add(failedVO);
+		}
+		if(failedVOs.size()>=1)
+		{
+			successVOs=null;
+		}
+		validationMap.put("successVOs", successVOs);
+		validationMap.put("totalVOs", totalVOs);
+		validationMap.put("failedVOs", failedVOs);
+		return validationMap;
+	}
+	
+		public static Map<String, Object> addPreferredassetsValidation(String jsonString,AssetRequestVO assetRequestVO) throws Exception
+	{
+		Map<String, Object> validationMap = new HashMap<>();
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		if(jsonString!=null) {
+			JsonObject jsonObject = gson.fromJson(jsonString, JsonObject.class);
+			JsonArray preferredAssetAddReqList = null;
+			JsonElement preferredAssetAddRequest = jsonObject.get("assetAddRequest").getAsJsonArray();
+			preferredAssetAddReqList=jsonObject.get("assetAddRequest").getAsJsonArray();
+			
+			JsonObject preferredAssetGroupObj = preferredAssetAddReqList.size() > 0?
+					preferredAssetAddReqList.get(0).getAsJsonObject() : null;
+//			.get("preferredAssets").getAsJsonObject()
+			List<JsonObject> jsonArray = new ArrayList();
+			if (preferredAssetGroupObj != null ) {
+				List<JsonObject> totalVOs = totalVOs = new ArrayList<>();
+				List<PreferredAssetGroupVO> successVOs = new ArrayList<>();
+				List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+				boolean isInterfaceRequest = false;
+				
+				JsonObject preferredAssetGrpcheckObj = preferredAssetAddReqList.size() > 0?
+						preferredAssetAddReqList.get(0).getAsJsonObject() : null;
+				JsonArray jsonElementPreferredAssets = preferredAssetGrpcheckObj.get("preferredAssets").getAsJsonArray();
+				JsonObject preferredAssetObjTemp=jsonElementPreferredAssets.get(0).getAsJsonObject();
+				
+				if (preferredAssetObjTemp != null && preferredAssetObjTemp.has("thirdPartyProcessorId1")
+						&& !AssetUtil.jsonNullCheck(preferredAssetObjTemp, "thirdPartyProcessorId1")) {
+					isInterfaceRequest = true;
+					Iterator<JsonElement> iterator = preferredAssetAddReqList.iterator();
+					
+					
+					while (iterator.hasNext()) {
+						boolean hasError = false;
+						preferredAssetAddRequest = iterator.next();
+						JsonObject preferredAssetObj=preferredAssetAddRequest.getAsJsonObject();
+						preferredAssetObj.addProperty("userName", assetRequestVO.getUsername());
+						
+						List<String> errors = null;
+						errors = AssetUtil.jsonSchemaValidator(preferredAssetObj.toString(),
+								"./jsonschema/PreferredAssetSchema.json");
+						
+						if (errors != null && errors.size() > 0) {
+							preferredAssetObj.addProperty("hasError", 1);
+							List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+							for (String error : errors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSPORT999");
+								errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+							}
+							preferredAssetObj.addProperty("errors", gson.toJson(errorVOs));
+							hasError = true;
+						}
+						if (hasError == false) {
+							successVOs.add(AssetUtil.fromJSonToObject(preferredAssetObj.toString(), PreferredAssetGroupVO.class));
+						}
+						jsonArray.add(preferredAssetObj);
+						totalVOs.add(preferredAssetObj);
+					}
+					
+				}else {
+					Iterator<JsonElement> iterator = preferredAssetAddReqList.iterator();
+					while (iterator.hasNext()) {
+						List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+						boolean hasError = false;
+						preferredAssetAddRequest = iterator.next();
+						JsonObject preferredAssetObj=preferredAssetAddRequest.getAsJsonObject();
+						preferredAssetObj.addProperty("userName", assetRequestVO.getUsername());
+						
+						List<String> errors = null;
+						errors = AssetUtil.jsonSchemaValidator(preferredAssetObj.toString(),
+								"./jsonschema/PreferredAssetSchema.json");
+						if (errors != null && errors.size() > 0) {
+							for (String error : errors) {
+								ErrorVO errorVO = new ErrorVO();
+								errorVO.setErrorCode("JSAST999");
+								errorVO.setErrorMessage(AssetUtil.formatErrorMessage(error));
+								errorVOs.add(errorVO);
+								log.fatal(error);
+							}
+							hasError = true;
+						}
+
+						jsonArray.add(preferredAssetObj);
+						totalVOs.add(preferredAssetObj);
+						if (hasError == false) {
+							successVOs.add(AssetUtil.fromJSonToObject(preferredAssetObj.toString(), PreferredAssetGroupVO.class));
+						} else {
+							FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+							failedVO.setErrors(errorVOs);
+							failedVO.setIdentityDetailsAsString(preferredAssetObj);
+							failedVOs.add(failedVO);
+						}
+					}
+				}
+				validationMap.put("successVOs", successVOs);
+				validationMap.put("totalVOs", totalVOs);
+				validationMap.put("failedVOs", failedVOs);
+				validationMap.put("isInterfaceRequest", isInterfaceRequest);
+			}
+		}
+		
+		
+			return validationMap;
+	}
+
+
+
+}

@@ -1,0 +1,7 @@
+package com.toll.demo.srvice;
+
+public interface tollService {
+public int tollSystem(Date enterTime,String vehicleType,String username);
+	
+	public Map<String,Integer> getTotal();
+}

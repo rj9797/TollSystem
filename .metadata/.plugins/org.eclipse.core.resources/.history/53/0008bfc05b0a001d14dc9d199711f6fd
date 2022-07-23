@@ -1,0 +1,397 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+public class UniverseStockVO {
+
+	private BigDecimal id;
+	private String isin;
+	private String assetId1;
+	private String assetId2;
+	private String assetId3;
+	private String assetId4;
+	private String assetId5;
+	
+	private String description1;
+	private String description2;
+	private String description3;
+	
+	private BigDecimal currencyId;
+	private String currencyConfigName;
+	
+	private String name;
+	private BigDecimal regionId;
+	private String regionConfigName;
+	private BigDecimal countryId;
+	private String countryConfigName;
+	private BigDecimal gicsSectorId;
+	private String gicsSectorConfigName;
+	
+	private BigDecimal superSelectModelAttributeId;
+	private String superSelectModelAttributeConfigName;
+	private BigDecimal signalModelAttributeId;
+	private String signalModelAttributeConfigName;
+	private BigDecimal klayOfferingModelAttributeId;
+	private String klayOfferingModelAttributeConfigName;
+
+	private BigDecimal rankingBasedChangeBrokerRatings;
+	
+	private int isActive;
+	private String username;
+	private String createdBy;
+	private Date createdDate;
+	
+	private String updatedBy;
+	private Date updatedDate;
+	
+	private BigDecimal _thirdPartyProcessorId1;
+	private BigDecimal _thirdPartyProcessorId2;
+	private String fileTempStorageId;
+	
+	List<DocumentVO> documents;
+	
+	private List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBroker;
+	
+	private String internalReferenceNumber;
+	private String externalReferenceNumber;	
+
+	public BigDecimal getId() {
+		return id;
+	}
+
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+
+	public String getIsin() {
+		return isin;
+	}
+
+	public void setIsin(String isin) {
+		this.isin = isin;
+	}
+
+	public String getAssetId1() {
+		return assetId1;
+	}
+
+	public void setAssetId1(String assetId1) {
+		this.assetId1 = assetId1;
+	}
+
+	public String getAssetId2() {
+		return assetId2;
+	}
+
+	public void setAssetId2(String assetId2) {
+		this.assetId2 = assetId2;
+	}
+
+	public String getAssetId3() {
+		return assetId3;
+	}
+
+	public void setAssetId3(String assetId3) {
+		this.assetId3 = assetId3;
+	}
+
+	public String getAssetId4() {
+		return assetId4;
+	}
+
+	public void setAssetId4(String assetId4) {
+		this.assetId4 = assetId4;
+	}
+
+	public String getAssetId5() {
+		return assetId5;
+	}
+
+	public void setAssetId5(String assetId5) {
+		this.assetId5 = assetId5;
+	}
+
+	public String getDescription1() {
+		return description1;
+	}
+
+	public void setDescription1(String description1) {
+		this.description1 = description1;
+	}
+
+	public String getDescription2() {
+		return description2;
+	}
+
+	public void setDescription2(String description2) {
+		this.description2 = description2;
+	}
+
+	public String getDescription3() {
+		return description3;
+	}
+
+	public void setDescription3(String description3) {
+		this.description3 = description3;
+	}
+
+	public BigDecimal getCurrencyId() {
+		return currencyId;
+	}
+
+	public void setCurrencyId(BigDecimal currencyId) {
+		this.currencyId = currencyId;
+	}
+
+	public String getCurrencyConfigName() {
+		return currencyConfigName;
+	}
+
+	public void setCurrencyConfigName(String currencyConfigName) {
+		this.currencyConfigName = currencyConfigName;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public BigDecimal getRegionId() {
+		return regionId;
+	}
+
+	public void setRegionId(BigDecimal regionId) {
+		this.regionId = regionId;
+	}
+
+	public String getRegionConfigName() {
+		return regionConfigName;
+	}
+
+	public void setRegionConfigName(String regionConfigName) {
+		this.regionConfigName = regionConfigName;
+	}
+
+	public BigDecimal getCountryId() {
+		return countryId;
+	}
+
+	public void setCountryId(BigDecimal countryId) {
+		this.countryId = countryId;
+	}
+
+	public String getCountryConfigName() {
+		return countryConfigName;
+	}
+
+	public void setCountryConfigName(String countryConfigName) {
+		this.countryConfigName = countryConfigName;
+	}
+
+	public BigDecimal getGicsSectorId() {
+		return gicsSectorId;
+	}
+
+	public void setGicsSectorId(BigDecimal gicsSectorId) {
+		this.gicsSectorId = gicsSectorId;
+	}
+
+	public String getGicsSectorConfigName() {
+		return gicsSectorConfigName;
+	}
+
+	public void setGicsSectorConfigName(String gicsSectorConfigName) {
+		this.gicsSectorConfigName = gicsSectorConfigName;
+	}
+
+	public BigDecimal getSuperSelectModelAttributeId() {
+		return superSelectModelAttributeId;
+	}
+
+	public void setSuperSelectModelAttributeId(BigDecimal superSelectModelAttributeId) {
+		this.superSelectModelAttributeId = superSelectModelAttributeId;
+	}
+
+	public String getSuperSelectModelAttributeConfigName() {
+		return superSelectModelAttributeConfigName;
+	}
+
+	public void setSuperSelectModelAttributeConfigName(String superSelectModelAttributeConfigName) {
+		this.superSelectModelAttributeConfigName = superSelectModelAttributeConfigName;
+	}
+
+	public BigDecimal getSignalModelAttributeId() {
+		return signalModelAttributeId;
+	}
+
+	public void setSignalModelAttributeId(BigDecimal signalModelAttributeId) {
+		this.signalModelAttributeId = signalModelAttributeId;
+	}
+
+	public String getSignalModelAttributeConfigName() {
+		return signalModelAttributeConfigName;
+	}
+
+	public void setSignalModelAttributeConfigName(String signalModelAttributeConfigName) {
+		this.signalModelAttributeConfigName = signalModelAttributeConfigName;
+	}
+
+	public BigDecimal getKlayOfferingModelAttributeId() {
+		return klayOfferingModelAttributeId;
+	}
+
+	public void setKlayOfferingModelAttributeId(BigDecimal klayOfferingModelAttributeId) {
+		this.klayOfferingModelAttributeId = klayOfferingModelAttributeId;
+	}
+
+	public String getKlayOfferingModelAttributeConfigName() {
+		return klayOfferingModelAttributeConfigName;
+	}
+
+	public void setKlayOfferingModelAttributeConfigName(String klayOfferingModelAttributeConfigName) {
+		this.klayOfferingModelAttributeConfigName = klayOfferingModelAttributeConfigName;
+	}
+
+	public BigDecimal getRankingBasedChangeBrokerRatings() {
+		return rankingBasedChangeBrokerRatings;
+	}
+
+	public void setRankingBasedChangeBrokerRatings(BigDecimal rankingBasedChangeBrokerRatings) {
+		this.rankingBasedChangeBrokerRatings = rankingBasedChangeBrokerRatings;
+	}
+
+	public int getIsActive() {
+		return isActive;
+	}
+
+	public void setIsActive(int isActive) {
+		this.isActive = isActive;
+	}
+
+	public String getCreatedBy() {
+		return createdBy;
+	}
+
+	public void setCreatedBy(String createdBy) {
+		this.createdBy = createdBy;
+	}
+
+	public Date getCreatedDate() {
+		return createdDate;
+	}
+
+	public void setCreatedDate(Date createdDate) {
+		this.createdDate = createdDate;
+	}
+
+	public String getUpdatedBy() {
+		return updatedBy;
+	}
+
+	public void setUpdatedBy(String updatedBy) {
+		this.updatedBy = updatedBy;
+	}
+
+	public Date getUpdatedDate() {
+		return updatedDate;
+	}
+
+	public void setUpdatedDate(Date updatedDate) {
+		this.updatedDate = updatedDate;
+	}
+
+	public List<UniverseStockDetailsByBrokerVO> getUniverseStockDetailsByBroker() {
+		return universeStockDetailsByBroker;
+	}
+
+	public void setUniverseStockDetailsByBroker(List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBroker) {
+		this.universeStockDetailsByBroker = universeStockDetailsByBroker;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+
+	public void set_thirdPartyProcessorId1(BigDecimal _thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = _thirdPartyProcessorId1;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+
+	public void set_thirdPartyProcessorId2(BigDecimal _thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = _thirdPartyProcessorId2;
+	}
+
+	public String getFileTempStorageId() {
+		return fileTempStorageId;
+	}
+
+	public void setFileTempStorageId(String fileTempStorageId) {
+		this.fileTempStorageId = fileTempStorageId;
+	}
+
+	public String getInternalReferenceNumber() {
+		return internalReferenceNumber;
+	}
+
+	public void setInternalReferenceNumber(String internalReferenceNumber) {
+		this.internalReferenceNumber = internalReferenceNumber;
+	}
+
+	public String getExternalReferenceNumber() {
+		return externalReferenceNumber;
+	}
+
+	public void setExternalReferenceNumber(String externalReferenceNumber) {
+		this.externalReferenceNumber = externalReferenceNumber;
+	}
+
+	public List<DocumentVO> getDocuments() {
+		return documents;
+	}
+
+	public void setDocuments(List<DocumentVO> documents) {
+		this.documents = documents;
+	}
+
+	@Override
+	public String toString() {
+		return "UniverseStockVO [id=" + id + ", isin=" + isin + ", assetId1=" + assetId1 + ", assetId2=" + assetId2
+				+ ", assetId3=" + assetId3 + ", assetId4=" + assetId4 + ", assetId5=" + assetId5 + ", description1="
+				+ description1 + ", description2=" + description2 + ", description3=" + description3 + ", currencyId="
+				+ currencyId + ", currencyConfigName=" + currencyConfigName + ", name=" + name + ", regionId="
+				+ regionId + ", regionConfigName=" + regionConfigName + ", countryId=" + countryId
+				+ ", countryConfigName=" + countryConfigName + ", gicsSectorId=" + gicsSectorId
+				+ ", gicsSectorConfigName=" + gicsSectorConfigName + ", superSelectModelAttributeId="
+				+ superSelectModelAttributeId + ", superSelectModelAttributeConfigName="
+				+ superSelectModelAttributeConfigName + ", signalModelAttributeId=" + signalModelAttributeId
+				+ ", signalModelAttributeConfigName=" + signalModelAttributeConfigName
+				+ ", klayOfferingModelAttributeId=" + klayOfferingModelAttributeId
+				+ ", klayOfferingModelAttributeConfigName=" + klayOfferingModelAttributeConfigName
+				+ ", rankingBasedChangeBrokerRatings=" + rankingBasedChangeBrokerRatings + ", isActive=" + isActive
+				+ ", username=" + username + ", createdBy=" + createdBy + ", createdDate=" + createdDate
+				+ ", updatedBy=" + updatedBy + ", updatedDate=" + updatedDate + ", _thirdPartyProcessorId1="
+				+ _thirdPartyProcessorId1 + ", _thirdPartyProcessorId2=" + _thirdPartyProcessorId2
+				+ ", fileTempStorageId=" + fileTempStorageId + ", documents=" + documents
+				+ ", universeStockDetailsByBroker=" + universeStockDetailsByBroker + ", internalReferenceNumber="
+				+ internalReferenceNumber + ", externalReferenceNumber=" + externalReferenceNumber + "]";
+	}
+
+	
+	
+}

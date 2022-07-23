@@ -1,0 +1,77 @@
+package com.klayx.asset.common;
+
+import java.math.BigDecimal;
+
+public class AssetConstants {
+
+	public static final String REQUESTMAPPING = "/assetmanagement/v1";
+
+	public static final String ASSETSERVICE = "AssetServiceImpl";
+
+	public static final String ASSETPRICESERVICE = "AssetPriceServiceImpl";
+
+	public static final String ASSETRETURNSSERVICE = "AssetReturnsServiceImpl";
+
+	public static final String ASSETKEYFIGURESERVICE = "AssetKeyFigureServiceImpl";
+
+	public static final String EXCHANGERATESERVICE = "ExchangeRateServiceImpl";
+	
+	public static final String ASSETSPMATRICSSERVICE="AssetSPMetricsServiceImpl";
+	
+	public static final String BUSINESSVALIDATORSERVICE = "AssetBusinessValidatorImpl";
+
+	public static final String ASSETDAO = "AssetDaoImpl";
+
+	public static final String ASSETPRICEDAO = "AssetPriceDaoImpl";
+
+	public static final String ASSETRETURNSEDAO = "AssetReturnsDaoImpl";
+
+	public static final String ASSETCOMPOSITESERVICE = "AssetCompositeImpl";
+
+	public static final String ASSETPERFORMANCEDAO = "AssetPerformanceDaoImpl";
+
+	public static final String EXCHANGERATEDAO = "ExchangeRateDao";
+
+	public static final String ASSETKEYFIGUREDAO = "AssetDaoKeyFigureImpl";
+
+	public static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+	
+	public static final String DEFAULTTENANTCODE = "klayx";
+	
+	public static final String ASSETTTENANTCODE = "t4c7";
+	
+	public static final String ASSETTTENANTCODECHECK = "t4k8";
+	
+	public static final int AMOUNT_PRECISION = 30;
+	
+	public static final String KEYFIGURECONFIGNAME="ACM1921";
+	
+	public static final BigDecimal KEYFIGUREID=new BigDecimal(2643);
+
+	public static final String ASSETPRICECONFIGNAME="ACM1922";
+	
+	public static final BigDecimal ASSETPRICEID=new BigDecimal(2644);
+
+	public static final String ASSETRETURNSCONFIGNAME="ACM1923";
+	
+	public static final BigDecimal ASSETRETURNSID=new BigDecimal(2645);
+	
+	public static final String EXCHANGERATECONFIGNAME="ACM1924";
+	
+	public static final BigDecimal EXCHANGERATEID=new BigDecimal(2646);
+	
+	public static final String UNIVERSESTOCKSERVICE = "UniverseStockServiceImpl";
+	
+	public static final String UNIVERSESTOCKDAO = "UniverseStockDAOImpl";
+	
+	public static final String KLAY_ASSET_RATING_NOT_RATED = "ACM1963";
+	public static final String KLAY_ASSET_RATING_BUY = "ACM1964";
+	public static final String KLAY_ASSET_RATING_NEUTRAL = "ACM1965";
+	public static final String KLAY_ASSET_RATING_SELL = "ACM1966";
+	public static final String KLAY_ASSET_RATING_NOT_COVERED = "ACM2072";
+	
+	
+	
+	
+	
+}

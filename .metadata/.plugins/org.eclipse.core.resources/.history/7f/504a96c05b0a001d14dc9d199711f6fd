@@ -1,0 +1,82 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+
+public class PreferredAssetGroupVO
+{
+	private String groupTypeConfigName;
+    private BigDecimal groupTypeId;
+    private String groupCode;
+    private BigDecimal id;
+    private String userName;
+	private int isActive;
+    private List<PreferredAssetVO> preferredAssets;
+    private Date referenceDate;
+    private Date maxEffFromDate;
+	public String getGroupTypeConfigName() {
+		return groupTypeConfigName;
+	}
+	public void setGroupTypeConfigName(String groupTypeConfigName) {
+		this.groupTypeConfigName = groupTypeConfigName;
+	}
+	public BigDecimal getGroupTypeId() {
+		return groupTypeId;
+	}
+	public void setGroupTypeId(BigDecimal groupTypeId) {
+		this.groupTypeId = groupTypeId;
+	}
+	public String getGroupCode() {
+		return groupCode;
+	}
+	public void setGroupCode(String groupCode) {
+		this.groupCode = groupCode;
+	}
+	public BigDecimal getId() {
+		return id;
+	}
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+	public String getUserName() {
+		return userName;
+	}
+	public void setUserName(String userName) {
+		this.userName = userName;
+	}
+	public int getIsActive() {
+		return isActive;
+	}
+	public void setIsActive(int isActive) {
+		this.isActive = isActive;
+	}
+	public List<PreferredAssetVO> getPreferredAssets() {
+		return preferredAssets;
+	}
+	public void setPreferredAssets(List<PreferredAssetVO> preferredAssets) {
+		this.preferredAssets = preferredAssets;
+	}
+	public Date getReferenceDate() {
+		return referenceDate;
+	}
+	public void setReferenceDate(Date referenceDate) {
+		this.referenceDate = referenceDate;
+	}
+	public Date getMaxEffFromDate() {
+		return maxEffFromDate;
+	}
+	public void setMaxEffFromDate(Date maxEffFromDate) {
+		this.maxEffFromDate = maxEffFromDate;
+	}
+	@Override
+	public String toString() {
+		return "PreferredAssetGroupVO [groupTypeConfigName=" + groupTypeConfigName + ", groupTypeId=" + groupTypeId
+				+ ", groupCode=" + groupCode + ", id=" + id + ", userName=" + userName + ", isActive=" + isActive
+				+ ", preferredAssets=" + preferredAssets + ", referenceDate=" + referenceDate + ", maxEffFromDate="
+				+ maxEffFromDate + "]";
+	}
+    
+    
+}

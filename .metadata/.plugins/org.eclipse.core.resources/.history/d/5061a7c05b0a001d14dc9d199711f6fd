@@ -1,0 +1,39 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.sql.Date;
+
+public class TenantInfoVO {
+	
+	BigDecimal id;
+	String tenant_code;
+	String tenant_name;
+	String contact_person;
+	public BigDecimal getId() {
+		return id;
+	}
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+	public String getTenant_code() {
+		return tenant_code;
+	}
+	public void setTenant_code(String tenant_code) {
+		this.tenant_code = tenant_code;
+	}
+	public String getTenant_name() {
+		return tenant_name;
+	}
+	public void setTenant_name(String tenant_name) {
+		this.tenant_name = tenant_name;
+	}
+	public String getContact_person() {
+		return contact_person;
+	}
+	public void setContact_person(String contact_person) {
+		this.contact_person = contact_person;
+	}
+	
+	
+
+}

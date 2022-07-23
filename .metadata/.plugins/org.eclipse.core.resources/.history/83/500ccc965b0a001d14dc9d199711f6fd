@@ -1,0 +1,1380 @@
+package com.klayx.asset.service.impl;
+
+import java.io.InputStream;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.sql.Time;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.stereotype.Service;
+import org.springframework.util.FileCopyUtils;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IAssetDAO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetPerformanceVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetSPMetricsVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.PreferredAssetGroupVO;
+import com.klayx.asset.model.PreferredAssetVO;
+import com.klayx.asset.model.ResponseVO;
+import com.klayx.asset.model.SearchDateFieldValuesVO;
+import com.klayx.asset.model.SearchDateVO;
+import com.klayx.asset.model.SearchNumberFieldValuesVO;
+import com.klayx.asset.model.SearchNumberVO;
+import com.klayx.asset.model.SearchRequestVO;
+import com.klayx.asset.model.SearchResultDataVO;
+import com.klayx.asset.model.SearchTextFieldValuesVO;
+import com.klayx.asset.model.SearchTextVO;
+import com.klayx.asset.model.TenantInfoVO;
+import com.klayx.asset.model.UnderlyingAssetsVO;
+import com.klayx.asset.service.IAssetKeyFigureService;
+import com.klayx.asset.service.IAssetPriceService;
+import com.klayx.asset.service.IAssetReturnsService;
+import com.klayx.asset.service.IAssetSPMetricsService;
+import com.klayx.asset.service.IAssetService;
+import com.klayx.asset.transactionmanager.CustomTransactional;
+import com.klayx.asset.validator.IAssetBusinessValidator;
+
+@Service(AssetConstants.ASSETSERVICE)
+public class AssetServiceImpl implements IAssetService {
+
+	private static final Logger log = LogManager.getLogger(AssetServiceImpl.class);
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETDAO)
+	private IAssetDAO assetDao;
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETKEYFIGURESERVICE)
+	private IAssetKeyFigureService assetKeyFigureService;
+
+	@Autowired
+	@Qualifier(AssetConstants.BUSINESSVALIDATORSERVICE)
+	private IAssetBusinessValidator assetBusinessValidator;
+
+	@Autowired
+	IAssetSPMetricsService assetSPMetricsService;
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETPRICESERVICE)
+	private IAssetPriceService assetPriceService;
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETRETURNSSERVICE)
+	private IAssetReturnsService assetReturnService;
+
+	@Value("${GET_TENANT_INFO_URL}")
+	private String getTenantInfoUrl;
+
+	Gson gson = new Gson();
+	
+	@Override
+//	@Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+	public void addAsset(AssetVO assetVO) throws Exception {
+
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			// assetDao.addAsset(assetVO);
+		} catch (Exception exp) {
+			throw exp;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@Override
+//	@Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+//	@CustomTransactional
+	public void addAssets(String tenantCode,List<AssetVO> successVOs, List<FailedVO<AssetVO>> failedVOs,
+			List<JsonObject> totalVOs, boolean isInterfaceRequest,
+			AssetRequestVO reqParam) throws Exception {
+
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			
+			assetBusinessValidator.validateAsset(successVOs, failedVOs, totalVOs, isInterfaceRequest, reqParam);
+			/* Calling Maintainance Service to get tenantId and setting it to requestVO */
+			if (reqParam.get_tenantId() == null) {
+				JsonObject obj = new JsonObject();
+				obj.addProperty("tenantCode", reqParam.getTenantCode());
+				TenantInfoVO tenantInfo = null;
+				String tenantInfoAsStr = AssetUtil.syncHttpCall(gson.toJson(obj), getTenantInfoUrl,
+						reqParam.getAccessToken());
+				tenantInfo = AssetUtil.fromJSonToObject(tenantInfoAsStr, TenantInfoVO.class);
+				reqParam.set_tenantId(tenantInfo.getId());
+			}
+			if (successVOs!=null && successVOs.size() > 0)
+				assetDao.addAssets(reqParam.getTenantCode(),successVOs,reqParam);
+
+		} catch (Exception exp) {
+			log.fatal("Error: ",exp);
+			throw exp;
+		}
+	}
+
+
+	@Override
+	public AssetRequestVO getAssetPerformance(AssetRequestVO request) {
+
+		return null;
+	}
+
+
+	@Override
+	public Map<String, Object> getAssets(List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO requestVO) throws Exception {
+
+		Map<String, Object> responseMap = new HashMap<>();
+		int totalRecords = 0;
+		int totalfailedRecords = 0;
+		ResponseVO<AssetVO, AssetGetRequestVO> responseVO = new ResponseVO<AssetVO, AssetGetRequestVO>();
+		List<String> isin = new ArrayList<String>();
+		List<String> currency = new ArrayList<String>();
+		ErrorVO errorData; // Level 0
+		List<ErrorVO> listErrorData = new ArrayList<ErrorVO>(); // level 0
+		ArrayList<FailedVO<AssetGetRequestVO>> failed = new ArrayList<FailedVO<AssetGetRequestVO>>();
+		AssetGetRequestVO identityDetails;
+
+		FailedVO<AssetGetRequestVO> failedata; // Level 1
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			List<AssetVO> assetVOs = assetDao.getAsset(requestVO.getTenantCode(),requestVO.getAssetGetRequest(), requestVO.get_tenantId());
+			assetBusinessValidator.validateAssetResult(successVOs, failedVOs, requestVO, assetVOs);
+			responseMap.put("successVOs", assetVOs);
+			responseMap.put("failedVOs", failedVOs);
+		} catch (Exception exp) {
+			log.fatal("Error: "+exp);
+			throw exp;
+		}
+		return responseMap;
+	}
+
+	@Override
+	public Map<String, Object> getAssetPerformanceInfo(String tenantCode,List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO reqParam) {
+		Map<String, Object> responseMap = new HashMap<>();
+		ResponseVO<AssetVO, AssetGetRequestVO> response = new ResponseVO<AssetVO, AssetGetRequestVO>();
+//		List<FailedVO<AssetGetRequestVO>> failRequests = new ArrayList<FailedVO<AssetGetRequestVO>>();
+
+		List<AssetPerformanceVO> mainResponse = new ArrayList<AssetPerformanceVO>();
+		AssetPerformanceVO assetPerformanceVO = new AssetPerformanceVO();
+		List<AssetKeyFigureVO> assetKeyFigureList = new ArrayList<AssetKeyFigureVO>();
+		List<AssetPriceVO> assetPriceList = new ArrayList<AssetPriceVO>();
+		List<AssetSPMetricsVO> assetSPMetricsList = new ArrayList<AssetSPMetricsVO>();
+		List<AssetVO> assetVOs = new ArrayList<AssetVO>();
+		List<AssetVO> responseAssetVOs = new ArrayList<AssetVO>();
+		try {
+
+			// Unique isin and currency Logic
+			List<AssetGetRequestVO> getRequestList = new ArrayList<AssetGetRequestVO>();
+			Map<String, AssetGetRequestVO> map = new HashMap<String, AssetGetRequestVO>();
+			for (int i = 0; i < successVOs.size(); i++) {
+				String uniqueKey = successVOs.get(i).getIsin() + successVOs.get(i).getCurrencyConfigName();
+				if (map.containsKey(uniqueKey)) {
+//List of AssetVOs---vo
+				} else {
+					map.put(uniqueKey, successVOs.get(i));
+					getRequestList.add(successVOs.get(i));
+				}
+			}
+			assetVOs = assetDao.getAsset(reqParam.getTenantCode(),getRequestList, reqParam.get_tenantId());
+
+			Map<String, Object> resultAssetKeyFig=assetKeyFigureService.getAssetsKeyFigures(tenantCode,successVOs, failedVOs, reqParam);
+			
+			assetKeyFigureList = (List<AssetKeyFigureVO>) resultAssetKeyFig.get("successVOs");
+
+			Map<String, Object> resultAssetPrice = assetPriceService.getAssetPrice(reqParam.getTenantCode(),successVOs,
+					failedVOs, reqParam);
+			 assetPriceList=(List<AssetPriceVO>) resultAssetPrice.get("successVOs");
+
+			// Response LOGIC
+			List<AssetGetRequestVO> responseCollection = new ArrayList<AssetGetRequestVO>();
+			List<AssetGetRequestVO> failedResponseCollection = new ArrayList<AssetGetRequestVO>();
+			int flag;
+			for (int i = 0; i < successVOs.size(); i++) { // ISIN1 CUUR6
+				String isinReq = successVOs.get(i).getIsin();
+				String currReq = successVOs.get(i).getCurrencyConfigName();
+				flag = 0;
+				for (int j = 0; j < assetVOs.size(); j++) {
+					if (isinReq.equals(assetVOs.get(j).getIsin())// ISIN1 cur2, ISIN1 CUUR1
+							&& currReq.equals(assetVOs.get(j).getCurrencyAppConfigName())) {
+						responseCollection.add(successVOs.get(i));// list1
+						flag = 1;
+						break;
+					}
+				}
+				if (flag == 0) {
+					failedResponseCollection.add(successVOs.get(i));
+					FailedVO<AssetGetRequestVO> failedVO = new FailedVO<AssetGetRequestVO>();
+					failedVO.setIdentityDetails(successVOs.get(i));
+					List<ErrorVO> errorVO = new ArrayList<ErrorVO>();
+					ErrorVO error = new ErrorVO();
+					error.setErrorMessage("Record Not Present in Asset_Master");
+					error.setErrorCode("404");
+					errorVO.add(error);
+					failedVO.setErrors(errorVO);
+					failedVO.setReferenceDate(reqParam.getReferenceDate());
+					failedVOs.add(failedVO);
+				}
+			}
+
+			List<AssetGetRequestVO> responseCollectionPrice = new ArrayList<AssetGetRequestVO>();
+
+			for (int i = 0; i < responseCollection.size(); i++) {// list1
+				flag = 0;
+				String isinReq = responseCollection.get(i).getIsin();
+				String currReq = responseCollection.get(i).getCurrencyConfigName();
+				for (int j = 0; j < assetPriceList.size(); j++) {
+
+					if (isinReq.equals(assetPriceList.get(j).getIsin())
+							&& currReq.equals(assetPriceList.get(j).getCurrencyAppConfigName())) {
+						responseCollectionPrice.add(responseCollection.get(i));// list2
+						flag = 1;
+						break;
+					}
+				}
+				if (flag == 0) {
+					failedResponseCollection.add(responseCollection.get(i));
+					FailedVO<AssetGetRequestVO> failedVO = new FailedVO<AssetGetRequestVO>();
+					failedVO.setIdentityDetails(responseCollection.get(i));
+					List<ErrorVO> errorVO = new ArrayList<ErrorVO>();
+					ErrorVO error = new ErrorVO();
+					error.setErrorMessage("Record Not Present in Asset_Price");
+					error.setErrorCode("404");
+					errorVO.add(error);
+					failedVO.setErrors(errorVO);
+					failedVO.setReferenceDate(reqParam.getReferenceDate());
+					failedVOs.add(failedVO);
+				}
+			}
+
+			List<AssetGetRequestVO> responseCollectionKeyFig = new ArrayList<AssetGetRequestVO>();
+
+			for (int i = 0; i < responseCollectionPrice.size(); i++) {
+				String isinReq = responseCollectionPrice.get(i).getIsin();
+				String currReq = responseCollectionPrice.get(i).getCurrencyConfigName();
+				flag = 0;
+				for (int j = 0; j < assetKeyFigureList.size(); j++) {
+
+					if (isinReq.equals(assetKeyFigureList.get(j).getIsin())
+							&& currReq.equals(assetKeyFigureList.get(j).get_currencyAppConfigName())) {
+						responseCollectionKeyFig.add(responseCollectionPrice.get(i));
+						flag = 1;
+						
+						break;
+					}
+				}
+				if (flag == 0) {
+					failedResponseCollection.add(responseCollectionPrice.get(i));
+					FailedVO<AssetGetRequestVO> failedVO = new FailedVO<AssetGetRequestVO>();
+					failedVO.setIdentityDetails(responseCollectionPrice.get(i));
+
+					List<ErrorVO> errorVO = new ArrayList<ErrorVO>();
+					ErrorVO error = new ErrorVO();
+					error.setErrorMessage("Record Not Present in Asset_Key_Figure");
+					error.setErrorCode("404");
+					errorVO.add(error);
+					failedVO.setErrors(errorVO);
+					failedVO.setReferenceDate(reqParam.getReferenceDate());
+					failedVOs.add(failedVO);
+				}
+			}
+
+			Map<String,String> subCatagoryMap=new HashMap<String, String>();
+			for(int i=0;i<assetVOs.size();i++) {
+				for(int j=0;j<responseCollectionKeyFig.size();j++) {
+					if(assetVOs.get(i).getIsin().equals(responseCollectionKeyFig.get(j).getIsin())
+							&& assetVOs.get(i).getCurrencyAppConfigName().equals(responseCollectionKeyFig.get(j).getCurrencyConfigName())) {
+						subCatagoryMap.put(responseCollectionKeyFig.get(j).getIsin()+"|"+responseCollectionKeyFig.get(j).getCurrencyConfigName(), assetVOs.get(i).getSubcategory1AppConfigName());
+						break;
+					}
+				}
+				if(subCatagoryMap.size()==responseCollectionKeyFig.size()) {
+					break;
+				}
+			}
+			assetSPMetricsList = assetSPMetricsService.getStructureProductMetricsList(tenantCode,getRequestList,
+					reqParam.getReferenceDate());
+
+			List<AssetGetRequestVO> responseCollectionSPMetrics = new ArrayList<AssetGetRequestVO>();
+
+			for (int i = 0; i < responseCollectionKeyFig.size(); i++) {
+				String isinReq = responseCollectionKeyFig.get(i).getIsin();
+				String currReq = responseCollectionKeyFig.get(i).getCurrencyConfigName();
+				flag = 0;
+
+				
+
+				if ("ACM236".equals(subCatagoryMap.get(responseCollectionKeyFig.get(i).getIsin() + "|" + responseCollectionKeyFig.get(i).getCurrencyConfigName()))
+						|| ("ACM247".equals(subCatagoryMap.get(responseCollectionKeyFig.get(i).getIsin() + "|" + responseCollectionKeyFig.get(i).getCurrencyConfigName())))
+						|| ("ACM250".equals(subCatagoryMap.get(responseCollectionKeyFig.get(i).getIsin() + "|" + responseCollectionKeyFig.get(i).getCurrencyConfigName())))) {
+					for (int j = 0; j < assetSPMetricsList.size(); j++) {
+						if (isinReq.equals(assetSPMetricsList.get(j).getIsin())
+								&& currReq.equals(assetSPMetricsList.get(j).getCurrencyConfigName())) {
+							responseCollectionSPMetrics.add(responseCollectionKeyFig.get(i));
+							flag = 1;
+						}
+					}
+
+				} else {
+					responseCollectionSPMetrics.add(responseCollectionKeyFig.get(i));
+					flag = 1;
+				}
+				if (flag == 0) {
+
+					failedResponseCollection.add(responseCollectionKeyFig.get(i));
+					FailedVO<AssetGetRequestVO> failedVO = new FailedVO<AssetGetRequestVO>();
+					failedVO.setIdentityDetails(responseCollectionKeyFig.get(i));
+
+					List<ErrorVO> errorVO = new ArrayList<ErrorVO>();
+					ErrorVO error = new ErrorVO();
+					error.setErrorMessage("Record Not Present in Asset_SP_Metrics");
+					error.setErrorCode("404");
+					errorVO.add(error);
+					failedVO.setErrors(errorVO);
+					failedVO.setReferenceDate(reqParam.getReferenceDate());
+					failedVOs.add(failedVO);
+				}
+			}
+
+//			int flag1=0;
+//			for(int j=0;j<responseCollectionKeyFig.size();j++) {
+//				if (assetVOs.get(i).get_id() != null
+//						&& assetVOs.get(i).getIsin().equals(responseCollectionKeyFig.get(j).getIsin()) && assetVOs.get(i)
+//								.getCurrencyAppConfigName().equals(responseCollectionKeyFig.get(j).getCurrencyConfigName()))
+//				{
+//					flag1=1;
+//				}
+//				else {
+//					failedResponseCollection.add(responseCollectionKeyFig.get(j));
+//				}
+//			}
+
+			for (int x = 0; x < responseCollectionSPMetrics.size(); x++) {
+
+				for (int i = 0; i < assetVOs.size(); i++) {// responseCollectionKeyFig
+					if (responseCollectionSPMetrics.get(x).getIsin().equals(assetVOs.get(i).getIsin())
+							&& responseCollectionSPMetrics.get(x).getCurrencyConfigName()
+									.equals(assetVOs.get(i).getCurrencyAppConfigName())) {
+						List<AssetPriceVO> assetPriceListResponse = new ArrayList<AssetPriceVO>();
+						List<AssetKeyFigureVO> assetKeyFigureResponse = new ArrayList<AssetKeyFigureVO>();
+						List<AssetSPMetricsVO> assetSPMetricsResponse = new ArrayList<AssetSPMetricsVO>();
+
+						for (int j = 0; j < assetPriceList.size(); j++) {
+
+							if (assetVOs.get(i).getId() != null
+									&& assetVOs.get(i).getIsin().equals(assetPriceList.get(j).getIsin())
+									&& assetVOs.get(i).getCurrencyAppConfigName()
+											.equals(assetPriceList.get(j).getCurrencyAppConfigName())) {
+								assetPriceListResponse.add(assetPriceList.get(j));
+							}
+						}
+
+						assetVOs.get(i).setAssetPrice(assetPriceListResponse);
+						for (int j = 0; j < assetKeyFigureList.size(); j++) {
+							if (assetVOs.get(i).getId() != null
+									&& assetVOs.get(i).getIsin().equals(assetKeyFigureList.get(j).getIsin())
+									&& assetVOs.get(i).getCurrencyAppConfigName()
+											.equals(assetKeyFigureList.get(j).get_currencyAppConfigName())) {
+								assetKeyFigureResponse.add(assetKeyFigureList.get(j));
+							}
+						}
+						assetVOs.get(i).setAssetKeyFigure(assetKeyFigureResponse);
+
+						if("ACM236".equals( assetVOs.get(i).getSubcategory1AppConfigName())
+								||("ACM247".equals( assetVOs.get(i).getSubcategory1AppConfigName()))||
+										("ACM236".equals( assetVOs.get(i).getSubcategory1AppConfigName()))){
+						for (int j = 0; j < assetSPMetricsList.size(); j++) {
+							
+								if (assetVOs.get(i).getId() != null
+										&& assetVOs.get(i).getIsin().equals(assetSPMetricsList.get(j).getIsin())
+										&& assetVOs.get(i).getCurrencyAppConfigName()
+												.equals(assetSPMetricsList.get(j).getCurrencyConfigName())) {
+									assetSPMetricsResponse.add(assetSPMetricsList.get(j));
+								}
+							}
+						}
+
+						if (assetSPMetricsResponse.size() > 0) {
+							for (int i1 = 0; i1 < assetSPMetricsResponse.size(); i1++)
+								assetVOs.get(i).setAssetSPMetrics(assetSPMetricsResponse.get(i1));
+						}
+						responseAssetVOs.add(assetVOs.get(i));
+					}
+				}
+			}
+
+			response.setTotalfailedRecords(failedResponseCollection.size());
+
+			// response.setFailed(failRequests);
+			mainResponse.add(assetPerformanceVO);
+		} catch (Exception exception) {
+			log.fatal("Error: "+exception);
+		}
+		// response.setFailed(failRequests);
+
+		responseMap.put("successVOs", responseAssetVOs);
+		responseMap.put("failedVOs", failedVOs);
+		// response.setSuccess(responseAssetVOs);
+		// response.setTotalRecords(successVOs.size());
+		return responseMap;
+	}
+
+	// *********************************BatchInactive*********************************************
+
+	@Override
+//	@Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+	public String assetsInactive(AssetRequestVO requestVO) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		int count = 0;
+		try {
+			count = assetDao.assetsInactive(requestVO.getTenantCode());
+		} catch (Exception exp) {
+			log.fatal("Error: "+exp);
+			throw exp;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+		String responseString = Integer.toString(count);
+		return responseString;
+	}
+
+	@Override
+	public ResponseVO<SearchResultDataVO, SearchRequestVO> getAssetSearchInResponse(AssetRequestVO assetRequestVO) throws Exception{
+
+		ResponseVO<SearchResultDataVO, SearchRequestVO> response = null;
+		try {
+			SearchRequestVO assetSearchRequest = assetRequestVO.getSearchRequest();
+			StringBuilder queryConditions = new StringBuilder();
+			List<String> searchInTextParams = new ArrayList<String>();
+			List<String> textSearchParams = new ArrayList<String>();
+			List<String> dateSearchParams = new ArrayList<String>();
+			List<String> numberSearchParams = new ArrayList<String>();
+
+			if (assetSearchRequest.getSearchInText() != null
+					&& !assetSearchRequest.getSearchInText().equalsIgnoreCase("")) {
+
+				StringBuilder tokenizeFieldsQuery = new StringBuilder();
+
+				HashMap<Integer, String> tokenizeFieldMap = new HashMap<Integer, String>();
+
+				tokenizeFieldMap.put(1, "ISIN");
+				tokenizeFieldMap.put(2, "NAME");
+				tokenizeFieldMap.put(3, "Asset_Id_1");
+				tokenizeFieldMap.put(4, "Asset_Id_2");
+				tokenizeFieldMap.put(5, "Asset_Id_3");
+				tokenizeFieldMap.put(6, "Asset_Id_4");
+				tokenizeFieldMap.put(7, "Asset_Id_5");
+
+				tokenizeFieldsQuery.append(" ( ");
+				for (int i = 1; i <= tokenizeFieldMap.size(); i++) {
+					tokenizeFieldsQuery.append(
+							AssetUtil.getConstructedQuery(tokenizeFieldMap.get(i), null, null, "TokenizeFields"));
+
+					searchInTextParams.add(AssetUtil.createQueryParam(null,
+							"%" + assetSearchRequest.getSearchInText() + "%", "TokenizeFields"));
+				}
+
+				tokenizeFieldsQuery.delete(tokenizeFieldsQuery.length() - 4, tokenizeFieldsQuery.length());
+
+				tokenizeFieldsQuery.append(" ) ").append(" AND ");
+				
+				queryConditions.append(tokenizeFieldsQuery);
+
+			}
+
+			// TextSearch check
+			if (assetSearchRequest.getTextSearch() != null) {
+
+				StringBuilder textSearchQuery = new StringBuilder();
+				List<SearchTextVO> textSearchList = new ArrayList<SearchTextVO>();
+				textSearchList = assetSearchRequest.getTextSearch();
+
+				for (SearchTextVO textSearch : textSearchList) {
+
+					textSearchQuery.append(" ( ");
+
+					List<SearchTextFieldValuesVO> textFieldValuesList = new ArrayList<SearchTextFieldValuesVO>();
+
+					textFieldValuesList = textSearch.getValues();
+
+					for (SearchTextFieldValuesVO textFieldValues : textFieldValuesList) {
+
+						textSearchQuery.append(AssetUtil.getConstructedQuery(textSearch.getAliasName(),
+								textFieldValues.getComparatorOperator(), textSearch.getLogicalOperator(),
+								textSearch.getAliasDataType()));
+
+						textSearchParams.add(AssetUtil.createQueryParam(textFieldValues.getComparatorOperator(),
+								textFieldValues.getActualFieldValue(), textSearch.getAliasDataType()));
+					}
+
+					textSearchQuery.delete(textSearchQuery.length() - 4, textSearchQuery.length());
+
+					textSearchQuery.append(" ) ").append("AND ");
+				}
+
+				queryConditions.append(textSearchQuery);
+
+			}
+
+			if (assetSearchRequest.getDateSearch() != null) {
+
+				StringBuilder dateSearchQuery = new StringBuilder();
+				List<SearchDateVO> dateSearchList = new ArrayList<SearchDateVO>();
+
+				dateSearchList = assetSearchRequest.getDateSearch();
+
+				for (SearchDateVO dateSearch : dateSearchList) {
+					dateSearchQuery.append(" ( ");
+
+					List<SearchDateFieldValuesVO> dateFieldValuesList = new ArrayList<SearchDateFieldValuesVO>();
+
+					dateFieldValuesList = dateSearch.getValues();
+
+					for (SearchDateFieldValuesVO dateFieldValues : dateFieldValuesList) {
+
+						dateSearchQuery.append(AssetUtil.getConstructedQuery(dateSearch.getAliasName(),
+								dateFieldValues.getComparatorOperator(), dateSearch.getLogicalOperator(),
+								dateSearch.getAliasDataType()));
+
+						dateSearchParams.add(AssetUtil.createQueryParam(dateFieldValues.getComparatorOperator(),
+								dateFieldValues.getActualFieldValue(), dateSearch.getAliasDataType()));
+
+					}
+
+					dateSearchQuery.delete(dateSearchQuery.length() - 4, dateSearchQuery.length());
+
+					dateSearchQuery.append(") ").append("AND ");
+				}
+				queryConditions.append(dateSearchQuery);
+			}
+
+			if (assetSearchRequest.getNumberSearch() != null) {
+
+				StringBuilder numberSearchQuery = new StringBuilder();
+
+				List<SearchNumberVO> numberSearchList = new ArrayList<SearchNumberVO>();
+
+				numberSearchList = assetSearchRequest.getNumberSearch();
+
+				for (SearchNumberVO numberSearch : numberSearchList) {
+					numberSearchQuery.append(" ( ");
+
+					List<SearchNumberFieldValuesVO> numberFieldValuesList = new ArrayList<SearchNumberFieldValuesVO>();
+
+					numberFieldValuesList = numberSearch.getValues();
+
+					for (SearchNumberFieldValuesVO numberFieldValues : numberFieldValuesList) {
+
+						numberSearchQuery.append(AssetUtil.getConstructedQuery(numberSearch.getAliasName(),
+								numberFieldValues.getComparatorOperator(), numberSearch.getLogicalOperator(),
+								numberSearch.getAliasDataType()));
+
+						numberSearchParams.add(AssetUtil.createQueryParam(numberFieldValues.getComparatorOperator(),
+								String.valueOf(numberFieldValues.getActualFieldValue()),
+								numberSearch.getAliasDataType()));
+
+					}
+
+					numberSearchQuery.delete(numberSearchQuery.length() - 4, numberSearchQuery.length());
+
+					numberSearchQuery.append(") ").append("AND ");
+				}
+
+				queryConditions.append(numberSearchQuery);
+			}
+
+			if(queryConditions.toString().endsWith("AND ")) {
+				queryConditions.delete(queryConditions.length() - 4, queryConditions.length());
+			}
+			
+
+			response = assetDao.getAssetSearchInResponse(assetRequestVO.getTenantCode(),queryConditions.toString(), searchInTextParams,
+					textSearchParams, dateSearchParams, numberSearchParams, assetRequestVO);
+		} catch (Exception ex) {
+			
+			log.fatal("Error occurred in getAssetSearchInResponse: " + ex);
+			throw ex;
+		}
+
+		return response;
+	}
+
+	@Override
+//	@Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+	public ResponseVO deleteActiveAssetService(String tenantCode) {
+		ResponseVO responsevo=new ResponseVO();
+		try {
+			 responsevo=assetDao.deleteActiveAssetDao(tenantCode);
+		} catch (Exception e) {
+			
+		}
+		return responsevo;
+	}
+
+	 
+	@Override
+	@Cacheable(cacheNames = "Client_Errors", key = "#lang")
+	public String getLanguageResourceBundle(String lang) throws Exception {
+
+		JsonObject jsonObject = new JsonObject();
+
+		String fileName = "./validation/" + lang + ".json";
+		try {
+			
+			InputStream inputStream = null;
+			PathMatchingResourcePatternResolver resourcePatternResolver2 = new PathMatchingResourcePatternResolver();
+			Resource[] resources2 = resourcePatternResolver2.getResources("classpath:"+fileName);
+			for (Resource resource : resources2) {
+	           inputStream = resource.getInputStream();
+	        }
+			
+			byte[] bdata = FileCopyUtils.copyToByteArray(inputStream);
+			String fileDetails = new String(bdata, StandardCharsets.UTF_8);
+			
+			Gson gson = new GsonBuilder().serializeNulls().create();
+			jsonObject = gson.fromJson(fileDetails, JsonObject.class);
+			
+		} catch (Exception e) {
+			log.fatal("Error in getLanguageResourceBundle: ",e);
+			throw e;
+		}
+		return jsonObject.toString();
+	}
+	
+	@Override
+	public Map<String, Object> getAssetPerformanceInfoMap(String tenantCode,List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO reqParam) throws Exception {
+		Map<String, Object> responseMap = new HashMap<>();
+		ResponseVO<AssetVO, AssetGetRequestVO> response = new ResponseVO<AssetVO, AssetGetRequestVO>();
+//		List<FailedVO<AssetGetRequestVO>> failRequests = new ArrayList<FailedVO<AssetGetRequestVO>>();
+
+		List<AssetPerformanceVO> mainResponse = new ArrayList<AssetPerformanceVO>();
+		AssetPerformanceVO assetPerformanceVO = new AssetPerformanceVO();
+		List<AssetKeyFigureVO> assetKeyFigureList = new ArrayList<AssetKeyFigureVO>();
+		List<AssetPriceVO> assetPriceList = new ArrayList<AssetPriceVO>();
+		List<AssetSPMetricsVO> assetSPMetricsList = new ArrayList<AssetSPMetricsVO>();
+		List<AssetVO> assetVOs = new ArrayList<AssetVO>();
+		HashMap<String,AssetVO> responseAssetVOMap = new HashMap<String, AssetVO>();
+		try {
+
+			// Unique isin and currency Logic
+			List<AssetGetRequestVO> getRequestList = new ArrayList<AssetGetRequestVO>();
+			Map<String, AssetGetRequestVO> map = new HashMap<String, AssetGetRequestVO>();
+			for (int i = 0; i < successVOs.size(); i++) {
+				String uniqueKey = successVOs.get(i).getIsin() + successVOs.get(i).getCurrencyConfigName();
+				if (map.containsKey(uniqueKey)) {
+//List of AssetVOs---vo
+				} else {
+					map.put(uniqueKey, successVOs.get(i));
+					getRequestList.add(successVOs.get(i));
+				}
+			}
+			assetVOs = assetDao.getAsset(reqParam.getTenantCode(),getRequestList, reqParam.get_tenantId());
+
+			Map<String, Object> resultAssetKeyFig=assetKeyFigureService.getAssetsKeyFigures(tenantCode,successVOs, failedVOs, reqParam);
+			
+			assetKeyFigureList = (List<AssetKeyFigureVO>) resultAssetKeyFig.get("successVOs");
+
+			Map<String, Object> resultAssetPrice = assetPriceService.getAssetPrice(reqParam.getTenantCode(),successVOs,
+					failedVOs, reqParam);
+			 assetPriceList=(List<AssetPriceVO>) resultAssetPrice.get("successVOs");
+
+			// Response LOGIC
+			List<AssetGetRequestVO> responseCollection = new ArrayList<AssetGetRequestVO>();
+			List<AssetGetRequestVO> failedResponseCollection = new ArrayList<AssetGetRequestVO>();
+			int flag;
+			for (int i = 0; i < successVOs.size(); i++) { // ISIN1 CUUR6
+				String isinReq = successVOs.get(i).getIsin();
+				String currReq = successVOs.get(i).getCurrencyConfigName();
+				flag = 0;
+				for (int j = 0; j < assetVOs.size(); j++) {
+					if (isinReq.equals(assetVOs.get(j).getIsin())// ISIN1 cur2, ISIN1 CUUR1
+							&& currReq.equals(assetVOs.get(j).getCurrencyAppConfigName())) {
+						responseCollection.add(successVOs.get(i));// list1
+						flag = 1;
+						break;
+					}
+				}
+				if (flag == 0) {
+					failedResponseCollection.add(successVOs.get(i));
+					FailedVO<AssetGetRequestVO> failedVO = new FailedVO<AssetGetRequestVO>();
+					failedVO.setIdentityDetails(successVOs.get(i));
+					List<ErrorVO> errorVO = new ArrayList<ErrorVO>();
+					ErrorVO error = new ErrorVO();
+					error.setErrorMessage("Record Not Present in Asset_Master");
+					error.setErrorCode("404");
+					errorVO.add(error);
+					failedVO.setErrors(errorVO);
+					failedVO.setReferenceDate(reqParam.getReferenceDate());
+					failedVOs.add(failedVO);
+				}
+			}
+
+			List<AssetGetRequestVO> responseCollectionPrice = new ArrayList<AssetGetRequestVO>();
+
+			for (int i = 0; i < responseCollection.size(); i++) {// list1
+				flag = 0;
+				String isinReq = responseCollection.get(i).getIsin();
+				String currReq = responseCollection.get(i).getCurrencyConfigName();
+				for (int j = 0; j < assetPriceList.size(); j++) {
+
+					if (isinReq.equals(assetPriceList.get(j).getIsin())
+							&& currReq.equals(assetPriceList.get(j).getCurrencyAppConfigName())) {
+						responseCollectionPrice.add(responseCollection.get(i));// list2
+						flag = 1;
+						break;
+					}
+				}
+				if (flag == 0) {
+					failedResponseCollection.add(responseCollection.get(i));
+					FailedVO<AssetGetRequestVO> failedVO = new FailedVO<AssetGetRequestVO>();
+					failedVO.setIdentityDetails(responseCollection.get(i));
+					List<ErrorVO> errorVO = new ArrayList<ErrorVO>();
+					ErrorVO error = new ErrorVO();
+					error.setErrorMessage("Record Not Present in Asset_Price");
+					error.setErrorCode("404");
+					errorVO.add(error);
+					failedVO.setErrors(errorVO);
+					failedVO.setReferenceDate(reqParam.getReferenceDate());
+					failedVOs.add(failedVO);
+				}
+			}
+
+			List<AssetGetRequestVO> responseCollectionKeyFig = new ArrayList<AssetGetRequestVO>();
+
+			for (int i = 0; i < responseCollectionPrice.size(); i++) {
+				String isinReq = responseCollectionPrice.get(i).getIsin();
+				String currReq = responseCollectionPrice.get(i).getCurrencyConfigName();
+				flag = 0;
+				for (int j = 0; j < assetKeyFigureList.size(); j++) {
+
+					if (isinReq.equals(assetKeyFigureList.get(j).getIsin())
+							&& currReq.equals(assetKeyFigureList.get(j).get_currencyAppConfigName())) {
+						responseCollectionKeyFig.add(responseCollectionPrice.get(i));
+						flag = 1;
+						
+						break;
+					}
+				}
+				if (flag == 0) {
+					failedResponseCollection.add(responseCollectionPrice.get(i));
+					FailedVO<AssetGetRequestVO> failedVO = new FailedVO<AssetGetRequestVO>();
+					failedVO.setIdentityDetails(responseCollectionPrice.get(i));
+
+					List<ErrorVO> errorVO = new ArrayList<ErrorVO>();
+					ErrorVO error = new ErrorVO();
+					error.setErrorMessage("Record Not Present in Asset_Key_Figure");
+					error.setErrorCode("404");
+					errorVO.add(error);
+					failedVO.setErrors(errorVO);
+					failedVO.setReferenceDate(reqParam.getReferenceDate());
+					failedVOs.add(failedVO);
+				}
+			}
+
+			Map<String,String> subCatagoryMap=new HashMap<String, String>();
+			for(int i=0;i<assetVOs.size();i++) {
+				for(int j=0;j<responseCollectionKeyFig.size();j++) {
+					if(assetVOs.get(i).getIsin().equals(responseCollectionKeyFig.get(j).getIsin())
+							&& assetVOs.get(i).getCurrencyAppConfigName().equals(responseCollectionKeyFig.get(j).getCurrencyConfigName())) {
+						subCatagoryMap.put(responseCollectionKeyFig.get(j).getIsin()+"|"+responseCollectionKeyFig.get(j).getCurrencyConfigName(), assetVOs.get(i).getSubcategory1AppConfigName());
+						break;
+					}
+				}
+				if(subCatagoryMap.size()==responseCollectionKeyFig.size()) {
+					break;
+				}
+			}
+			assetSPMetricsList = assetSPMetricsService.getStructureProductMetricsList(tenantCode,getRequestList,
+					reqParam.getReferenceDate());
+
+			List<AssetGetRequestVO> responseCollectionSPMetrics = new ArrayList<AssetGetRequestVO>();
+
+			for (int i = 0; i < responseCollectionKeyFig.size(); i++) {
+				String isinReq = responseCollectionKeyFig.get(i).getIsin();
+				String currReq = responseCollectionKeyFig.get(i).getCurrencyConfigName();
+				flag = 0;
+
+				
+
+				if ("ACM236".equals(subCatagoryMap.get(responseCollectionKeyFig.get(i).getIsin() + "|" + responseCollectionKeyFig.get(i).getCurrencyConfigName()))
+						|| ("ACM247".equals(subCatagoryMap.get(responseCollectionKeyFig.get(i).getIsin() + "|" + responseCollectionKeyFig.get(i).getCurrencyConfigName())))
+						|| ("ACM250".equals(subCatagoryMap.get(responseCollectionKeyFig.get(i).getIsin() + "|" + responseCollectionKeyFig.get(i).getCurrencyConfigName())))) {
+					for (int j = 0; j < assetSPMetricsList.size(); j++) {
+						if (isinReq.equals(assetSPMetricsList.get(j).getIsin())
+								&& currReq.equals(assetSPMetricsList.get(j).getCurrencyConfigName())) {
+							responseCollectionSPMetrics.add(responseCollectionKeyFig.get(i));
+							flag = 1;
+							break;
+						}
+					}
+
+				} else {
+					responseCollectionSPMetrics.add(responseCollectionKeyFig.get(i));
+					flag = 1;
+					
+				}
+				if (flag == 0) {
+
+					failedResponseCollection.add(responseCollectionKeyFig.get(i));
+					FailedVO<AssetGetRequestVO> failedVO = new FailedVO<AssetGetRequestVO>();
+					failedVO.setIdentityDetails(responseCollectionKeyFig.get(i));
+
+					List<ErrorVO> errorVO = new ArrayList<ErrorVO>();
+					ErrorVO error = new ErrorVO();
+					error.setErrorMessage("Record Not Present in Asset_SP_Metrics");
+					error.setErrorCode("404");
+					errorVO.add(error);
+					failedVO.setErrors(errorVO);
+					failedVO.setReferenceDate(reqParam.getReferenceDate());
+					failedVOs.add(failedVO);
+				}
+			}
+
+//			int flag1=0;
+//			for(int j=0;j<responseCollectionKeyFig.size();j++) {
+//				if (assetVOs.get(i).get_id() != null
+//						&& assetVOs.get(i).getIsin().equals(responseCollectionKeyFig.get(j).getIsin()) && assetVOs.get(i)
+//								.getCurrencyAppConfigName().equals(responseCollectionKeyFig.get(j).getCurrencyConfigName()))
+//				{
+//					flag1=1;
+//				}
+//				else {
+//					failedResponseCollection.add(responseCollectionKeyFig.get(j));
+//				}
+//			}
+
+			for (int x = 0; x < responseCollectionSPMetrics.size(); x++) {
+
+				for (int i = 0; i < assetVOs.size(); i++) {// responseCollectionKeyFig
+					if (responseCollectionSPMetrics.get(x).getIsin().equals(assetVOs.get(i).getIsin())
+							&& responseCollectionSPMetrics.get(x).getCurrencyConfigName()
+									.equals(assetVOs.get(i).getCurrencyAppConfigName())) {
+						List<AssetPriceVO> assetPriceListResponse = new ArrayList<AssetPriceVO>();
+						List<AssetKeyFigureVO> assetKeyFigureResponse = new ArrayList<AssetKeyFigureVO>();
+						List<AssetSPMetricsVO> assetSPMetricsResponse = new ArrayList<AssetSPMetricsVO>();
+
+						for (int j = 0; j < assetPriceList.size(); j++) {
+
+							if (assetVOs.get(i).getId() != null
+									&& assetVOs.get(i).getIsin().equals(assetPriceList.get(j).getIsin())
+									&& assetVOs.get(i).getCurrencyAppConfigName()
+											.equals(assetPriceList.get(j).getCurrencyAppConfigName())) {
+								assetPriceListResponse.add(assetPriceList.get(j));
+							}
+						}
+
+						assetVOs.get(i).setAssetPrice(assetPriceListResponse);
+						for (int j = 0; j < assetKeyFigureList.size(); j++) {
+							if (assetVOs.get(i).getId() != null
+									&& assetVOs.get(i).getIsin().equals(assetKeyFigureList.get(j).getIsin())
+									&& assetVOs.get(i).getCurrencyAppConfigName()
+											.equals(assetKeyFigureList.get(j).get_currencyAppConfigName())) {
+								assetKeyFigureResponse.add(assetKeyFigureList.get(j));
+							}
+						}
+						assetVOs.get(i).setAssetKeyFigure(assetKeyFigureResponse);
+
+						if("ACM236".equals( assetVOs.get(i).getSubcategory1AppConfigName())
+								||("ACM247".equals( assetVOs.get(i).getSubcategory1AppConfigName()))||
+										("ACM236".equals( assetVOs.get(i).getSubcategory1AppConfigName()))){
+						for (int j = 0; j < assetSPMetricsList.size(); j++) {
+							
+								if (assetVOs.get(i).getId() != null
+										&& assetVOs.get(i).getIsin().equals(assetSPMetricsList.get(j).getIsin())
+										&& assetVOs.get(i).getCurrencyAppConfigName()
+												.equals(assetSPMetricsList.get(j).getCurrencyConfigName())) {
+									assetSPMetricsResponse.add(assetSPMetricsList.get(j));
+									break;
+								}
+							}
+						}
+
+						if (assetSPMetricsResponse.size() > 0) {
+							for (int i1 = 0; i1 < assetSPMetricsResponse.size(); i1++)
+								assetVOs.get(i).setAssetSPMetrics(assetSPMetricsResponse.get(i1));
+						}
+						String key=assetVOs.get(i).getIsin() +"|"+assetVOs.get(i).getCurrencyAppConfigName();
+						responseAssetVOMap.put(key,assetVOs.get(i));
+					}
+				}
+			}
+
+			response.setTotalfailedRecords(failedResponseCollection.size());
+			// response.setFailed(failRequests);
+			mainResponse.add(assetPerformanceVO);
+		} catch (Exception exception) {
+			log.fatal("Error: "+exception);
+			throw exception;
+		}
+		// response.setFailed(failRequests);
+
+		responseMap.put("successVOMap", responseAssetVOMap);
+		responseMap.put("failedVOs", failedVOs);
+		// response.setSuccess(responseAssetVOs);
+		// response.setTotalRecords(successVOs.size());
+		return responseMap;
+	}
+
+	@Override
+	public Map<String, Object> getAssetsMap(String tenantCode,List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO requestVO) throws Exception {
+
+		Map<String, Object> responseMap = new HashMap<>();
+		int totalRecords = 0;
+		int totalfailedRecords = 0;
+		ResponseVO<AssetVO, AssetGetRequestVO> responseVO = new ResponseVO<AssetVO, AssetGetRequestVO>();
+		List<String> isin = new ArrayList<String>();
+		List<String> currency = new ArrayList<String>();
+		ErrorVO errorData; // Level 0
+		List<ErrorVO> listErrorData = new ArrayList<ErrorVO>(); // level 0
+		ArrayList<FailedVO<AssetGetRequestVO>> failed = new ArrayList<FailedVO<AssetGetRequestVO>>();
+		AssetGetRequestVO identityDetails;
+
+		FailedVO<AssetGetRequestVO> failedata; // Level 1
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			HashMap<String,AssetVO> assetVOs = assetDao.getAssetMap(requestVO.getAssetGetRequest(), requestVO.get_tenantId(),
+					requestVO.getTenantCode());
+			assetBusinessValidator.validateAssetResultMap(successVOs, failedVOs, requestVO, assetVOs);
+			responseMap.put("successVOs", assetVOs);
+			responseMap.put("failedVOs", failedVOs);
+		} catch (Exception exp) {
+			log.fatal("Error: "+exp);
+			throw exp;
+		}
+		return responseMap;
+	}
+
+	@CustomTransactional
+	@Override
+	public void addAssetUnderlying(String tenantCode, List<UnderlyingAssetsVO> successVOs,
+			List<FailedVO<UnderlyingAssetsVO>> failedVOs,List<JsonObject> totalVOs,AssetRequestVO assetRequestVO) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		Map<String,AssetVO> assetMap=new HashMap<String, AssetVO>();
+		Map<BigDecimal,List<UnderlyingAssetsVO>> underlyingAssetMap=new HashMap<BigDecimal, List<UnderlyingAssetsVO>>();
+		Map<BigDecimal,List<UnderlyingAssetsVO>> underlyingAssetMapForSuccessVOs=new HashMap<BigDecimal, List<UnderlyingAssetsVO>>();
+		List<FailedVO<UnderlyingAssetsVO>> failed = new ArrayList<FailedVO<UnderlyingAssetsVO>>();
+		Map<BigDecimal,List<UnderlyingAssetsVO>> underlyingAssetMapForDeleteVOs=new HashMap<BigDecimal, List<UnderlyingAssetsVO>>();
+		
+		List<JsonObject> objectsToBeAdded = new ArrayList<>();
+		List<JsonObject> objectsToBeRemoved = new ArrayList<>();
+		List<UnderlyingAssetsVO> successVOsToBeRemoved = new ArrayList<UnderlyingAssetsVO>();
+		List<UnderlyingAssetsVO> updateList=new ArrayList<UnderlyingAssetsVO>();
+		List<UnderlyingAssetsVO> insertList=new ArrayList<UnderlyingAssetsVO>();
+		List<UnderlyingAssetsVO> deleteList=new ArrayList<UnderlyingAssetsVO>();
+		
+		try {
+			
+			if (assetRequestVO.get_tenantId() == null) {
+				JsonObject obj = new JsonObject();
+				obj.addProperty("tenantCode", assetRequestVO.getTenantCode());
+				TenantInfoVO tenantInfo = null;
+				String tenantInfoAsStr = AssetUtil.syncHttpCall(gson.toJson(obj), getTenantInfoUrl,
+						assetRequestVO.getAccessToken());
+				tenantInfo = AssetUtil.fromJSonToObject(tenantInfoAsStr, TenantInfoVO.class);
+				assetRequestVO.set_tenantId(tenantInfo.getId());
+			}
+			
+			
+			AssetVO assetVO=new AssetVO();
+			assetVO.setUnderlyingAssets(successVOs);
+
+			//Getting assets from master
+			assetMap=assetDao.checkAssets(successVOs,tenantCode);
+			
+			for(UnderlyingAssetsVO underlyingAssetVO:successVOs) {
+				String uniqueAssetKey=underlyingAssetVO.getISIN()+"~"+underlyingAssetVO.getAssetCurrencyAppConfigName();
+				String uniqueUnderlyingAssetKey=underlyingAssetVO.getUnderlyingAssetIsin()+"~"+underlyingAssetVO.getUnderlyingAssetCurrencyAppConfigName();
+				if(assetMap.containsKey(uniqueAssetKey) && assetMap.containsKey(uniqueUnderlyingAssetKey)) {
+					underlyingAssetVO.setParentAssetId(assetMap.get(uniqueAssetKey).getId());
+					underlyingAssetVO.setUnderlyingAssetId(assetMap.get(uniqueUnderlyingAssetKey).getId());
+				}else {
+					FailedVO<UnderlyingAssetsVO> failedVO = new FailedVO<UnderlyingAssetsVO>();
+					failedVO.setIdentityDetails(underlyingAssetVO);
+					failed.add(failedVO);
+					List<ErrorVO> errorList = new ArrayList<ErrorVO>();
+					errorList.add(AssetUtil.getError("BUSAST32"));
+					failedVO.setErrors(errorList);
+					if (null != underlyingAssetVO.get_thirdPartyProcessorId1()) {
+						underlyingAssetVO.setHasError(1);
+						underlyingAssetVO.setErrors(errorList);
+					}
+					if (failedVOs != null)
+						failedVOs.add(failedVO);
+					
+					successVOsToBeRemoved.add(underlyingAssetVO);
+					
+					for (JsonObject underLyingAssetObj : totalVOs) {
+						if ((!AssetUtil.jsonNullCheck(underLyingAssetObj, "uniqueKey"))
+								&& underlyingAssetVO.getUniqueKey() != null
+								&& underLyingAssetObj.get("uniqueKey")
+										.getAsString().equalsIgnoreCase(underlyingAssetVO.getUniqueKey())) {
+						
+							objectsToBeRemoved.add(underLyingAssetObj);
+
+							String underLyingAsset1 = AssetUtil.fromObjectToJSON(underlyingAssetVO);
+							JsonObject jsonObject = AssetUtil.fromJSonToObject(underLyingAsset1,
+									JsonObject.class);
+
+							objectsToBeAdded.add(jsonObject);
+							break;
+						}
+					}
+					
+				}
+			}
+			successVOs.removeAll(successVOsToBeRemoved);
+			successVOsToBeRemoved.clear();
+
+			totalVOs.removeAll(objectsToBeRemoved);
+			objectsToBeRemoved.clear();
+
+			totalVOs.addAll(objectsToBeAdded);
+			objectsToBeAdded.clear();
+			
+			underlyingAssetMap=assetDao.getAssetUnderLying(successVOs, tenantCode);
+			//For update
+			
+				for (Map.Entry<BigDecimal, List<UnderlyingAssetsVO>> underlyingMapItr :
+					underlyingAssetMap.entrySet()) {
+					BigDecimal uniqueKey=underlyingMapItr.getKey();
+					for(UnderlyingAssetsVO underlyingAssetMapVO: underlyingAssetMap.get(uniqueKey)) {
+						for(UnderlyingAssetsVO underlyingSuccessVO: successVOs) {
+							if(underlyingAssetMapVO.getParentAssetId().equals(underlyingSuccessVO.getParentAssetId())
+									&& underlyingAssetMapVO.getUnderlyingAssetId().equals(underlyingSuccessVO.getUnderlyingAssetId())) {
+								updateList.add(underlyingSuccessVO);
+							}
+						}
+					}
+				}
+				
+				
+			//INSERT LIST
+				if(successVOs!=null && successVOs.size()>0) {
+					for(UnderlyingAssetsVO underlyingSuccessVO: successVOs) {
+						int flag=0;
+						if(underlyingAssetMap.containsKey(underlyingSuccessVO.getParentAssetId())){
+							for(UnderlyingAssetsVO underlyingMapVO:underlyingAssetMap.get(underlyingSuccessVO.getParentAssetId())){
+								if(underlyingSuccessVO.getParentAssetId().equals(underlyingMapVO.getParentAssetId())
+										&& underlyingSuccessVO.getUnderlyingAssetId().equals(underlyingMapVO.getUnderlyingAssetId())) {
+									flag=1;
+								}
+							}
+						}
+						if(flag==0 && !insertList.contains(underlyingSuccessVO))
+							insertList.add(underlyingSuccessVO);
+					}
+				}
+				
+				
+			
+			//Creating Success VO map
+		if(successVOs!=null && successVOs.size()>0) {
+			for(UnderlyingAssetsVO underlyingAssetVO: successVOs) {
+	 			if(underlyingAssetMapForSuccessVOs.containsKey(underlyingAssetVO.getParentAssetId())) {
+	 				underlyingAssetMapForSuccessVOs.get(underlyingAssetVO.getParentAssetId()).add(underlyingAssetVO);
+	 			}
+	 			else {
+	 				List<UnderlyingAssetsVO> underlyigAssetTemp=new ArrayList<UnderlyingAssetsVO>();
+	 				underlyigAssetTemp.add(underlyingAssetVO);
+	 				underlyingAssetMapForSuccessVOs.put(underlyingAssetVO.getParentAssetId(), underlyigAssetTemp);
+	 			}
+	 				
+	 		}
+		}
+			
+			//For delete
+			for (Map.Entry<BigDecimal, List<UnderlyingAssetsVO>> underlyingMapItr :
+				underlyingAssetMap.entrySet()) {
+				if(underlyingAssetMapForSuccessVOs.containsKey(underlyingMapItr.getKey())){
+					for(UnderlyingAssetsVO underlyingVoItr:  underlyingAssetMap.get(underlyingMapItr.getKey())) {
+						for(UnderlyingAssetsVO successItr: successVOs) {
+							if(!successItr.getUnderlyingAssetId().equals(underlyingVoItr.getUnderlyingAssetId())) {
+								if(!deleteList.contains(underlyingVoItr))
+									deleteList.add(underlyingVoItr);
+							}
+						}
+					}
+			    }
+			}
+			List<UnderlyingAssetsVO> deleteUpdateCommonList=new ArrayList<UnderlyingAssetsVO>();
+			for(UnderlyingAssetsVO updateListVO: updateList) {
+				for(UnderlyingAssetsVO deleteListVO: deleteList) {
+					if(updateListVO.getParentAssetId().equals(deleteListVO.getParentAssetId())
+							&& updateListVO.getUnderlyingAssetId().equals(deleteListVO.getUnderlyingAssetId())) {
+						if(!deleteUpdateCommonList.contains(deleteListVO))
+							deleteUpdateCommonList.add(deleteListVO);
+					}
+				}
+			}
+			deleteList.removeAll(deleteUpdateCommonList);
+			deleteUpdateCommonList.clear();
+			
+			assetDao.deactivateUnderlyingAsset(tenantCode, deleteList, assetRequestVO);
+			assetDao.updateUnderlyingAsset(tenantCode, updateList, assetRequestVO);
+			assetDao.addUnderlyingAsset(tenantCode, insertList, assetRequestVO);
+			
+		}catch (Exception e) {
+			log.fatal("Exception in Asset Underlying Service: ",e);
+			throw e;
+		}
+		
+		if (log.isDebugEnabled())
+			log.debug("Leaving ");
+	}
+	
+	@Override
+	public String getpreferredassetsinfo(List<AssetGetRequestVO> req,String tenantCode,String date) throws Exception {
+		String response;
+		DateFormat sourceFormat=null;
+		DateFormat targetFormat=null;
+		Date inform=null;
+		String formattedDate=null;
+		
+		
+		if(date!=null)
+		{
+			sourceFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US);
+			targetFormat = new SimpleDateFormat("yyyy-MM-dd");
+			inform=sourceFormat.parse(date);
+			formattedDate = targetFormat.format(inform);
+		}
+		
+		try
+		{
+			response=assetDao.getpreferredassetsinfo(req,tenantCode,formattedDate);
+		}
+		catch (Exception e) {
+			log.fatal("Error while getpreferredassetsinfo", e);
+			throw e;
+		}
+		return response;
+	}
+
+	@Override
+	public void addPreferredAssets(List<PreferredAssetGroupVO> preferredAssetGroupVOList,
+			List<FailedVO<PreferredAssetGroupVO>> failedVOS, List<JsonObject> totalVOs, AssetRequestVO assetRequest,
+			boolean isInterfaceRequest) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		Map<BigDecimal, PreferredAssetGroupVO> preferredGroupMap=new HashMap<BigDecimal, PreferredAssetGroupVO>();
+		List<PreferredAssetGroupVO> insertPreferredAssetList=new ArrayList<PreferredAssetGroupVO>();
+		List<PreferredAssetGroupVO> freshInsertPreferredAssetList=new ArrayList<PreferredAssetGroupVO>();
+		List<PreferredAssetGroupVO> insertMaxDateList=new ArrayList<PreferredAssetGroupVO>();
+		List<PreferredAssetGroupVO> updateMaxDateList=new ArrayList<PreferredAssetGroupVO>();
+		List<PreferredAssetGroupVO> inactivePreferredAssetListList=new ArrayList<PreferredAssetGroupVO>();
+		List<PreferredAssetGroupVO> updatePreferredAssetList=new ArrayList<PreferredAssetGroupVO>();
+		List<PreferredAssetGroupVO> successVosToBeRemoved=new ArrayList<PreferredAssetGroupVO>();
+
+		List<JsonObject> objectsToBeAdded = new ArrayList<>();
+		List<JsonObject> objectsToBeRemoved = new ArrayList<>();
+		try {
+			preferredGroupMap=assetDao.getCustodianWiseMaxDate(assetRequest.getTenantCode(), preferredAssetGroupVOList, assetRequest);
+			
+			for(PreferredAssetGroupVO preferredGroupVO: preferredAssetGroupVOList) {
+				if(preferredGroupMap.containsKey(preferredGroupVO.getGroupTypeId())) {
+					//Adding Group Id
+					PreferredAssetGroupVO mapGroupVO= preferredGroupMap.get(preferredGroupVO.getGroupTypeId());
+					preferredGroupVO.setId(mapGroupVO.getId());
+					for(PreferredAssetVO preferredVO: preferredGroupVO.getPreferredAssets()) {
+						preferredVO.setPreferredAssetsGroupId(mapGroupVO.getId());
+					}
+						
+					
+					if(preferredGroupMap.get(preferredGroupVO.getGroupTypeId()).getMaxEffFromDate().equals(preferredGroupVO.getReferenceDate())) {
+						updatePreferredAssetList.add(preferredGroupVO);
+					}else if(preferredGroupMap.get(preferredGroupVO.getGroupTypeId())
+							.getMaxEffFromDate().after(preferredGroupVO.getReferenceDate())) {
+					
+						FailedVO<PreferredAssetGroupVO> failedVo=new FailedVO<PreferredAssetGroupVO>();
+						List<ErrorVO> errorVOList=new ArrayList<ErrorVO>();
+						errorVOList.add(AssetUtil.getError("BUSPORT12"));
+						failedVo.setErrors(errorVOList);
+						for(PreferredAssetVO preferredAssetVO: preferredGroupVO.getPreferredAssets()) {
+							if(null!=preferredAssetVO.getThirdPartyProcessorId1()) {
+								preferredAssetVO.setHasError(1);
+								preferredAssetVO.setErrors(errorVOList);
+							}
+							if (failedVOS != null)
+								failedVOS.add(failedVo);
+						}
+						successVosToBeRemoved.add(preferredGroupVO);
+						
+						for (JsonObject preferredAssetGroupObj : totalVOs) {
+							if ((!AssetUtil.jsonNullCheck(preferredAssetGroupObj, "groupTypeId"))
+									&& preferredGroupVO.getGroupTypeId() != null
+									&& preferredAssetGroupObj.get("groupTypeId")
+											.getAsBigDecimal().equals(preferredGroupVO.getGroupTypeId())) {
+								objectsToBeRemoved.add(preferredAssetGroupObj);
+
+								String preferredAssetGroupStr = AssetUtil.fromObjectToJSON(preferredGroupVO);
+								JsonObject jsonObject = AssetUtil.fromJSonToObject(preferredAssetGroupStr,
+										JsonObject.class);
+
+								objectsToBeAdded.add(jsonObject);
+								break;
+							}
+						}
+						
+					}else {
+						updateMaxDateList.add(preferredGroupVO);
+						insertPreferredAssetList.add(preferredGroupVO);
+					}
+				}
+				
+				else {
+					insertMaxDateList.add(preferredGroupVO);
+					freshInsertPreferredAssetList.add(preferredGroupVO);
+				}
+			}
+			preferredAssetGroupVOList.removeAll(successVosToBeRemoved);
+			successVosToBeRemoved.clear();
+
+			totalVOs.removeAll(objectsToBeRemoved);
+			objectsToBeRemoved.clear();
+
+			totalVOs.addAll(objectsToBeAdded);
+			objectsToBeAdded.clear();
+			
+			
+			if(insertMaxDateList.size()>0){
+				assetDao.addCustodianWiseMaxDate(assetRequest.getTenantCode(),insertMaxDateList,assetRequest);
+			}
+			if(updateMaxDateList.size()>0) {
+				assetDao.updateCustodianWiseMaxDate(assetRequest.getTenantCode(), updateMaxDateList, assetRequest);
+			}
+			if(insertPreferredAssetList.size()>0) {
+				assetDao.deactivatePreferredAssetGroup(assetRequest.getTenantCode(), insertPreferredAssetList, 
+						assetRequest);
+			}
+			if(freshInsertPreferredAssetList.size()>0) {
+				assetDao.addPreferredAssetsGroup(assetRequest.getTenantCode(), freshInsertPreferredAssetList, 
+						assetRequest);
+			}
+//			portfolioDao.addPreferredAssetsGroup(portfolioRequest.getTenantCode(), preferredAssetGroupVOList, portfolioRequest);
+		
+		}catch (Exception e) {
+			log.fatal("Error in Preferred Assets: ",e);
+			throw e;
+		}
+		
+	}
+
+	@Override
+	public int tollSystem(Date exitTime, String vehicleType,String username) {
+		try {
+			int TRUCK_CHARGE=100;
+			int FOUR_WHEELER_CHARGE=60;
+			int BUS=80;
+			int STANDARD_CHARGES=50;
+			//Standard discount
+			int discount=10;
+			//Wallet balance that we got from the database of that user;
+			int walletBalance=500; 
+			
+			Calendar calendar = Calendar.getInstance();
+		    calendar.setTime(exitTime);
+		    calendar.add(Calendar.DATE, -1);
+		    //Assuming this is the time we got from the database
+		    Date yesterday = calendar.getTime();
+		    
+		    
+		    long secs = (yesterday.getTime() - exitTime.getTime()) / 1000;
+		    //This is the difference of time between his trips
+		    int differenceInHours = (int)secs / 3600;   
+		   int appliedCharges=0;
+		   if(vehicleType.equalsIgnoreCase("Truck")) {
+			   appliedCharges=TRUCK_CHARGE;
+		   }else if(vehicleType.equalsIgnoreCase("FourWheeler")) {
+			   appliedCharges=FOUR_WHEELER_CHARGE;
+		   }else if(vehicleType.equalsIgnoreCase("Bus")) {
+			   appliedCharges=BUS;
+		   }
+		   else {
+			   appliedCharges= 0;
+		   }
+		   if(differenceInHours<24) {
+			   appliedCharges=(appliedCharges*discount)/100;
+		   }
+//		   walletBalance=walletBalance-appliedCharges;
+		   if(vehicleType.equalsIgnoreCase("Truck") || vehicleType.equalsIgnoreCase("FourWHeeler") ||
+				   vehicleType.equalsIgnoreCase("Bus")){
+				  if(walletBalance>=appliedCharges ) {
+					  walletBalance=walletBalance-appliedCharges;
+					  return 0;
+				  }else {
+					  return 1;
+				  }
+			   //return and save value in database
+		   }else{
+			   return 0;
+		   }
+		   
+		}catch (Exception e) {
+			throw e;
+		}
+		
+	}
+
+	@Override
+	public Map<String, Integer> getTotal() {
+		Map<String,Integer> vehicleMap=new HashMap<String, Integer>();
+		try {
+			//Getting the total amount collected and totalVehicles passed from database
+			int totalAmountCollected=55000;
+			int totalVehiclesPassed= 500;
+			vehicleMap.put("totalVehiclesPassed", totalVehiclesPassed);
+			vehicleMap.put("totalAmountCollected", totalAmountCollected);
+			return vehicleMap;
+		}catch (Exception e) {
+			throw e;
+		}
+		
+	}
+
+	
+
+
+}

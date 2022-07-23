@@ -1,0 +1,128 @@
+{
+	"$schema": "http://json-schema.org/draft-04/schema#",
+	"type": "object",
+	"properties": {
+		"isin": {
+			"type": "string"
+		},
+		"currencyId": {
+			"type": "number"
+		},
+		"currencyConfigName": {
+			"type": "string"
+		},
+		"name": {
+			"anyOf": [
+				{
+					"type": "string"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"regionId": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"regionConfigName": {
+			"anyOf": [
+				{
+					"type": "string"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"countryId": {
+			"type": "number"
+		},
+		"countryConfigName": {
+			"type": "string"
+		},
+		"gicsSectorId": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"gicsSectorConfigName": {
+			"anyOf": [
+				{
+					"type": "string"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"klayOfferingModelAttributeId": {
+			"type": "number"
+		},
+		"klayOfferingModelAttributeConfigName": {
+			"type": "string"
+		},
+		"signalModelAttributeId": {
+			"type": "number"
+		},
+		"signalModelAttributeConfigName": {
+			"type": "string"
+		},
+		"superSelectModelAttributeId": {
+			"type": "number"
+		},
+		"superSelectModelAttributeConfigName": {
+			"type": "string"
+		},
+		"_thirdPartyProcessorId1": {
+			"type": "number"
+		},
+		"_thirdPartyProcessorId2": {
+			"type": "number"
+		},
+		"username": {
+			"type": "string"
+		},
+		"fileTempStorageId": {
+			"type": "string"
+		},
+		"internalReferenceNumber": {
+			"type": "string"
+		},
+		"externalReferenceNumber": {
+			"type": "string"
+		},
+		"documents": {
+			"anyOf": [
+				{
+					"type": "array"
+				},
+				{
+					"type": "null"
+				}
+			]
+		}
+	},
+	"required": [
+		"isin",
+		"currencyId",
+		"currencyConfigName",
+		"name",
+		"gicsSectorId",
+		"gicsSectorConfigName",
+		"countryId",
+		"countryConfigName"
+	],
+	"additionalProperties": false
+}

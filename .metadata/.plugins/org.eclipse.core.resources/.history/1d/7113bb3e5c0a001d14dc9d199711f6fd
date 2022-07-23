@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "isin": {
+      "type": "string"
+    },
+    "currencyAppId": {
+      "type": "integer"
+    },
+    "currencyAppConfigName": {
+      "type": "string"
+    },
+    "brokerAppId": {
+      "type": "integer"
+    },
+    "brokerAppConfigName": {
+      "type": "string"
+    },
+    "brokerCurrencyAppId": {
+      "anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+    },
+    "brokerCurrencyAppConfigName": {
+     "anyOf": [
+				{
+					"type": "string"
+				},
+				{
+					"type": "null"
+				}
+			]
+    },
+    "targetPriceAmt": {
+      "anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+    },
+    "brokerRatingId": {
+      "anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+    },
+    "brokerRatingConfigName": {
+      "anyOf": [
+				{
+					"type": "string"
+				},
+				{
+					"type": "null"
+				}
+			]
+    },
+    "remarks": {
+      "anyOf": [
+				{
+					"type": "string"
+				},
+				{
+					"type": "null"
+				}
+			]
+    },
+    "effFromDate": {
+      "type": "string"
+    },
+    "username": {
+      "type": "string"
+    },
+    "uniqueKey": {
+      "type": "string"
+    },
+    "_thirdPartyProcessorId1": {
+      "type": "number"
+    },
+    "_thirdPartyProcessorId2": {
+      "type": "number"
+    }
+      
+  },
+  "required": [
+    "isin",
+    "currencyAppId",
+    "currencyAppConfigName"
+  ],
+  "additionalProperties":false
+}

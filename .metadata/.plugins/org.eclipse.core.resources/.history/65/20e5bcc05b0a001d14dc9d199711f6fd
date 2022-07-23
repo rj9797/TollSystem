@@ -1,0 +1,31 @@
+package com.klayx.asset.model;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+public class SearchDateFieldValuesVO {
+
+	private String comparatorOperator;
+	private String actualFieldValue;
+	public String getComparatorOperator() {
+		return comparatorOperator;
+	}
+	public void setComparatorOperator(String comparatorOperator) {
+
+		this.comparatorOperator = comparatorOperator;
+	}
+	public String getActualFieldValue() {
+		return actualFieldValue;
+	}
+	public void setActualFieldValue(String actualFieldValue) {
+
+		this.actualFieldValue = actualFieldValue;
+	}
+	
+	
+	
+	
+}
+
+
+

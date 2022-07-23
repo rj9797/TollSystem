@@ -1,0 +1,9 @@
+package com.toll.demo.srvice;
+
+import java.util.Date;
+
+public interface tollService {
+	public int tollSystem(Date enterTime,String vehicleType,String username);
+	
+	public Map<String,Integer> getTotal();
+}

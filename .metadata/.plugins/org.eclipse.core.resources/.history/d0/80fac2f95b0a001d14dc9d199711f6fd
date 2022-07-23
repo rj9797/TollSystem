@@ -1,0 +1,37 @@
+package com.klayx.asset.service;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+
+import com.google.gson.JsonObject;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.ResponseVO;
+
+public interface IAssetKeyFigureService {
+
+//	public void addAssetKeyFigure(Object reqParam);
+	public void addAssetKeyFigures(List<AssetKeyFigureVO> successVOs, List<FailedVO<AssetKeyFigureVO>> failedVOs,
+			List<JsonObject> totalVOs, boolean isInterfaceRequest, AssetRequestVO assetKeyFigureVOs) throws Exception;
+
+	public Map<String, Object> getAssetsKeyFiguresById(String tenantCode, List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO reqParam) throws Exception;
+
+	public Map<String, Object> getAssetsKeyFigures(String tenantCode, List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO reqParam) throws Exception;
+
+//	public List<AssetKeyFigureVO> getAssetKeyFiguresList(List<AssetGetRequestVO> reqParam, Date referenceDate,
+	// String tenantCode) throws Exception ;
+
+	public String getSubCatagory1(String tenantCode, String isin, String currency) throws Exception;
+
+	public String getSubCatagory2(String tenantCode, String isin, String currency) throws Exception;
+
+	public String getFirstLegCurrency(String tenantCode, String isin, String currency) throws Exception;
+
+	public String getSecondLegCurrency(String tenantCode, String isin, String currency) throws Exception;
+}

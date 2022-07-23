@@ -1,0 +1,73 @@
+version: '3'
+
+services:
+  dev-assetmaster-postgres:
+    build:
+          context: ./assetpostgres
+    image: "dev/postgres:latest"
+    container_name: dev-assetmaster-postgres
+    ports:
+      - "5414:5432"
+    volumes:
+      - /home/deploy-user/devservicesvolumedata/assetmanagementdata/dbscript:/docker-entrypoint-initdb.d/
+      - /home/deploy-user/devservicesvolumedata/assetmanagementdata/dbscriptdata:/var/lib/postgresql/data
+      - /home/deploy-user/devservicesvolumedata/assetmanagementdata/dump:/dump
+      - /home/deploy-user/devservicesvolumedata/assetmanagementdata/dbconfigfile/data/postgresql.conf:/var/lib/postgresql/data/postgresql.conf
+      - /home/deploy-user/devservicesvolumedata/assetmanagementdata/updatescript:/updatescript
+      # - ${PWD}/dbdata:/var/lib/postgresql/data  This is new Test text on same line   
+      #   ${PWD}/dbdata:/var/lib/postgresql/data  This is new line text on same line
+
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      TZ: 'UTC'
+      PGTZ: 'UTC'
+    restart: always
+    networks:
+      - devdockernetwork
+  
+  dev-assetmaster:
+           image: "localhost:5000/dev-assetmaster:0.0.1-SNAPSHOT"
+           container_name: dev-assetmaster
+           ports:
+                   - "8063:8063"
+                   - "6001:6001" 
+           volumes:
+                   - /home/deploy-user/devservicesvolumedata/assetmanagementdata/certificate:/home/produser/certificate
+                   - /home/deploy-user/devservicesvolumedata/assetmanagementdata/logs:/home/produser/logs
+           entrypoint: "java -jar AssetMaster-0.0.1-SNAPSHOT.jar -Pdev"
+
+           depends_on:
+                   - dev-assetmaster-postgres     
+           environment:
+                   - spring.klayx.datasource.url=jdbc:postgresql://dev-assetmaster-postgres:5432/klayassetmaster
+                   - spring.klayx.datasource.username=klayassetmaster
+                   - spring.klayx.datasource.password=klayassetmaster
+                   - spring.klayx.datasource.platform=postgresql
+
+                   - spring.t4k8.datasource.url=jdbc:postgresql://dev-assetmaster-postgres:5432/klayassetmaster
+                   - spring.t4k8.datasource.username=klayassetmaster
+                   - spring.t4k8.datasource.password=klayassetmaster
+                   - spring.t4k8.datasource.platform=postgresql
+
+                   - spring.t4c7.datasource.url=jdbc:postgresql://dev-assetmaster-postgres:5432/klayassetmaster
+                   - spring.t4c7.datasource.username=klayassetmaster
+                   - spring.t4c7.datasource.password=klayassetmaster
+
+                   - spring.klayassetmasterdummy.datasource.url=jdbc:postgresql://dev-assetmaster-postgres:5432/klayassetmasterdummy
+                   - spring.klayassetmasterdummy.datasource.username=klayassetmasterdummy
+                   - spring.klayassetmasterdummy.datasource.password=klayassetmasterdummy
+                   - spring.klayassetmasterdummy.datasource.platform=postgresql
+
+                   - server.port=8063
+                   - connector.port=6000
+
+           restart: always
+           networks:
+                   - devdockernetwork
+
+networks:
+  devdockernetwork:
+          name: dev_custom_network
+          

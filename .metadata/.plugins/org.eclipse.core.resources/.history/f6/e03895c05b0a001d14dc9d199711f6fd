@@ -1,0 +1,281 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+
+@JsonInclude(value = Include.NON_DEFAULT)
+public class AssetSPMetricsVO {
+
+	private BigDecimal id;
+	private BigDecimal assetId;
+	private BigDecimal currencyId;
+	private BigDecimal custodianId;
+	private Date computedDate;
+	private BigDecimal assetMaturityDaysLeft;
+	private BigDecimal assetDaysFromTrade;
+	private BigDecimal assetDaysToNextValuation;
+	private Date nextValuationDate;
+	private double nextCouponPerc;
+	private double barrierPerc;
+	private double autocallPerc;
+	private double distanceToBarrierPerc;
+	private double intrinsicPerc;
+	private double minIndexReturnPerc;
+	private double markPerc;
+	private int isAutocallLikely;
+	private Date finalValuationDate;
+	private BigDecimal assetDaysToFinalValuation;
+	private int isActive;
+	private String createdBy;
+	private Date createdDate;
+	private String updatedBy;
+	private Date updatedDate;
+	private String isin;
+	private String currencyConfigName;
+	private String error;
+	private List<AssetSPUnderlyingMetricsVO> assetSPUnderlyingMetricsVO;
+	
+	public Date getFinalValuationDate() {
+		return finalValuationDate;
+	}
+
+	public void setFinalValuationDate(Date finalValuationDate) {
+		this.finalValuationDate = finalValuationDate;
+	}
+	public void setIsActive(int isActive) {
+		this.isActive = isActive;
+	}
+
+	public String getCreatedBy() {
+		return createdBy;
+	}
+
+	public void setCreatedBy(String createdBy) {
+		this.createdBy = createdBy;
+	}
+
+	public Date getCreatedDate() {
+		return createdDate;
+	}
+
+	public void setCreatedDate(Date createdDate) {
+		this.createdDate = createdDate;
+	}
+
+	public String getUpdatedBy() {
+		return updatedBy;
+	}
+
+	public void setUpdatedBy(String updatedBy) {
+		this.updatedBy = updatedBy;
+	}
+
+	public Date getUpdatedDate() {
+		return updatedDate;
+	}
+
+	public void setUpdatedDate(Date updatedDate) {
+		this.updatedDate = updatedDate;
+	}
+
+	public BigDecimal getId() {
+		return id;
+	}
+
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+
+	public BigDecimal getAssetId() {
+		return assetId;
+	}
+
+	public void setAssetId(BigDecimal assetId) {
+		this.assetId = assetId;
+	}
+
+	public BigDecimal getCustodianId() {
+		return custodianId;
+	}
+
+	public void setCustodianId(BigDecimal custodianId) {
+		this.custodianId = custodianId;
+	}
+
+	public Date getComputedDate() {
+		return computedDate;
+	}
+
+	public void setComputedDate(Date computedDate) {
+		this.computedDate = computedDate;
+	}
+
+	public BigDecimal getAssetMaturityDaysLeft() {
+		return assetMaturityDaysLeft;
+	}
+
+	public void setAssetMaturityDaysLeft(BigDecimal assetMaturityDaysLeft) {
+		this.assetMaturityDaysLeft = assetMaturityDaysLeft;
+	}
+
+	public BigDecimal getAssetDaysFromTrade() {
+		return assetDaysFromTrade;
+	}
+
+	public void setAssetDaysFromTrade(BigDecimal assetDaysFromTrade) {
+		this.assetDaysFromTrade = assetDaysFromTrade;
+	}
+
+	public BigDecimal getAssetDaysToNextValuation() {
+		return assetDaysToNextValuation;
+	}
+
+	public void setAssetDaysToNextValuation(BigDecimal assetDaysToNextValuation) {
+		this.assetDaysToNextValuation = assetDaysToNextValuation;
+	}
+
+	public Date getNextValuationDate() {
+		return nextValuationDate;
+	}
+
+	public void setNextValuationDate(Date nextValuationDate) {
+		this.nextValuationDate = nextValuationDate;
+	}
+
+	public double getNextCouponPerc() {
+		return nextCouponPerc;
+	}
+
+	public void setNextCouponPerc(double nextCouponPerc) {
+		this.nextCouponPerc = nextCouponPerc;
+	}
+
+	public double getBarrierPerc() {
+		return barrierPerc;
+	}
+
+	public void setBarrierPerc(double barrierPerc) {
+		this.barrierPerc = barrierPerc;
+	}
+
+	public double getAutocallPerc() {
+		return autocallPerc;
+	}
+
+	public void setAutocallPerc(double autocallPerc) {
+		this.autocallPerc = autocallPerc;
+	}
+
+	public double getDistanceToBarrierPerc() {
+		return distanceToBarrierPerc;
+	}
+
+	public void setDistanceToBarrierPerc(double distanceToBarrierPerc) {
+		this.distanceToBarrierPerc = distanceToBarrierPerc;
+	}
+
+	public double getIntrinsicPerc() {
+		return intrinsicPerc;
+	}
+
+	public void setIntrinsicPerc(double intrinsicPerc) {
+		this.intrinsicPerc = intrinsicPerc;
+	}
+
+	public double getMinIndexReturnPerc() {
+		return minIndexReturnPerc;
+	}
+
+	public void setMinIndexReturnPerc(double minIndexReturnPerc) {
+		this.minIndexReturnPerc = minIndexReturnPerc;
+	}
+
+	public double getMarkPerc() {
+		return markPerc;
+	}
+
+	public void setMarkPerc(double markPerc) {
+		this.markPerc = markPerc;
+	}
+
+	public int getIsAutocallLikely() {
+		return isAutocallLikely;
+	}
+
+	public void setIsAutocallLikely(int isAutocallLikely) {
+		this.isAutocallLikely = isAutocallLikely;
+	}
+
+	public BigDecimal getAssetDaysToFinalValuation() {
+		return assetDaysToFinalValuation;
+	}
+
+	public void setAssetDaysToFinalValuation(BigDecimal assetDaysToFinalValuation) {
+		this.assetDaysToFinalValuation = assetDaysToFinalValuation;
+	}
+
+	public String getIsin() {
+		return isin;
+	}
+
+	public void setIsin(String isin) {
+		this.isin = isin;
+	}
+
+	public String getCurrencyConfigName() {
+		return currencyConfigName;
+	}
+
+	public void setCurrencyConfigName(String currencyConfigName) {
+		this.currencyConfigName = currencyConfigName;
+	}
+
+	public String getError() {
+		return error;
+	}
+
+	public void setError(String error) {
+		this.error = error;
+	}
+
+	public int getIsActive() {
+		return isActive;
+	}
+
+	public List<AssetSPUnderlyingMetricsVO> getAssetSPUnderlyingMetricsVO() {
+		return assetSPUnderlyingMetricsVO;
+	}
+
+	public void setAssetSPUnderlyingMetricsVO(List<AssetSPUnderlyingMetricsVO> assetSPUnderlyingMetricsVO) {
+		this.assetSPUnderlyingMetricsVO = assetSPUnderlyingMetricsVO;
+	}
+
+	public BigDecimal getCurrencyId() {
+		return currencyId;
+	}
+
+	public void setCurrencyId(BigDecimal currencyId) {
+		this.currencyId = currencyId;
+	}
+
+	@Override
+	public String toString() {
+		return "AssetSPMetricsVO [id=" + id + ", assetId=" + assetId + ", custodianId=" + custodianId
+				+ ", computedDate=" + computedDate + ", assetMaturityDaysLeft=" + assetMaturityDaysLeft
+				+ ", assetDaysFromTrade=" + assetDaysFromTrade + ", assetDaysToNextValuation="
+				+ assetDaysToNextValuation + ", nextValuationDate=" + nextValuationDate + ", nextCouponPerc="
+				+ nextCouponPerc + ", barrierPerc=" + barrierPerc + ", autocallPerc=" + autocallPerc
+				+ ", distanceToBarrierPerc=" + distanceToBarrierPerc + ", intrinsicPerc=" + intrinsicPerc
+				+ ", minIndexReturnPerc=" + minIndexReturnPerc + ", markPerc=" + markPerc + ", isAutocallLikely="
+				+ isAutocallLikely + ", finalValuationDate=" + finalValuationDate + ", assetDaysToFinalValuation="
+				+ assetDaysToFinalValuation + ", isActive=" + isActive + ", createdBy=" + createdBy + ", createdDate="
+				+ createdDate + ", updatedBy=" + updatedBy + ", updatedDate=" + updatedDate + ", isin=" + isin
+				+ ", currencyConfigName=" + currencyConfigName + ", error=" + error + ", assetSPUnderlyingMetricsVO="
+				+ assetSPUnderlyingMetricsVO + "]";
+	}
+
+}

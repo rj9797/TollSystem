@@ -1,0 +1,130 @@
+package com.klayx.asset.controller;
+
+import java.io.ByteArrayInputStream;
+import java.sql.Time;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetRequestValidator;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.excel.ExcelDownload;
+import com.klayx.asset.model.AccessDetailVO;
+import com.klayx.asset.model.AssetAddRequestVO;
+import com.klayx.asset.model.AssetCompositeResponseVO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetReturnsVO;
+import com.klayx.asset.model.AssetSPMetricsVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.ExchangeRateVO;
+import com.klayx.asset.model.FailedAssetVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.PreferredAssetGroupVO;
+import com.klayx.asset.model.ResponseVO;
+import com.klayx.asset.model.SearchRequestVO;
+import com.klayx.asset.model.SearchResultDataVO;
+import com.klayx.asset.model.UnderlyingAssetsVO;
+import com.klayx.asset.model.UniverseStockDetailsByBrokerVO;
+import com.klayx.asset.model.UniverseStockDetailsByTerminalVO;
+import com.klayx.asset.model.UniverseStockVO;
+import com.klayx.asset.service.IAssetKeyFigureService;
+import com.klayx.asset.service.IAssetPriceService;
+import com.klayx.asset.service.IAssetReturnsService;
+import com.klayx.asset.service.IAssetSPMetricsService;
+import com.klayx.asset.service.IAssetService;
+import com.klayx.asset.service.IExchangeRateService;
+import com.klayx.asset.service.IUniverseStockService;
+import com.klayx.asset.service.IassetreportdatService;
+
+@RestController
+@RequestMapping(AssetConstants.REQUESTMAPPING)
+public class AssetController {
+	Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+			.create();
+
+	@Autowired
+	private IAssetService assetService;	
+	
+	@PostMapping(value = "/tollSystem")
+	public ResponseEntity<String> tollSystem(@RequestBody String json,
+			HttpServletRequest request) throws Exception {
+		
+		System.out.println("called");
+		
+		try {
+			SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");  
+		    Date date = new Date();  
+		    System.out.println(date.getHours());
+		    System.out.println(json);
+		    
+			int value=assetService.tollSystem(date, json,"username");
+			if(value==0) {
+				return ResponseEntity.status(HttpStatus.OK).body("success");
+			}else if(value==1) {
+				return ResponseEntity.status(HttpStatus.OK).body("wallet is running low on balance. FAILED");
+			}
+		}catch(Exception ex) {
+			
+			ex.printStackTrace();
+			throw ex;
+		}
+		
+		return ResponseEntity.status(HttpStatus.OK).body("");
+		 
+	}
+
+	
+	@PostMapping(value = "/getTotal")
+	public ResponseEntity<String> getTotal(@RequestBody String json,
+			HttpServletRequest request) throws Exception {
+		if (log.isDebugEnabled()) {
+			log.debug("entering");
+		}
+		System.out.println("called total");
+		
+		try {
+			Map<String,Integer> map=assetService.getTotal();
+			JsonObject jsonObj=new JsonObject();
+			jsonObj.addProperty("Total vehicles passed", map.get("totalVehiclesPassed"));
+			jsonObj.addProperty("Total amount collected", map.get("totalAmountCollected"));
+			return ResponseEntity.status(HttpStatus.OK).body(jsonObj.toString());
+		}catch(Exception ex) {
+			log.fatal("Error: ",ex);
+			ex.printStackTrace();
+			throw ex;
+		}
+	}
+	
+
+}

@@ -1,0 +1,205 @@
+package com.klayx.asset.service.impl;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IgenerateErrorReport;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.FailedAssetVO;
+import com.klayx.asset.service.IassetreportdatService;
+
+@Service("assertreportdatServiceImpl")
+public class AssetReportDataServiceImpl implements IassetreportdatService
+{
+	private static final Logger log = LogManager.getLogger(AssetReportDataServiceImpl.class);
+	
+	@Value("${MAINTAINANCE_CACHEINFO_URL}")
+	private String maintainance_cache_info_url;
+	
+	
+    /*
+      Now let say this single interface has more than one implementation
+      so how to specify which one to choose so in that casw we have
+      qualifier mention the name of implementation
+     */
+    @Autowired
+    @Qualifier("generatedErrorReport")
+    private IgenerateErrorReport igenerateErrorReport;
+
+    @Override
+    public JSONObject reportService(String date)
+    {
+        // for now no usegae of date but later its needed
+        // Now the return will be null or size()>=1 as mentyioned in daoimpl
+        return igenerateErrorReport.report(date);
+    }
+
+	@Override
+	public List<FailedAssetVO> failedAsset(String referenceDate,String tenantCode) throws Exception {
+		if(log.isDebugEnabled())
+		log.debug("Entering");
+		List<FailedAssetVO> failedAssetVos=new ArrayList<>();
+		try {
+			failedAssetVos=igenerateErrorReport.failedAsset(referenceDate,tenantCode);
+		}catch (Exception e) {
+			log.fatal("Error in failed Asset Service"+e.getMessage());
+			e.printStackTrace();
+		}		
+		return failedAssetVos;
+	}
+	
+	@Override
+	public List<AssetVO> getNotClassifiedAssets(String tenantCode,String accessToken) throws Exception {
+		if(log.isDebugEnabled())
+		log.debug("Entering");
+		List<AssetVO> notClassifiedAssetVos=new ArrayList<>();
+		List<AssetVO> notClassifiedFinalAssetVOs=new ArrayList<>();
+		try {
+			
+
+			//Getting description on ACM codes
+			String requestString = "{\r\n"
+					+ "	\"maintenanceGetRequest\": {\r\n"
+					+ "		\"configTypes\": [\r\n"
+					+ "			\"CATEGORY\",\r\n"
+					+ "			\"SUBCATEGORY_1\",\r\n"
+					+ "			\"SUBCATEGORY_2\",\r\n"
+					+ "			\"SUBCATEGORY_3\"\r\n"
+					+ "		]\r\n"
+					+ "	}\r\n"
+					+ "}";
+			
+			String respString = AssetUtil.syncHttpCall(requestString, maintainance_cache_info_url, accessToken);
+			JsonObject jsonObject=AssetUtil.fromJSonToObject(respString, JsonObject.class);
+			
+			JsonArray sucessArray = jsonObject.get("success").getAsJsonArray();
+			JsonArray appConfigArray = sucessArray.get(0).getAsJsonObject().get("appConfig").getAsJsonArray();
+			
+			Map<String,String> categoryMap = new HashMap<String,String>();
+			Map<String,String> subCategory1 = new HashMap<String,String>();
+			Map<String,String> subCategory2 = new HashMap<String,String>();
+			Map<String,String> subCategory3 = new HashMap<String,String>();
+		
+			for(int i=0;i<appConfigArray.size();i++)
+			{
+				JsonObject appConfigObject = appConfigArray.get(i).getAsJsonObject();
+				
+				//working till here
+				JsonArray configValueList = appConfigObject.get("configValueList").getAsJsonArray();
+				String configType = appConfigObject.get("configType").getAsString();
+				
+				//For CATEGORY
+				if(configType.equals("CATEGORY"))
+				{
+					for(int j=0;j<configValueList.size();j++)
+					{
+						JsonObject configListObject = configValueList.get(j).getAsJsonObject();
+						String configValue = configListObject.get("configValue").getAsString();
+						String configName = configListObject.get("configName").getAsString();
+						categoryMap.put(configName,configValue);
+					}
+				}
+				
+				//For SubCategory1
+				if(configType.equals("SUBCATEGORY_1"))
+				{
+					for(int j=0;j<configValueList.size();j++)
+					{
+						JsonObject configListObject = configValueList.get(j).getAsJsonObject();
+						String configValue = configListObject.get("configValue").getAsString();
+						String configName = configListObject.get("configName").getAsString();
+						subCategory1.put(configName,configValue);
+					}
+				}
+				//For SubCategory2
+				if(configType.equals("SUBCATEGORY_2"))
+				{
+					for(int j=0;j<configValueList.size();j++)
+					{
+						JsonObject configListObject = configValueList.get(j).getAsJsonObject();
+						String configValue = configListObject.get("configValue").getAsString();
+						String configName = configListObject.get("configName").getAsString();
+						subCategory2.put(configName,configValue);
+					}
+				}
+				//For SubCategory3
+				if(configType.equals("SUBCATEGORY_3"))
+				{
+					for(int j=0;j<configValueList.size();j++)
+					{
+						JsonObject configListObject = configValueList.get(j).getAsJsonObject();
+						String configValue = configListObject.get("configValue").getAsString();
+						String configName = configListObject.get("configName").getAsString();
+						subCategory3.put(configName,configValue);
+					}
+				}
+			}
+			
+			
+			
+			notClassifiedAssetVos=igenerateErrorReport.getNotClassifiedAssets(tenantCode);
+			
+			//removing assets object from not classified list for exceptional cases
+			for(AssetVO notClassifiedAssetVo: notClassifiedAssetVos)
+			{
+				boolean allowed  = false;
+				if(notClassifiedAssetVo.getCategoryAppConfigName().equals("ACM232") &&
+					notClassifiedAssetVo.getSubcategory1AppConfigName().equals("ACM1712") &&
+					notClassifiedAssetVo.getSubcategory2AppConfigName().equals("ACM1713") &&
+					notClassifiedAssetVo.getSubcategory3AppConfigName().equals("ACM1714"))
+				{
+					allowed = true;
+				}
+				else if(notClassifiedAssetVo.getCategoryAppConfigName().equals("ACM230") &&
+						(notClassifiedAssetVo.getSubcategory1AppConfigName().equals("ACM249") ||
+						 notClassifiedAssetVo.getSubcategory1AppConfigName().equals("ACM251") ||
+						 notClassifiedAssetVo.getSubcategory1AppConfigName().equals("ACM252") ||
+						 notClassifiedAssetVo.getSubcategory1AppConfigName().equals("ACM1768")))
+				{
+					if(notClassifiedAssetVo.getSubcategory3AppConfigName().equals("ACM1714") &&
+						(notClassifiedAssetVo.getSubcategory2AppConfigName().equals("ACM270") ||
+						 notClassifiedAssetVo.getSubcategory2AppConfigName().equals("ACM271") ||
+						 notClassifiedAssetVo.getSubcategory2AppConfigName().equals("ACM272") ||
+						 notClassifiedAssetVo.getSubcategory2AppConfigName().equals("ACM273") ||
+						 notClassifiedAssetVo.getSubcategory2AppConfigName().equals("ACM274") ||
+						 notClassifiedAssetVo.getSubcategory2AppConfigName().equals("ACM276") ||
+						 notClassifiedAssetVo.getSubcategory2AppConfigName().equals("ACM277") ||
+						 notClassifiedAssetVo.getSubcategory2AppConfigName().equals("ACM278")))
+						{
+							allowed = true;
+						}
+				}
+				if(!allowed)
+				{
+					notClassifiedAssetVo.setCategoryDescription(categoryMap.get(notClassifiedAssetVo.getCategoryAppConfigName()));
+					notClassifiedAssetVo.setSubCategory1Description(subCategory1.get(notClassifiedAssetVo.getSubcategory1AppConfigName()));
+					notClassifiedAssetVo.setSubCategory2Description(subCategory2.get(notClassifiedAssetVo.getSubcategory2AppConfigName()));
+					notClassifiedAssetVo.setSubCategory3Description(subCategory3.get(notClassifiedAssetVo.getSubcategory3AppConfigName()));
+					notClassifiedFinalAssetVOs.add(notClassifiedAssetVo);
+				}
+			}
+		}catch (Exception e) {
+			log.fatal("Error in not classified Asset Service",e);
+			throw e;
+		}
+		
+		if(log.isDebugEnabled())
+			log.debug("Leaving");
+		
+		return notClassifiedFinalAssetVOs;
+	}
+}

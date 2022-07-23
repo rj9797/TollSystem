@@ -1,0 +1,26 @@
+package com.klayx.asset.rowmapper;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.springframework.jdbc.core.RowMapper;
+
+import com.klayx.asset.model.*;
+
+public class UnderlyingAssetRowMapper implements RowMapper<UnderlyingAssetsVO>{
+	
+	@Override
+	public UnderlyingAssetsVO mapRow(ResultSet rs, int rowNum) throws SQLException {
+		UnderlyingAssetsVO underlyingAssetsVO=new UnderlyingAssetsVO();
+    
+		underlyingAssetsVO.setId(rs.getBigDecimal("uid"));
+		underlyingAssetsVO.setUnderlyingAssetId(rs.getBigDecimal("underlying_asset_id"));
+		underlyingAssetsVO.setParentAssetId(rs.getBigDecimal("asset_id"));
+		underlyingAssetsVO.setInitialLevel(rs.getBigDecimal("initial_level_amt"));
+		underlyingAssetsVO.setUnderlyingAssetIsin(rs.getString("underlying_isin"));
+		underlyingAssetsVO.setUnderlyingAssetCurrencyAppConfigName(rs.getString("underlying_currency_config_name"));
+		underlyingAssetsVO.set_underlyingAssetCurrencyAppId(rs.getBigDecimal("underlying_currency_id"));
+		underlyingAssetsVO.setUnderlyingAssetName(rs.getString("underlying_asset_name"));
+		return underlyingAssetsVO;
+	}
+}

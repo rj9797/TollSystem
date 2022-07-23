@@ -1,0 +1,794 @@
+package com.klayx.asset.dao.impl;
+
+import java.math.BigDecimal;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementSetter;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.support.rowset.SqlRowSet;
+import org.springframework.stereotype.Repository;
+
+import com.google.gson.Gson;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IAssetPriceDAO;
+import com.klayx.asset.datasourcemanager.DataSourceManager;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.SqlExtractVO;
+import com.klayx.asset.rowmapper.AssetPriceRowMapper;
+import com.klayx.asset.rowmapper.AssetRowMapper;
+import com.klayx.asset.rowmapper.ResultRowMapper;
+import com.klayx.asset.transactionmanager.CustomTransactional;
+
+@Repository(AssetConstants.ASSETPRICEDAO)
+@PropertySource({ "classpath:${DBSQLFILE}.properties" })
+public class AssetPriceDAOImpl implements IAssetPriceDAO {
+
+	private static final Logger log = LogManager.getLogger(AssetPriceDAOImpl.class);
+//	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
+	@Autowired
+	DataSourceManager dataSourceManager;
+
+	@Value("${assetPriceQuery}")
+	private String assetPriceQuery;
+
+	@Value("${GET_CURRENT_LEVEL_AMOUNT_BY_ISIN}")
+	private String GET_CURRENT_LEVEL_AMOUNT_BY_ISIN;
+
+	@Value("${IS_ASSET_ID_PRESENT}")
+	private String IS_ASSET_ID_PRESENT;
+
+	@Value("${CHECK_CATEGORY}")
+	private String CHECK_CATEGORY;
+
+	@Value("${GET_CATEGORY_LIST}")
+	private String GET_CATEGORY_LIST;
+
+	@Value("${UPDATE_ASSET_PRICE}")
+	private String UPDATE_ASSET_PRICE;
+
+	@Value("${IS_ID_PRESENT}")
+	private String IS_ID_PRESENT;
+
+	@Value("${UPDATE_PRICE}")
+	private String UPDATE_PRICE;
+
+	@Value("${GET_MAX_DATE}")
+	private String GET_MAX_DATE;
+
+	@Value("${UPDATE_EFF_TO_DATE}")
+	private String UPDATE_EFF_TO_DATE;
+
+	@Value("${FETCH_ASSET_PRICE}")
+	private String FETCH_ASSET_PRICE;
+
+	@Value("${FETCH_ASSET_PRICE_QUERY}")
+	private String FETCH_ASSET_PRICE_QUERY;
+
+	@Value("${GET_ISIN_CURRENCY}")
+	private String GET_ISIN_CURRENCY;
+
+	@Value("${ERROR_INSERT_SQL}")
+	private String errorInsertQuery;
+
+	@Value("${SERVICE_ID}")
+	private long SERVICE_ID;
+
+	@Value("${SELECT_SUBCATAGORY}")
+	private String SELECT_SUBCATAGORY;
+
+	@Value("${GET_ASSET_PRICE_WITH_NULL}")
+	private String GET_ASSET_PRICE_WITH_NULL;
+
+	@Value("${INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE}")
+	private String INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE;
+
+	@Value("${UPDATE_ASSET_CUSTODIANWISE_LAST_DATE}")
+	private String UPDATE_ASSET_CUSTODIANWISE_LAST_DATE;
+
+	@Value("$GET_ASSET_CUSTODIANWISE_LAST_DATE")
+	private String GET_ASSET_CUSTODIANWISE_LAST_DATE;
+
+	Gson gson = new Gson();
+
+	int flag = 0;
+
+	List<AssetPriceVO> errorVOs = new ArrayList<AssetPriceVO>();
+
+	
+	@Override
+	public Map<String, SqlExtractVO> addAssetPriceList(String tenantCode, List<AssetPriceVO> successVOs,
+			String tmpQuery) throws Exception {
+		log.debug("Entering");
+		try {
+			log.fatal("getAssetPrice started: " + getTimeStamp());
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			List<SqlExtractVO> extractVOs = jdbcTemplate.query(tmpQuery, new PreparedStatementSetter() {
+
+				@Override
+				public void setValues(PreparedStatement preparedStatement) throws SQLException {
+
+					int j = 0;
+					for (int i = 0; i < successVOs.size(); i++) {
+						preparedStatement.setString(++j, successVOs.get(i).getIsin());
+						preparedStatement.setBigDecimal(++j, successVOs.get(i).get_currencyAppId());
+						preparedStatement.setBigDecimal(++j, successVOs.get(i).getCustodianAppId());
+
+					}
+					for (int i = 0; i < successVOs.size(); i++) {
+						preparedStatement.setString(++j, successVOs.get(i).getIsin());
+						preparedStatement.setBigDecimal(++j, successVOs.get(i).get_currencyAppId());
+						preparedStatement.setBigDecimal(++j, successVOs.get(i).getCustodianAppId());
+					}
+//					 log.fatal("addAssetPriceListQuery:"+preparedStatement.toString().replaceAll("::numeric", "").replaceAll("::numeric", ""));
+//					 System.out.println("preparedStatement=" + preparedStatement);
+//					 log.fatal("preparedStatement=" + preparedStatement);
+				}
+			}, new ResultRowMapper());
+
+			Map<String, SqlExtractVO> sqlExtractedMap = new HashMap<String, SqlExtractVO>();
+
+			for (SqlExtractVO sqlExtractVO : extractVOs) {
+				if (!sqlExtractedMap.containsKey(sqlExtractVO.getAssetpricekey())) {
+					sqlExtractedMap.put(sqlExtractVO.getAssetpricekey(), sqlExtractVO);
+				}
+				if(sqlExtractVO.getAssetpricekey().equals("XS2123990355243223")) {
+					log.fatal("161sqlExtractVO="+sqlExtractVO);
+				}
+			}
+			log.debug("Leaving");
+			log.fatal("getAssetPrice ended: " + getTimeStamp());
+			return sqlExtractedMap;
+		} catch (Exception e) {
+			log.fatal("Error in addAssetPriceList: ", e);
+			throw e;
+		}
+	}
+
+	@CustomTransactional
+	public void freshInsert(String tenantCode, List<AssetPriceVO> assetPriceVO) throws Exception {
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			List<AssetPriceVO> maxDateInsertList = new ArrayList<AssetPriceVO>();
+			Map<String, AssetPriceVO> map = new HashMap<String, AssetPriceVO>();
+
+			for (int i = 0; i < assetPriceVO.size(); i++) {
+				if (!map.containsKey(assetPriceVO.get(i).getIsin() + assetPriceVO.get(i).getCurrencyAppConfigName()
+						+ assetPriceVO.get(i).getCustodianAppConfigName())) {
+					map.put(assetPriceVO.get(i).getIsin() + assetPriceVO.get(i).getCurrencyAppConfigName()
+							+ assetPriceVO.get(i).getCustodianAppConfigName(), assetPriceVO.get(i));
+				}
+			}
+
+			// Creating map from list.
+			Map<String, List<AssetPriceVO>> assetPriceMap = new HashMap<String, List<AssetPriceVO>>();
+//			for (int i = 0; i < assetPriceVO.size(); i++) {
+//				String key = assetPriceVO.get(i).getIsin() + assetPriceVO.get(i).getCurrencyAppConfigName()
+//						+ assetPriceVO.get(i).getCustodianAppConfigName();
+//				if (!assetPriceMap.containsKey(key)) {
+//					List<AssetPriceVO> assetPriceList = new ArrayList<AssetPriceVO>();
+//					assetPriceList.add(assetPriceVO.get(i));
+//					assetPriceMap.put(key, assetPriceList);
+//				} else {
+//					assetPriceMap.get(key).add(assetPriceVO.get(i));
+//				}
+//			}
+
+			for (AssetPriceVO priceVO : assetPriceVO) {
+				assetPriceMap.computeIfAbsent(
+						priceVO.getIsin() + priceVO.getCurrencyAppConfigName() + priceVO.getCustodianAppConfigName(),
+						k -> new ArrayList<>()).add(priceVO);
+			}
+
+			Iterator<Map.Entry<String, List<AssetPriceVO>>> itr = assetPriceMap.entrySet().iterator();
+
+			while (itr.hasNext()) {
+				Map.Entry<String, List<AssetPriceVO>> entry = itr.next();
+
+				List<AssetPriceVO> assetPriceList = (List<AssetPriceVO>) entry.getValue();
+
+				if (assetPriceList != null && assetPriceList.size() > 0)
+					assetPriceList = assetPriceList.stream()
+							.sorted(Comparator.comparing(AssetPriceVO::getEffectiveFromDate))
+							.collect(Collectors.toList());
+
+				if (assetPriceList != null && assetPriceList.size() > 0) {
+
+					for (int i = 0; i < assetPriceList.size(); i++) {
+						if (i == assetPriceList.size() - 1) {
+							maxDateInsertList.add(assetPriceList.get(i));
+						} else {
+							AssetPriceVO nextAssetPriceVO = assetPriceList.get(i + 1);
+							Date effectiveFromDate = nextAssetPriceVO.getEffectiveFromDate();
+							Calendar calender = Calendar.getInstance();
+							calender.setTime(effectiveFromDate);
+							calender.add(Calendar.MILLISECOND, -1);
+							Date oneMinuteBefore = calender.getTime();
+
+							// Setting effectiveToDate
+							assetPriceList.get(i).setEffToDate(oneMinuteBefore);
+						}
+					}
+				}
+			}
+		
+
+			if (maxDateInsertList.size() > 0) {
+				this.updateAssetCustodianWiseLastDate(tenantCode, maxDateInsertList);
+			}
+			/**
+			 * NOTE: Please make a note that We are not creating seperate List of AssetPrice
+			 * after above operation. Because whenever we are setting effToDate in below
+			 * code, it is getting updated in list by call by reference.
+			 */
+
+			List<AssetPriceVO> priceVOs = new ArrayList<AssetPriceVO>(map.values());
+			StringBuilder query1 = new StringBuilder();
+			query1.append(GET_ISIN_CURRENCY);
+			for (int i = 0; i < priceVOs.size(); i++) {
+				if (i == priceVOs.size() - 1) {
+					String last = "(ISIN='" + priceVOs.get(i).getIsin() + "' AND currency_config_name='"
+							+ priceVOs.get(i).getCurrencyAppConfigName() + "'))";
+					query1.append(last);
+				} else {
+					String last = "(ISIN='" + priceVOs.get(i).getIsin() + "' AND currency_config_name='"
+							+ priceVOs.get(i).getCurrencyAppConfigName() + "') OR ";
+					query1.append(last);
+				}
+			}
+			List<AssetVO> result = jdbcTemplate.query(query1.toString(), new AssetRowMapper());
+
+			List<AssetPriceVO> assetPriceVOs = new ArrayList<AssetPriceVO>();
+			int flag = 0;
+			for (int i = 0; i < assetPriceVO.size(); i++) {
+				flag = 0;
+				for (int j = 0; j < result.size(); j++) {
+
+					if (result.get(j).getIsin().equals(assetPriceVO.get(i).getIsin())
+							&& assetPriceVO.get(i).get_currencyAppId().equals(result.get(j).get_currencyAppId())) {
+						assetPriceVO.get(i).setAssetID(result.get(j).getId());
+						assetPriceVOs.add(assetPriceVO.get(i));
+						flag = 1;
+						break;
+					}
+				}
+				if (flag == 0) {
+					assetPriceVO.get(i).setHasError(1);
+					List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+					errorVOs.add(AssetUtil.getError("BUSAST32"));
+					assetPriceVO.get(i).setErrors(errorVOs);
+				}
+			}
+
+			jdbcTemplate.batchUpdate(assetPriceQuery, new BatchPreparedStatementSetter() {
+				@Override
+				public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+
+					preparedStatement.setBigDecimal(1, assetPriceVOs.get(i).get_assetID());
+					preparedStatement.setString(2, assetPriceVOs.get(i).getIsin());
+					preparedStatement.setBigDecimal(3, assetPriceVOs.get(i).get_currencyAppId());
+					preparedStatement.setBigDecimal(4, assetPriceVOs.get(i).get_custodianAppId());
+					preparedStatement.setBigDecimal(5, assetPriceVOs.get(i).getPrice());
+					preparedStatement.setBigDecimal(6, assetPriceVOs.get(i).getDirtyPrice());
+					preparedStatement.setBigDecimal(7, assetPriceVOs.get(i).getOpen());
+					preparedStatement.setBigDecimal(8, assetPriceVOs.get(i).getHigh());
+					preparedStatement.setBigDecimal(9, assetPriceVOs.get(i).getLow());
+					preparedStatement.setBigDecimal(10, assetPriceVOs.get(i).getClose());
+					preparedStatement.setBigDecimal(11, assetPriceVOs.get(i).getBid());
+					preparedStatement.setBigDecimal(12, assetPriceVOs.get(i).getAsk());
+
+					try {
+
+						preparedStatement.setTimestamp(13,
+								AssetUtil.stringToTimestamp(assetPriceVOs.get(i).getEffectiveFromDate()));
+						if (assetPriceVOs.get(i).getEffToDate() != null) {
+							preparedStatement.setTimestamp(14,
+									AssetUtil.stringToTimestamp(assetPriceVOs.get(i).getEffToDate()));
+						} else {
+							preparedStatement.setTimestamp(14, null);
+						}
+
+					} catch (SQLException e) {
+						log.fatal("SQLException: ", e);
+					} catch (Exception e) {
+						log.fatal("Exception: ", e);
+					}
+					preparedStatement.setBigDecimal(15, assetPriceVOs.get(i).get_sourceAppId());
+					preparedStatement.setString(16, assetPriceVOs.get(i).getRemarks());
+					preparedStatement.setString(17, assetPriceVOs.get(i).getUsername());
+					preparedStatement.setLong(18, SERVICE_ID); // service_id
+					preparedStatement.setBigDecimal(19, assetPriceVOs.get(i).getTenentId()); // tenent_id
+					preparedStatement.setString(20, assetPriceVOs.get(i).getCurrencyAppConfigName());
+					preparedStatement.setString(21, assetPriceVOs.get(i).getCustodianAppConfigName());
+					preparedStatement.setString(22, assetPriceVOs.get(i).getSourceAppConfigName());
+				}
+
+				@Override
+				public int getBatchSize() {
+					return assetPriceVOs.size();
+				}
+
+			});
+		} catch (Exception e) {
+			log.fatal("Error in freshInsert: ", e);
+			throw e;
+		}
+
+	}
+
+	@CustomTransactional
+	public void updateListIntoDb(String tenantCode, List<AssetPriceVO> assetPriceVOs) throws Exception {
+		try {
+
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+			if (null != assetPriceVOs && assetPriceVOs.size() > 0) {
+				jdbcTemplate.batchUpdate(UPDATE_ASSET_PRICE, new BatchPreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+
+						preparedStatement.setBigDecimal(1, assetPriceVOs.get(i).getPrice());
+						preparedStatement.setBigDecimal(2, assetPriceVOs.get(i).getDirtyPrice());
+						preparedStatement.setBigDecimal(3, assetPriceVOs.get(i).getOpen());
+						preparedStatement.setBigDecimal(4, assetPriceVOs.get(i).getHigh());
+						preparedStatement.setBigDecimal(5, assetPriceVOs.get(i).getLow());
+						preparedStatement.setBigDecimal(6, assetPriceVOs.get(i).getClose());
+						preparedStatement.setBigDecimal(7, assetPriceVOs.get(i).getBid());
+						preparedStatement.setBigDecimal(8, assetPriceVOs.get(i).getAsk());
+						preparedStatement.setBigDecimal(9, assetPriceVOs.get(i).get_sourceAppId());
+						preparedStatement.setString(10, assetPriceVOs.get(i).getRemarks());
+						preparedStatement.setString(11, assetPriceVOs.get(i).getCurrencyAppConfigName());
+						preparedStatement.setString(12, assetPriceVOs.get(i).getCustodianAppConfigName());
+						preparedStatement.setString(13, assetPriceVOs.get(i).getSourceAppConfigName());
+						preparedStatement.setString(14, assetPriceVOs.get(i).getUsername());
+						preparedStatement.setBigDecimal(15, assetPriceVOs.get(i).get_id()); // for where condn
+
+						// preparedStatement.setString(1,result);
+					}
+
+					@Override
+					public int getBatchSize() {
+						return assetPriceVOs.size();
+					}
+				});
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in updateListIntoDb: ", ex);
+			throw ex;
+		}
+
+	}
+	// Map(isin:status)
+
+	@CustomTransactional
+	public void insertListIntoDb(String tenantCode, Map<String, List<AssetPriceVO>> assetPriceMap) throws Exception {
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			List<AssetPriceVO> updateList = new ArrayList<AssetPriceVO>();
+			if (null != assetPriceMap && assetPriceMap.size() > 0) {
+
+				Iterator<Map.Entry<String, List<AssetPriceVO>>> itr = assetPriceMap.entrySet().iterator();
+
+				while (itr.hasNext()) {
+					Map.Entry<String, List<AssetPriceVO>> entry = itr.next();
+					List<AssetPriceVO> assetPriceList = (List<AssetPriceVO>) entry.getValue();
+
+					if (assetPriceList != null && assetPriceList.size() > 0) {
+						log.fatal("entry=" + entry.getKey());
+						assetPriceList = assetPriceList.stream()
+								.sorted(Comparator.comparing(AssetPriceVO::getEffectiveFromDate))
+								.collect(Collectors.toList());
+//					assetPriceList.forEach(System.out::println);
+
+						for (AssetPriceVO assetPriceVO : assetPriceList) {
+							updateList.add(assetPriceVO);
+							log.fatal("updateList=" + assetPriceVO.get_id());
+							break;
+						}
+					}
+				}
+
+				// Update Eff_to_date
+				int[] status;
+//				List<AssetPriceVO> insertUpdNewRec = new ArrayList<AssetPriceVO>();
+				status = jdbcTemplate.batchUpdate(UPDATE_PRICE, new BatchPreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+
+						Date myDate = updateList.get(i).getEffectiveFromDate();
+
+						Calendar c = Calendar.getInstance();
+						c.setTime(myDate);
+						c.add(Calendar.MILLISECOND, -1);
+						Date oneMinuteBefore = c.getTime();
+						log.fatal("updateList.get(i).get_id()=" + updateList.get(i).get_id()+"~"
+						+updateList.get(i).getIsin()+"~"+updateList.get(i).getCurrencyAppConfigName()+"~"+updateList.get(i).getCustodianAppConfigName());
+						preparedStatement.setBigDecimal(3, updateList.get(i).get_id());
+						try {
+							preparedStatement.setString(1, updateList.get(i).getUsername());
+							preparedStatement.setTimestamp(2, AssetUtil.stringToTimestamp(oneMinuteBefore));
+						} catch (SQLException e) {
+							log.fatal("SQLException: ", e);
+						} catch (Exception e) {
+							log.fatal("Exception: ", e);
+						}
+//						insertUpdNewRec.add(updateList.get(i));
+					}
+
+					@Override
+					public int getBatchSize() {
+						return updateList.size();
+					}
+				});
+
+				int i = 0;
+//				for (AssetPriceVO assetPriceVO : updateList) {
+//					log.fatal(assetPriceVO.getIsin() + "~" + assetPriceVO.getCurrencyAppConfigName() + "~"
+//							+ assetPriceVO.getCustodianAppConfigName() + "  status count=" + status[i]);
+//					if (assetPriceVO.getIsin().equals("XS2123990355")) {
+//						System.out.println("updateList.get(i).get_id()=" + updateList.get(i).get_id()+assetPriceVO.getIsin() + "~" + assetPriceVO.getCurrencyAppConfigName() + "~"
+//								+ assetPriceVO.getCustodianAppConfigName() + "  status count=" + status[i]);
+//					}
+//					i++;
+//				}
+//				if (insertUpdNewRec != null && insertUpdNewRec.size() > 0)
+//					this.freshInsert(tenantCode, insertUpdNewRec);
+			}
+		} catch (Exception e) {
+			log.fatal("Error in insertListIntoDb: ", e);
+			throw e;
+		}
+	}
+
+	@Override
+	public List<AssetPriceVO> getAssetPrice(String tenantCode, List<AssetGetRequestVO> reqParam, Date computedDate)
+			throws Exception {
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			StringBuilder query = new StringBuilder();
+			query.append(GET_CURRENT_LEVEL_AMOUNT_BY_ISIN);
+
+			StringBuilder query1 = new StringBuilder();
+			query1.append(GET_ASSET_PRICE_WITH_NULL);
+
+			String lastStr;
+			String normStr;
+
+			for (int i = 0; i < reqParam.size(); i++) {
+
+				if (i == reqParam.size() - 1) {
+					if (reqParam.get(i).getCustodianConfigName() == null) {
+						lastStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME is null))";
+					} else {
+						lastStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME= ?))";
+					}
+					query1.append(lastStr);
+				} else {
+					if (reqParam.get(i).getCustodianConfigName() == null) {
+						normStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME is null) OR ";
+					} else {
+						normStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME= ?) OR ";
+					}
+					query1.append(normStr);
+				}
+			}
+			String remainingStr = "AND (EFF_FROM_DATE <= TO_DATE(?, 'yyyy-mm-DD') AND (EFF_TO_DATE is null OR EFF_TO_DATE >= TO_DATE(?, 'yyyy-mm-DD')))  ORDER BY EFF_FROM_DATE";
+
+			String remainingStr1 = "AND ((TO_DATE(?, 'yyyy-mm-DD')  BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR\r\n"
+					+ "(EFF_TO_DATE is null AND TO_DATE(?, 'yyyy-mm-DD') >= EFF_FROM_DATE))\r\n"
+					+ ") priceWithCustodian ";
+			query1.append(remainingStr1);
+
+//			for (int i = 0; i < reqParam.size(); i++) {
+//
+//				if (i == reqParam.size() - 1) {
+//					lastStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME is null)";
+//					query1.append(lastStr);
+//				} else {
+//					normStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME is null) OR ";
+//					query1.append(normStr);
+//				}
+//			}
+//			String withNullCustodian = " ) AND ((TO_DATE(?, 'yyyy-mm-DD')  BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR\r\n"
+//					+ "(EFF_TO_DATE is null AND to_date(?, 'yyyy-mm-DD') >= eff_from_date))\r\n"
+//					+ ") priceWithoutCustodian\r\n" + "ON (priceWithoutCustodian.isin = priceWithCustodian.isin\r\n"
+//					+ "AND priceWithoutCustodian.currency_id = priceWithCustodian.currency_id)\r\n" + "";
+//			query1.append(withNullCustodian);
+
+			query.append(remainingStr);
+			List<AssetPriceVO> assetPriceVOs = jdbcTemplate.query(query1.toString(), new PreparedStatementSetter() {
+				int cnt = 0;
+
+				@Override
+				public void setValues(PreparedStatement preparedStatement) throws SQLException {
+
+					for (int i = 0; i < reqParam.size(); i++) {
+
+						if (i == reqParam.size() - 1) {
+							preparedStatement.setString(++cnt, reqParam.get(i).getIsin());
+							preparedStatement.setString(++cnt, reqParam.get(i).getCurrencyConfigName());
+
+							if (reqParam.get(i).getCustodianConfigName() != null) {
+								preparedStatement.setString(++cnt, reqParam.get(i).getCustodianConfigName());
+							}
+						} else {
+							preparedStatement.setString(++cnt, reqParam.get(i).getIsin());
+							preparedStatement.setString(++cnt, reqParam.get(i).getCurrencyConfigName());
+							if (reqParam.get(i).getCustodianConfigName() != null) {
+								preparedStatement.setString(++cnt, reqParam.get(i).getCustodianConfigName());
+							}
+						}
+					}
+					preparedStatement.setDate(++cnt, AssetUtil.DateFormater(computedDate));
+					preparedStatement.setDate(++cnt, AssetUtil.DateFormater(computedDate));
+
+//					for (int i = 0; i < reqParam.size(); i++) {
+//						if (i == reqParam.size() - 1) {
+//							preparedStatement.setString(++cnt, reqParam.get(i).getIsin());
+//							preparedStatement.setString(++cnt, reqParam.get(i).getCurrencyConfigName());
+//						} else {
+//							preparedStatement.setString(++cnt, reqParam.get(i).getIsin());
+//							preparedStatement.setString(++cnt, reqParam.get(i).getCurrencyConfigName());
+//						}
+//					}
+//					preparedStatement.setDate(++cnt, AssetUtil.DateFormater(computedDate));
+//					preparedStatement.setDate(++cnt, AssetUtil.DateFormater(computedDate));
+					log.fatal(preparedStatement);
+				}
+
+			}, new AssetPriceRowMapper());
+
+			return assetPriceVOs;
+
+		} catch (Exception e) {
+			log.fatal("Error occured while fetching Asset Price: ", e);
+			throw e;
+		}
+	}
+
+	@Override
+	public boolean isStructureProduct(String tenantCode, String isin, String currency) throws SQLException {
+
+		String query1 = SELECT_SUBCATAGORY;
+		Boolean isStructureProduct = false;
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+			query1 = query1.replace("isinPlaceholder", isin);
+			query1 = query1.replace("currencyPlaceholder", currency);
+			log.debug("query1: " + query1);
+			String subcategoryName = null;
+
+			SqlRowSet rs = jdbcTemplate.queryForRowSet(query1);
+			while (rs.next()) {
+				subcategoryName = rs.getString("SUBCATEGORY_1_CONFIG_NAME");
+			}
+
+			if (subcategoryName != null && ("ACM236".equals(subcategoryName) || "ACM247".equals(subcategoryName)
+					|| "ACM250".equals(subcategoryName))) {
+				isStructureProduct = true;
+			} else {
+				isStructureProduct = false;
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error occurred in isStructureProduct: ", ex);
+			throw ex;
+		}
+
+		return isStructureProduct;
+	}
+
+	public boolean checkCatagory(String tenantCode, AssetPriceVO assetPriceVO) {
+
+		jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+		String query1 = CHECK_CATEGORY;
+		query1 = query1.replace("isinPlaceholder", assetPriceVO.getIsin());
+		query1 = query1.replace("currencyPlaceholder", assetPriceVO.getCurrencyAppConfigName());
+
+		String subcatagoryName = jdbcTemplate.queryForObject(query1, String.class);
+
+		return true;
+	}
+
+	@Override
+	public String getCategory(String tenantCode, AssetGetRequestVO assetPriceVO) {
+
+		jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+		String query1 = CHECK_CATEGORY;
+		query1 = query1.replace("isinPlaceholder", assetPriceVO.getIsin());
+		query1 = query1.replace("currencyPlaceholder", assetPriceVO.getCurrencyConfigName());
+		String catagoryName = jdbcTemplate.queryForObject(query1, String.class);
+
+		return catagoryName;
+	}
+
+	@Override
+	public List<Map<String, Object>> getCategoryList(String tenantCode, List<AssetGetRequestVO> reqParam) {
+
+		jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+		StringBuilder query = new StringBuilder();
+		query.append(GET_CATEGORY_LIST);
+
+		for (int i = 0; i < reqParam.size(); i++) {
+			AssetGetRequestVO requestVO = reqParam.get(i);
+			if (i == reqParam.size() - 1) {
+				String last = "(ISIN = '" + requestVO.getIsin() + "' AND CURRENCY_CONFIG_NAME='"
+						+ requestVO.getCurrencyConfigName() + "'))";
+				query.append(last);
+			} else {
+				String last = "(ISIN = '" + requestVO.getIsin() + "' AND CURRENCY_CONFIG_NAME='"
+						+ requestVO.getCurrencyConfigName() + "') OR ";
+				query.append(last);
+			}
+		}
+
+		List<Map<String, Object>> mapObject = jdbcTemplate.queryForList(query.toString());
+		return mapObject;
+	}
+
+	public void insertIntoAssetCustodianWiseLastDate(String tenantCode, List<AssetPriceVO> insertList)
+			throws Exception {
+		// TODO Auto-generated method stub
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+//			List<AssetPriceVO> insertList = new ArrayList<AssetPriceVO>();
+//			List<AssetPriceVO> updateList = new ArrayList<AssetPriceVO>();
+
+//			for (AssetPriceVO assetPriceVO : maxDateList) {
+//				String custodian = assetPriceVO.getCustodianAppConfigName() == null ? " is null "
+//						: "= '" + assetPriceVO.getCustodianAppConfigName() + "'";
+//				String query = "select id from asset_custodianwise_last_date where isin='" + assetPriceVO.getIsin()
+//						+ "' and currency_config_name = '" + assetPriceVO.getCurrencyAppConfigName()
+//						+ "' and custodian_config_name " + custodian + " and max_eff_from_date_for_config_name = '"
+//						+AssetConstants.ASSETPRICECONFIGNAME+"'";
+//				List<BigDecimal> ids = jdbcTemplate.queryForList(query, BigDecimal.class);
+//				BigDecimal id;
+//				if(ids.isEmpty()) {
+//					id=null;
+//				}else {
+//					id=ids.get(0);
+//				}
+//				if (id != null) {
+//					updateList.add(assetPriceVO);
+//				} else {
+//					insertList.add(assetPriceVO);
+//				}
+//			}
+
+			if (insertList.size() > 0) {
+				jdbcTemplate.batchUpdate(INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE, new BatchPreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+						int j = 0;
+						preparedStatement.setBigDecimal(++j, insertList.get(i).get_tenentId());
+						preparedStatement.setLong(++j, SERVICE_ID);
+						preparedStatement.setBigDecimal(++j, insertList.get(i).get_assetID());
+						preparedStatement.setString(++j, insertList.get(i).getIsin());
+						preparedStatement.setString(++j, insertList.get(i).getCurrencyAppConfigName());
+						preparedStatement.setBigDecimal(++j, insertList.get(i).get_currencyAppId());
+						preparedStatement.setBigDecimal(++j, insertList.get(i).get_custodianAppId());
+						preparedStatement.setString(++j, insertList.get(i).getCustodianAppConfigName());
+						preparedStatement.setBigDecimal(++j, AssetConstants.ASSETPRICEID);
+						preparedStatement.setString(++j, AssetConstants.ASSETPRICECONFIGNAME);
+
+						try {
+							preparedStatement.setTimestamp(++j,
+									AssetUtil.stringToTimestamp(insertList.get(i).getEffectiveFromDate()));
+						} catch (Exception e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+						preparedStatement.setString(++j, insertList.get(i).getUsername());
+					}
+
+					@Override
+					public int getBatchSize() {
+						return insertList.size();
+					}
+				});
+			}
+
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+			throw e;
+
+		}
+	}
+
+	@Override
+	public void updateAssetCustodianWiseLastDate(String tenantCode, List<AssetPriceVO> updateList) throws Exception {
+		// TODO Auto-generated method stub
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			if (updateList.size() > 0) {
+				int[] updateCount = jdbcTemplate.batchUpdate(UPDATE_ASSET_CUSTODIANWISE_LAST_DATE,
+						new BatchPreparedStatementSetter() {
+							@Override
+							public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+								int j = 0;
+								try {
+									preparedStatement.setTimestamp(++j,
+											AssetUtil.stringToTimestamp(updateList.get(i).getEffectiveFromDate()));
+								} catch (Exception e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+								preparedStatement.setString(++j, updateList.get(i).getUsername());
+								preparedStatement.setString(++j, updateList.get(i).getIsin());
+								preparedStatement.setString(++j, updateList.get(i).getCurrencyAppConfigName());
+								preparedStatement.setString(++j, updateList.get(i).getCustodianAppConfigName());
+								preparedStatement.setString(++j, AssetConstants.ASSETPRICECONFIGNAME);
+							}
+
+							@Override
+							public int getBatchSize() {
+								return updateList.size();
+							}
+						});
+				List<AssetPriceVO> freshRecordsList = new ArrayList<AssetPriceVO>();
+				for (int i = 0; i < updateCount.length; i++) {
+					if (updateCount[i] == 0) {
+						freshRecordsList.add(updateList.get(i));
+					}
+				}
+				if (freshRecordsList.size() > 0)
+					this.insertIntoAssetCustodianWiseLastDate(tenantCode, freshRecordsList);
+			}
+		} catch (Exception e) {
+			// TODO: handle exception
+			throw e;
+		}
+	}
+
+	public Timestamp getTimeStamp() {
+
+		Date date = new Date();
+		Timestamp ts = null;
+		try {
+			long time = date.getTime();
+			ts = new Timestamp(time);
+		} catch (Exception ex) {
+			log.error("Error in getTimeStamp: ", ex);
+			throw ex;
+		}
+
+		return ts;
+	}
+
+}

@@ -1,0 +1,115 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+public class SqlExtractVO {
+
+	private BigDecimal id;
+	private BigDecimal custodian_app_id;
+	private String isin;
+	private Date eff_from_date;
+	private Date eff_to_date;
+	private String assetpricekey;
+	private String assetpricemaxdate;
+	private String terminal_id;
+	private String From_Currency_Id;
+	private BigDecimal currencyId;
+	
+	
+
+	public String getTerminal_id() {
+		return terminal_id;
+	}
+
+	public void setTerminal_id(String terminal_id) {
+		this.terminal_id = terminal_id;
+	}
+
+	public String getFrom_Currency_Id() {
+		return From_Currency_Id;
+	}
+
+	public void setFrom_Currency_Id(String from_Currency_Id) {
+		From_Currency_Id = from_Currency_Id;
+	}
+
+	public BigDecimal getCurrencyId() {
+		return currencyId;
+	}
+
+	public void setCurrencyId(BigDecimal currencyId) {
+		this.currencyId = currencyId;
+	}
+
+	public SqlExtractVO() {
+		super();
+		// TODO Auto-generated constructor stub
+	}
+
+	//List
+	public BigDecimal getId() {
+		return id;
+	}
+
+	public void setId(BigDecimal l) {
+		this.id = l;
+	}
+
+	public String getIsin() {
+		return isin;
+	}
+
+	public void setIsin(String isin) {
+		this.isin = isin;
+	}
+
+	public BigDecimal getCustodian_app_id() {
+		return custodian_app_id;
+	}
+
+	public void setCustodian_app_id(BigDecimal custodian_app_id) {
+		this.custodian_app_id = custodian_app_id;
+	}
+
+	public Date getEff_from_date() {
+		return eff_from_date;
+	}
+
+	public void setEff_from_date(Date eff_from_date) {
+		this.eff_from_date = eff_from_date;
+	}
+
+	public Date getEff_to_date() {
+		return eff_to_date;
+	}
+
+	public void setEff_to_date(Date eff_to_date) {
+		this.eff_to_date = eff_to_date;
+	}
+
+	public String getAssetpricekey() {
+		return assetpricekey;
+	}
+
+	public void setAssetpricekey(String assetpricekey) {
+		this.assetpricekey = assetpricekey;
+	}
+
+	public String getAssetpricemaxdate() {
+		return assetpricemaxdate;
+	}
+
+	public void setAssetpricemaxdate(String assetpricemaxdate) {
+		this.assetpricemaxdate = assetpricemaxdate;
+	}
+
+	@Override
+	public String toString() {
+		return "SqlExtractVO [id=" + id + ", custodian_app_id=" + custodian_app_id + ", isin=" + isin
+				+ ", eff_from_date=" + eff_from_date + ", eff_to_date=" + eff_to_date + ", assetpricekey="
+				+ assetpricekey + ", assetpricemaxdate=" + assetpricemaxdate + ", terminal_id=" + terminal_id
+				+ ", From_Currency_Id=" + From_Currency_Id + ", currencyId=" + currencyId + "]";
+	}
+	
+}

@@ -1,0 +1,30 @@
+package com.klayx.asset.service;
+
+
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.print.attribute.standard.DateTimeAtCompleted;
+
+import org.json.JSONObject;
+
+import com.google.gson.JsonObject;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.PreferredAssetGroupVO;
+import com.klayx.asset.model.ResponseVO;
+import com.klayx.asset.model.SearchRequestVO;
+import com.klayx.asset.model.SearchResultDataVO;
+import com.klayx.asset.model.UnderlyingAssetsVO;
+
+public interface IAssetService {
+
+
+	public int tollSystem(Date enterTime,String vehicleType,String username);
+	
+	public Map<String,Integer> getTotal();
+}

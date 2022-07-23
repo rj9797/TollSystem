@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "isin": {
+        "type": "string"
+    },
+    "currencyConfigName": {
+        "anyOf": [
+				{
+					"$ref": "classpath://./jsonschema/AppConfigSchema.json#/currency"
+				}
+			]
+    },
+    "custodianConfigName": {
+        "anyOf": [
+				{
+					"$ref": "classpath://./jsonschema/AppConfigSchema.json#/custodian"
+				},
+				{
+					"type": "null"
+				}
+			]
+    }
+  },
+  "required": 
+  [
+      "isin",
+      "currencyConfigName"
+  ],
+  "additionalProperties": false
+}

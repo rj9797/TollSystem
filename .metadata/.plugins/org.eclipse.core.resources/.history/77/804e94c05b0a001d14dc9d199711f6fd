@@ -1,0 +1,198 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+public class AssetReturnsVO {
+
+	private BigDecimal id;
+	private BigDecimal assetId;
+	private String isin;
+	private BigDecimal _currencyAppId;
+	private BigDecimal stockExchange;
+	private String currencyAppConfigName;
+	private List<AdditionalInfoVO> additionalInfos;
+	private Date effectiveFromDate;
+	private BigDecimal _sourceAppId;
+	private String remarks;
+	private String sourceAppConfigName;
+	private String uniqueKey;
+	private String username;
+	
+	public String getSourceAppConfigName() {
+		return sourceAppConfigName;
+	}
+
+	public void setSourceAppConfigName(String sourceAppConfigName) {
+		this.sourceAppConfigName = sourceAppConfigName;
+	}
+
+	private BigDecimal _tenantId;
+
+	public BigDecimal getTenantId() {
+		return _tenantId;
+	}
+
+	public void setTenantId(BigDecimal _tenantId) {
+		this._tenantId = _tenantId;
+	}
+
+	private BigDecimal _thirdPartyProcessorId1;
+	private BigDecimal _thirdPartyProcessorId2;
+	private int hasError;
+
+	private List<ErrorVO> errors;
+
+	public AssetReturnsVO() {
+		super();
+		// TODO Auto-generated constructor stub
+	}
+
+	@Override
+	public String toString() {
+		return "AssetReturnsVO [id=" + id + ", assetId=" + assetId + ", isin=" + isin + ", _currencyAppId="
+				+ _currencyAppId + ", stockExchange=" + stockExchange + ", currencyAppConfigName="
+				+ currencyAppConfigName + ", additionalInfos=" + additionalInfos + ", effectiveFromDate="
+				+ effectiveFromDate + ", sourceAppId=" + _sourceAppId + ", remarks=" + remarks + ", _tenantId="
+				+ _tenantId + ", _thirdPartyProcessorId1=" + _thirdPartyProcessorId1 + ", _thirdPartyProcessorId2="
+				+ _thirdPartyProcessorId2 + ", hasError=" + hasError + ", errors=" + errors + "]";
+	}
+
+	public BigDecimal getId() {
+		return id;
+	}
+
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+
+	public BigDecimal getAssetId() {
+		return assetId;
+	}
+
+	public void setAssetId(BigDecimal assetId) {
+		this.assetId = assetId;
+	}
+
+	public String getIsin() {
+		return isin;
+	}
+
+	public void setIsin(String isin) {
+		this.isin = isin;
+	}
+
+	public BigDecimal get_currencyAppId() {
+		return _currencyAppId;
+	}
+
+	public void set_currencyAppId(BigDecimal _currencyAppId) {
+		this._currencyAppId = _currencyAppId;
+	}
+
+	public BigDecimal getStockExchange() {
+		return stockExchange;
+	}
+
+	public void setStockExchange(BigDecimal stockExchange) {
+		this.stockExchange = stockExchange;
+	}
+
+	public List<AdditionalInfoVO> getAdditionalInfos() {
+		return additionalInfos;
+	}
+
+	public void setAdditionalInfos(List<AdditionalInfoVO> additionalInfos) {
+		this.additionalInfos = additionalInfos;
+	}
+
+	public Date getEffectiveFromDate() {
+		return effectiveFromDate;
+	}
+
+	public void setEffectiveFromDate(Date effectiveFromDate) {
+		this.effectiveFromDate = effectiveFromDate;
+	}
+
+	public BigDecimal get_sourceAppId() {
+		return _sourceAppId;
+	}
+
+	public void set_sourceAppId(BigDecimal sourceAppId) {
+		this._sourceAppId = sourceAppId;
+	}
+
+	public String getRemarks() {
+		return remarks;
+	}
+
+	public void setRemarks(String remarks) {
+		this.remarks = remarks;
+	}
+
+	public BigDecimal get_tenantId() {
+		return _tenantId;
+	}
+
+	public void set_tenantId(BigDecimal _tenantId) {
+		this._tenantId = _tenantId;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+
+	public void set_thirdPartyProcessorId1(BigDecimal _thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = _thirdPartyProcessorId1;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+
+	public void set_thirdPartyProcessorId2(BigDecimal _thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = _thirdPartyProcessorId2;
+	}
+
+	public int getHasError() {
+		return hasError;
+	}
+
+	public void setHasError(int hasError) {
+		this.hasError = hasError;
+	}
+
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+
+	public String getCurrencyAppConfigName() {
+		return currencyAppConfigName;
+	}
+
+	public void setCurrencyAppConfigName(String currencyAppConfigName) {
+		this.currencyAppConfigName = currencyAppConfigName;
+	}
+
+	public String getUniqueKey() {
+		return uniqueKey;
+	}
+
+	public void setUniqueKey(String uniqueKey) {
+		this.uniqueKey = uniqueKey;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+}

@@ -1,0 +1,1239 @@
+package com.klayx.asset.dao.impl;
+
+import java.math.BigDecimal;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementSetter;
+import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.jdbc.support.rowset.SqlRowSet;
+import org.springframework.stereotype.Repository;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IExchangeRateDAO;
+import com.klayx.asset.datasourcemanager.DataSourceManager;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetReturnsVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.ExchangeRateVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.TenantInfoVO;
+import com.klayx.asset.rowmapper.ExchangeRateRowMapper;
+import com.klayx.asset.transactionmanager.CustomTransactional;
+
+@Repository(AssetConstants.EXCHANGERATEDAO)
+@PropertySource({ "classpath:${DBSQLFILE}.properties" })
+public class ExchangeRateDAOImpl implements IExchangeRateDAO {
+
+	private static final Logger log = LogManager.getLogger(ExchangeRateDAOImpl.class);
+
+	@Autowired
+	DataSourceManager dataSourceManager;
+
+//	@Autowired
+	private JdbcTemplate jdbcTemplate;
+
+	private NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+
+	@Value("${EXCHANGE_RATE_UPDATE_QUERY}")
+	private String exchangeRateUpdateQuery;
+
+	@Value("${EXCHANGE_RATE_QUERY}")
+	private String exchangeRateInsertQuery;
+
+	@Value("${EXCHANGE_RATE_INITIAL_UPDATE_QUERY}")
+	private String exchangeRateInitialUpdateQuery;
+
+	@Value("${EXCHANGE_RATE_SELECT_CONDITIONAL}")
+	private String exchangeRateSelectConditional;
+
+	@Value("${EXCHANGE_RATE_SELECT}")
+	private String exchangeRateSelect;
+
+	@Value("${GET_EXCHANGE_RATE_WITH_NULL}")
+	private String GET_EXCHANGE_RATE_WITH_NULL;
+
+	@Value("${UPDATE_ASSET_CUSTODIANWISE_LAST_DATE_FOR_EXCHANGE_RATE}")
+	private String UPDATE_ASSET_CUSTODIANWISE_LAST_DATE_FOR_EXCHANGE_RATE;
+
+	@Value("${INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE_FOR_EXCHANGE_RATE}")
+	private String INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE_FOR_EXCHANGE_RATE;
+
+	@Value("${Service_id}")
+	private Long service;
+
+	@Value("${GET_TENANT_INFO_URL}")
+	private String getTenantInfoUrl;
+
+	Gson gson = new Gson();
+
+//	List<HashMap<String, String>> errorList = new ArrayList<>();
+//	List<HashMap<String, String>> AddList = new ArrayList<>();
+//	List<HashMap<String, String>> UpdateList = new ArrayList<>();
+
+	@CustomTransactional
+	@Override
+	public void addExchangeRates(String tenantCode, List<ExchangeRateVO> exchangeRateVOs, List<JsonObject> totalVOs,
+			String accessToken) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			List<ExchangeRateVO> insertList = new ArrayList<ExchangeRateVO>();
+			List<ExchangeRateVO> updateList = new ArrayList<ExchangeRateVO>();
+
+			Map<String, ExchangeRateVO> exchangeRateMap = getExchangeRate(tenantCode, exchangeRateVOs);
+			List<ExchangeRateVO> maxDateInsertList = new ArrayList<ExchangeRateVO>();
+			List<ExchangeRateVO> maxDateUpdateList = new ArrayList<ExchangeRateVO>();
+			// List will contain objects to be removed from SuccessVOs
+			List<ExchangeRateVO> successVOsToBeRemoved = new ArrayList<>();
+
+			// List will contain objects to be removed from totalVOs
+			List<JsonObject> objectsToBeRemoved = new ArrayList<>();
+
+			// List will contain objects to be added from totalVOs
+			List<JsonObject> objectsToBeAdded = new ArrayList<>();
+			int flag = 0;
+			BigDecimal tenantId = null;
+			for (ExchangeRateVO exchangeRateVO : exchangeRateVOs) {
+				if (flag == 0 && exchangeRateVO.get_tenantId() == null) {
+					JsonObject obj = new JsonObject();
+					obj.addProperty("tenantCode", tenantCode);
+					TenantInfoVO tenantInfo = null;
+					String tenantInfoAsStr = AssetUtil.syncHttpCall(gson.toJson(obj), getTenantInfoUrl, accessToken);
+					tenantInfo = AssetUtil.fromJSonToObject(tenantInfoAsStr, TenantInfoVO.class);
+					tenantId = tenantInfo.getId();
+					flag = 1;
+				}
+				if (exchangeRateVO.get_tenantId() == null) {
+					exchangeRateVO.set_tenantId(tenantId);
+				}
+				String exchangekey;
+				if (exchangeRateVO.get_custodianAppId() != null) {
+					exchangekey = exchangeRateVO.get_custodianAppId() + "" + exchangeRateVO.get_fromCurrencyAppId() + ""
+							+ exchangeRateVO.get_toCurrencyAppId();
+				} else {
+					exchangekey = exchangeRateVO.get_fromCurrencyAppId() + "" + exchangeRateVO.get_toCurrencyAppId();
+				}
+				List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+				if (exchangeRateMap.containsKey(exchangekey)) {
+					ExchangeRateVO DbVO = exchangeRateMap.get(exchangekey);
+					Date maxDateDB = DbVO.getEffectiveFromDate();
+					Date effFromDateJson = exchangeRateVO.getEffectiveFromDate();
+
+					if ((effFromDateJson).compareTo(maxDateDB) > 0) {
+						exchangeRateVO.set_id(DbVO.get_id());
+						insertList.add(exchangeRateVO);
+						maxDateUpdateList.add(exchangeRateVO);
+					}
+					if ((effFromDateJson).compareTo(maxDateDB) < 0) {
+						exchangeRateVO.set_id(DbVO.get_id());
+						exchangeRateVO.setHasError(1);
+						errorVOs.add(AssetUtil.getError("BUSAST41"));
+						exchangeRateVO.setErrors(errorVOs);
+
+						successVOsToBeRemoved.add(exchangeRateVO);
+
+						for (JsonObject assetPrice : totalVOs) {
+							if ((!AssetUtil.jsonNullCheck(assetPrice, "uniqueKey"))
+									&& exchangeRateVO.getUniqueKey() != null && assetPrice.get("uniqueKey")
+											.getAsString().equalsIgnoreCase(exchangeRateVO.getUniqueKey())) {
+
+								objectsToBeRemoved.add(assetPrice);
+
+								String exchangeRate1 = AssetUtil.fromObjectToJSON(exchangeRateVO);
+								JsonObject jsonObject = AssetUtil.fromJSonToObject(exchangeRate1, JsonObject.class);
+
+								objectsToBeAdded.add(jsonObject);
+								break;
+							}
+						}
+					}
+					if ((effFromDateJson).compareTo(maxDateDB) == 0) {
+						exchangeRateVO.set_id(DbVO.get_id());
+						updateList.add(exchangeRateVO);
+//						maxDateList.add(exchangeRateVO);
+					}
+				} else {
+					insertList.add(exchangeRateVO);
+					maxDateInsertList.add(exchangeRateVO);
+				}
+
+			}
+			if (insertList.size() > 0) {
+				this.addExchangeRate(tenantCode, insertList);
+			}
+			if (updateList.size() > 0) {
+				this.updateExchangeRate(tenantCode, updateList);
+			}
+			if (maxDateInsertList.size() > 0) {
+				log.fatal(maxDateInsertList.size() + " records Inserted into AssetCustodianWiseLastDate");
+//				this.insertIntoAssetCustodianWiseLastDate(tenantCode, maxDateInsertList);
+			}
+			if (maxDateUpdateList.size() > 0) {
+				log.fatal(maxDateUpdateList.size() + " records updated into AssetCustodianWiseLastDate");
+//				this.updateAssetCustodianWiseLastDate(tenantCode, maxDateUpdateList);
+			}
+		} catch (Exception exception) {
+			log.fatal("Error While adding addExchangeRates", exception);
+			throw exception;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@CustomTransactional
+	@Override
+	public void addExchangeRate(String tenantCode, List<ExchangeRateVO> exchangeRateRequestVOList) throws Exception {
+		// long primaryKey;
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			final String SQL_QUERY;
+			KeyHolder keyHolder = new GeneratedKeyHolder();
+			List<ExchangeRateVO> maxDateInsertList = new ArrayList<ExchangeRateVO>();
+			List<ExchangeRateVO> updateList = new ArrayList<ExchangeRateVO>();
+			// Creating map from list.
+			Map<String, List<ExchangeRateVO>> exchangeRateMap = new HashMap<String, List<ExchangeRateVO>>();
+			for (int i = 0; i < exchangeRateRequestVOList.size(); i++) {
+				String key = exchangeRateRequestVOList.get(i).get_fromCurrencyAppConfigName()
+						+ exchangeRateRequestVOList.get(i).get_toCurrencyAppConfigName()
+						+ exchangeRateRequestVOList.get(i).get_custodianAppConfigName();
+				if (!exchangeRateMap.containsKey(key)) {
+					List<ExchangeRateVO> exchangeRateList = new ArrayList<ExchangeRateVO>();
+					exchangeRateList.add(exchangeRateRequestVOList.get(i));
+					exchangeRateMap.put(key, exchangeRateList);
+				} else {
+					exchangeRateMap.get(key).add(exchangeRateRequestVOList.get(i));
+				}
+			}
+
+			Iterator<Map.Entry<String, List<ExchangeRateVO>>> itr = exchangeRateMap.entrySet().iterator();
+
+			while (itr.hasNext()) {
+				Map.Entry<String, List<ExchangeRateVO>> entry = itr.next();
+
+				List<ExchangeRateVO> exchangeRateList = (List<ExchangeRateVO>) entry.getValue();
+
+				if (exchangeRateList != null && exchangeRateList.size() > 0)
+					exchangeRateList = exchangeRateList.stream()
+							.sorted(Comparator.comparing(ExchangeRateVO::getEffectiveFromDate))
+							.collect(Collectors.toList());
+
+				if (exchangeRateList != null && exchangeRateList.size() > 0) {
+
+					for (int i = 0; i < exchangeRateList.size(); i++) {
+						if (i == 0) {
+							updateList.add(exchangeRateList.get(0));
+						}
+						if (i == exchangeRateList.size()-1) {
+							maxDateInsertList.add(exchangeRateList.get(i));
+						} else {
+							ExchangeRateVO nextExchangeRateO = exchangeRateList.get(i + 1);
+							Date effectiveFromDate = nextExchangeRateO.getEffectiveFromDate();
+							Calendar calender = Calendar.getInstance();
+							calender.setTime(effectiveFromDate);
+							calender.add(Calendar.MILLISECOND, -1);
+							Date oneMinuteBefore = calender.getTime();
+
+							// Setting effectiveToDate
+							exchangeRateList.get(i).setEffectiveToDate(oneMinuteBefore);
+						}
+					}
+				}
+			}
+			if (maxDateInsertList.size() > 0) {
+				this.updateAssetCustodianWiseLastDate(tenantCode, maxDateInsertList);
+			}
+			/**
+			 * NOTE: Please make a note that We are not creating seperate List of AssetPrice
+			 * after above operation. Because whenever we are setting effToDate in below
+			 * code, it is getting updated in list by call by reference.
+			 */
+
+			SQL_QUERY = exchangeRateUpdateQuery;
+			if (updateList != null && updateList.size() > 0) {
+				jdbcTemplate.batchUpdate(SQL_QUERY, new BatchPreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+						// Date oneDayBefore = new
+						// Date(exchangeRateRequestVO.get(i).getEffectiveFromDate().getTime() - 2);
+						Date myDate = updateList.get(i).getEffectiveFromDate();
+						Calendar c = Calendar.getInstance();
+						c.setTime(myDate);
+						c.add(Calendar.MILLISECOND, -1);
+						Date oneMinuteBefore = c.getTime();
+						try {
+							preparedStatement.setTimestamp(1, AssetUtil.stringToTimestamp(oneMinuteBefore));
+						} catch (SQLException e) {
+							log.fatal("SQLException: ", e);
+						} catch (Exception e) {
+							log.fatal("Exception: ", e);
+						}
+						preparedStatement.setString(2, updateList.get(i).getUsername());
+						preparedStatement.setBigDecimal(3, updateList.get(i).get_id());
+						// preparedStatement.setString(i, SQL_QUERY);
+
+					}
+
+					@Override
+					public int getBatchSize() {
+						return updateList.size();
+
+					}
+				});
+			}
+//			jdbcTemplate.update(SQL_QUERY, exchangeRateRequestVO.get_custodianAppId()
+//					,exchangeRateRequestVO.get_stockExchangeAppId(),exchangeRateRequestVO.get_baseCurrencyAppId()
+//					,exchangeRateRequestVO.get_currencyAppId());
+//			
+			String SQL_INS_QUERY = exchangeRateInsertQuery;
+			jdbcTemplate.batchUpdate(SQL_INS_QUERY, new BatchPreparedStatementSetter() {
+				@Override
+				public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+					preparedStatement.setLong(1, 1);
+					preparedStatement.setLong(2, service);
+					preparedStatement.setBigDecimal(3, exchangeRateRequestVOList.get(i).get_custodianAppId());
+					preparedStatement.setBigDecimal(4, exchangeRateRequestVOList.get(i).get_fromCurrencyAppId());
+					preparedStatement.setBigDecimal(5, exchangeRateRequestVOList.get(i).get_toCurrencyAppId());
+					preparedStatement.setBigDecimal(6, exchangeRateRequestVOList.get(i).getPriceAmt());
+					try {
+
+						preparedStatement.setTimestamp(7,
+								AssetUtil.stringToTimestamp(exchangeRateRequestVOList.get(i).getEffectiveFromDate()));
+
+						if (exchangeRateRequestVOList.get(i).getEffectiveToDate() != null) {
+							preparedStatement.setTimestamp(8,
+									AssetUtil.stringToTimestamp(exchangeRateRequestVOList.get(i).getEffectiveToDate()));
+						} else {
+							preparedStatement.setTimestamp(8, null);
+						}
+					} catch (SQLException e) {
+						log.fatal("SQLException: ", e);
+					} catch (Exception e) {
+						log.fatal("Exception: ", e);
+					}
+					preparedStatement.setBigDecimal(9, exchangeRateRequestVOList.get(i).get_sourceAppId());
+					preparedStatement.setString(10, exchangeRateRequestVOList.get(i).getRemarks());
+					preparedStatement.setString(11, exchangeRateRequestVOList.get(i).get_custodianAppConfigName());
+					preparedStatement.setString(12, exchangeRateRequestVOList.get(i).get_fromCurrencyAppConfigName());
+					preparedStatement.setString(13, exchangeRateRequestVOList.get(i).get_toCurrencyAppConfigName());
+					preparedStatement.setString(14, exchangeRateRequestVOList.get(i).getSourceAppConfigName());
+					preparedStatement.setString(15, exchangeRateRequestVOList.get(i).getUsername());
+				}
+
+				@Override
+				public int getBatchSize() {
+
+					return exchangeRateRequestVOList.size();
+				}
+			});
+
+//				jdbcTemplate.update(new PreparedStatementCreator() {
+//					public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+//						PreparedStatement preparedStatement = connection.prepareStatement(SQL_INS_QUERY,
+//								new String[] { "id" });
+//						preparedStatement.setLong(1,1);
+//						preparedStatement.setLong(2,2);
+//						preparedStatement.setLong(3,exchangeRateRequestVO.get_custodianAppId());
+//						preparedStatement.setLong(4,exchangeRateRequestVO.get_stockExchangeAppId());
+//						preparedStatement.setLong(5,exchangeRateRequestVO.get_baseCurrencyAppId());
+//						preparedStatement.setLong(6,exchangeRateRequestVO.get_currencyAppId());
+//						preparedStatement.setDouble(7,exchangeRateRequestVO.getPrice());
+//						preparedStatement.setLong(8,exchangeRateRequestVO.get_sourceAppId());
+//						preparedStatement.setString(9,exchangeRateRequestVO.getRemarks());					
+//						return preparedStatement;
+//					}
+//				}, keyHolder);
+
+		} catch (Exception exception) {
+			log.fatal("Error While addExchangeRate ", exception);
+
+			throw exception;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+	}
+
+	public Map<String, ExchangeRateVO> getExchangeRate(String tenantCode, List<ExchangeRateVO> exchangeRateVOs) {
+		StringBuilder query = new StringBuilder(exchangeRateSelectConditional);
+		StringBuilder baseCurrIds = new StringBuilder();
+		StringBuilder custIds = new StringBuilder();
+		StringBuilder currIds = new StringBuilder();
+
+		HashSet<BigDecimal> currIdsMap = new HashSet<BigDecimal>();
+		HashSet<BigDecimal> custIdsMap = new HashSet<BigDecimal>();
+		HashSet<BigDecimal> baseCurrIdsMap = new HashSet<BigDecimal>();
+
+		Map<String, ExchangeRateVO> exchangeRateRequestVOMap = new HashMap<>();
+		jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+		for (int i = 0; i < exchangeRateVOs.size(); i++) {
+			ExchangeRateVO exchangeRateRequestVO = exchangeRateVOs.get(i);
+			if (i == exchangeRateVOs.size() - 1) {
+
+				baseCurrIdsMap.add(exchangeRateRequestVO.get_fromCurrencyAppId());
+				baseCurrIds.append("from_currency_id=" + exchangeRateRequestVO.get_fromCurrencyAppId());
+
+				custIdsMap.add(exchangeRateRequestVO.get_custodianAppId());
+				custIds.append("(custodian_id = COALESCE(" + exchangeRateRequestVO.get_custodianAppId()
+						+ ",custodian_id)or custodian_id is null)");
+
+				currIdsMap.add(exchangeRateRequestVO.get_toCurrencyAppId());
+				currIds.append("to_currency_id=" + exchangeRateRequestVO.get_toCurrencyAppId());
+
+			} else {
+				if (!baseCurrIdsMap.contains(exchangeRateRequestVO.get_fromCurrencyAppId())
+						&& exchangeRateRequestVO.get_fromCurrencyAppId().longValue() > 0) {
+					baseCurrIdsMap.add(exchangeRateRequestVO.get_fromCurrencyAppId());
+					baseCurrIds.append("from_currency_id=" + exchangeRateRequestVO.get_fromCurrencyAppId() + " or ");
+				}
+				if (!custIdsMap.contains(exchangeRateRequestVO.get_custodianAppId())) {
+					custIdsMap.add(exchangeRateRequestVO.get_custodianAppId());
+					custIds.append("(custodian_id = COALESCE(" + exchangeRateRequestVO.get_custodianAppId()
+							+ ",custodian_id)or custodian_id is null)" + " or ");
+				}
+				if (!currIdsMap.contains(exchangeRateRequestVO.get_toCurrencyAppId())
+						&& exchangeRateRequestVO.get_toCurrencyAppId().longValue() > 0) {
+					currIdsMap.add(exchangeRateRequestVO.get_toCurrencyAppId());
+					currIds.append("to_currency_id=" + exchangeRateRequestVO.get_toCurrencyAppId() + " or ");
+				}
+			}
+		}
+		ExchangeRateVO exchangeRateRequestVO = exchangeRateVOs.get(exchangeRateVOs.size() - 1);
+
+		if (!baseCurrIdsMap.contains(exchangeRateRequestVO.get_fromCurrencyAppId())) {
+			baseCurrIdsMap.add(exchangeRateRequestVO.get_fromCurrencyAppId());
+			baseCurrIds.append("from_currency_id=" + exchangeRateRequestVO.get_fromCurrencyAppId());
+		}
+		if (!custIdsMap.contains(exchangeRateRequestVO.get_custodianAppId())) {
+			custIdsMap.add(exchangeRateRequestVO.get_custodianAppId());
+			custIds.append("custodian_id=" + exchangeRateRequestVO.get_custodianAppId());
+		}
+		if (!currIdsMap.contains(exchangeRateRequestVO.get_toCurrencyAppId())) {
+			currIdsMap.add(exchangeRateRequestVO.get_toCurrencyAppId());
+			currIds.append("to_currency_id=" + exchangeRateRequestVO.get_toCurrencyAppId());
+		}
+		for (int i = 0; i <= 1; i++) {
+			String baseCurrPH = "<from_currency_id>";
+			int baseCurrStart = query.indexOf(baseCurrPH);
+			int baseCurrSize = baseCurrPH.length();
+			query.replace(baseCurrStart, baseCurrStart + baseCurrSize, baseCurrIds.toString());
+
+			String custodianPH = "<custodian_id>";
+			int custodianStart = query.indexOf(custodianPH);
+			int custodianSize = custodianPH.length();
+
+			query.replace(custodianStart, custodianStart + custodianSize, custIds.toString());
+
+			String currencyPH = "<to_currency_id>";
+			int currencyStart = query.indexOf(currencyPH);
+			int currencySize = currencyPH.length();
+			query.replace(currencyStart, currencyStart + currencySize, currIds.toString());
+		}
+		log.fatal("query="+query);
+		exchangeRateRequestVOMap = jdbcTemplate.query(query.toString(),
+				new ResultSetExtractor<Map<String, ExchangeRateVO>>() {
+					@Override
+					public Map<String, ExchangeRateVO> extractData(ResultSet rs)
+							throws SQLException, DataAccessException {
+						Map<String, ExchangeRateVO> result = new HashMap<>();
+
+						while (rs.next()) {
+							ExchangeRateVO vo;
+							if (!result.containsKey(rs.getString("exchangeRateKey"))) {
+								ExchangeRateRowMapper rowmapper = new ExchangeRateRowMapper();
+								vo = rowmapper.mapRow(rs, rs.getRow());
+								result.put(rs.getString("exchangeRateKey"), vo);
+							}
+						}
+						return result;
+					}
+				});
+		return exchangeRateRequestVOMap;
+	}
+
+	@CustomTransactional
+	@Override
+	public void updateExchangeRate(String tenantCode, List<ExchangeRateVO> exchangeRateRequestVO) throws Exception {
+
+		jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+		try {
+			jdbcTemplate.batchUpdate(exchangeRateInitialUpdateQuery, new BatchPreparedStatementSetter() {
+				@Override
+				public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+					preparedStatement.setString(1, exchangeRateRequestVO.get(i).getUsername());
+					preparedStatement.setBigDecimal(2, exchangeRateRequestVO.get(i).getPriceAmt());
+					preparedStatement.setBigDecimal(3, exchangeRateRequestVO.get(i).get_id());
+				}
+
+				@Override
+				public int getBatchSize() {
+					return exchangeRateRequestVO.size();
+				}
+			});
+
+		} catch (Exception ex) {
+			log.fatal("Error in updateExchangeRate: ", ex);
+			throw ex;
+		}
+
+	}
+
+	@Override
+	public List<ExchangeRateVO> getExchangeRate(String tenantCode, AssetRequestVO request) {
+
+		List<ExchangeRateVO> result = new ArrayList<ExchangeRateVO>();
+		StringBuilder parameter = new StringBuilder("(");
+		StringBuilder query = new StringBuilder(exchangeRateSelect);
+
+		List<AssetGetRequestVO> exchangeRateVO = request.getAssetGetRequest();
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			for (int i = 0; i < exchangeRateVO.size(); i++) {
+
+				String baseCurrValue = exchangeRateVO.get(i).getCurrencyConfigName();
+				String currVOValue = exchangeRateVO.get(i).getToCurrencyConfigName();
+				String custodianValue = exchangeRateVO.get(i).getCustodianConfigName();
+				if (i < exchangeRateVO.size() - 1) {
+
+					parameter.append("(( from_currency_config_name= ?" + " and " + "to_currency_config_name= ?"
+							+ " and custodian_config_name=?" + " ) or" + "( from_currency_config_name= ?" + " and "
+							+ "to_currency_config_name= ? ))" + "or ");
+				} else {
+
+					parameter.append("(( from_currency_config_name= ?" + " and " + "to_currency_config_name= ?"
+							+ " and custodian_config_name=?" + " ) or " + "( from_currency_config_name= ?" + " and "
+							+ "to_currency_config_name= ? ))" + " ) and ((" + "eff_from_date<= ?" + " and "
+							+ "eff_to_date>= ?" + " ) or (" + "eff_from_date<=?" + " OR " + "eff_to_date is null"
+							+ " ))");
+				}
+			}
+			// end of loop
+			String param = "<conditions>";
+			int paramStart = query.indexOf(param);
+			int paramSize = param.length();
+
+			query.replace(paramStart, paramStart + paramSize, parameter.toString());
+
+			result = jdbcTemplate.query(query.toString(), new PreparedStatementSetter() {
+
+				@Override
+				public void setValues(PreparedStatement ps) throws SQLException {
+					int cnt = 1;
+					for (int i = 0; i < request.getAssetGetRequest().size(); i++) {
+						AssetGetRequestVO vo = request.getAssetGetRequest().get(i);
+
+						String baseCurrId = vo.getFromCurrencyConfigName();
+						String currId = vo.getToCurrencyConfigName();
+						String custodianId = vo.getCustodianConfigName();
+
+						ps.setString(cnt++, baseCurrId);
+						ps.setString(cnt++, currId);
+						ps.setString(cnt++, custodianId);
+						ps.setString(cnt++, baseCurrId);
+						ps.setString(cnt++, currId);
+
+					}
+					ps.setDate(cnt++, AssetUtil.DateFormater(request.getReferenceDate()));
+					ps.setDate(cnt++, AssetUtil.DateFormater(request.getReferenceDate()));
+					ps.setDate(cnt++, AssetUtil.DateFormater(request.getReferenceDate()));
+				}
+
+			}, new ExchangeRateRowMapper());
+		} catch (Exception ex) {
+			log.fatal("Error: " + ex);
+			ex.printStackTrace();
+		}
+		return result;
+	}
+
+	@Override
+	public List<ExchangeRateVO> getExchangeRateByInfo(String tenantCode, List<AssetGetRequestVO> request,
+			Date referenceDate) throws Exception {
+		List<ExchangeRateVO> exchangeRateVOs = new ArrayList<ExchangeRateVO>();
+		StringBuilder parameter = new StringBuilder("");
+		StringBuilder query = new StringBuilder(exchangeRateSelect);
+		StringBuilder query1 = new StringBuilder(GET_EXCHANGE_RATE_WITH_NULL);
+
+		List<AssetGetRequestVO> exchangeRateVO = request;
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+			String lastStr;
+			String normStr;
+
+			for (int i = 0; i < exchangeRateVO.size(); i++) {
+//				query1.append("(");
+				if (i == exchangeRateVO.size() - 1) {
+					if (exchangeRateVO.get(i).getCustodianConfigName() == null) {
+						lastStr = "(from_currency_config_name = ? AND to_currency_config_name = ? AND CUSTODIAN_CONFIG_NAME is null)";
+					} else {
+						lastStr = "(from_currency_config_name = ? AND to_currency_config_name = ? AND CUSTODIAN_CONFIG_NAME= ?)";
+					}
+					query1.append(lastStr);
+				} else {
+					if (exchangeRateVO.get(i).getCustodianConfigName() == null) {
+						normStr = "(from_currency_config_name = ? AND to_currency_config_name = ? AND CUSTODIAN_CONFIG_NAME is null) OR ";
+					} else {
+						normStr = "(from_currency_config_name = ? AND to_currency_config_name = ? AND CUSTODIAN_CONFIG_NAME= ?) OR ";
+					}
+					query1.append(normStr);
+				}
+			}
+			query1.append(")");
+			String remainingStr = "AND (EFF_FROM_DATE <= TO_DATE(?, 'yyyy-mm-DD') AND (EFF_TO_DATE is null OR EFF_TO_DATE >= TO_DATE(?, 'yyyy-mm-DD')))  ORDER BY EFF_FROM_DATE";
+
+			String remainingStr1 = " AND ((TO_DATE(?, 'yyyy-mm-DD')  BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR\r\n"
+					+ "(EFF_TO_DATE is null AND TO_DATE(?, 'yyyy-mm-DD') >= EFF_FROM_DATE))\r\n"
+					+ ") priceWithCustodian ";
+			query1.append(remainingStr1);
+
+//			for (int i = 0; i < exchangeRateVO.size(); i++) {
+////				query1.append("(");
+//				if (i == exchangeRateVO.size() - 1) {
+//					lastStr = "(from_currency_config_name = ? AND to_currency_config_name = ? AND CUSTODIAN_CONFIG_NAME is null)";
+//					query1.append(lastStr);
+//				} else {
+//					normStr = "(from_currency_config_name = ? AND to_currency_config_name = ? AND CUSTODIAN_CONFIG_NAME is null) OR ";
+//					query1.append(normStr);
+//				}
+//			}
+//
+//			String withNullCustodian = " ) AND ((TO_DATE(?, 'yyyy-mm-DD')  BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR\r\n"
+//					+ "(EFF_TO_DATE is null AND EFF_FROM_DATE <= TO_DATE(?, 'yyyy-mm-DD')))\r\n"
+//					+ ") priceWithoutCustodian\r\n"
+//					+ "ON (priceWithoutCustodian.from_currency_config_name = priceWithCustodian.from_currency_config_name\r\n"
+//					+ "AND priceWithoutCustodian.to_currency_config_name = priceWithCustodian.to_currency_config_name)";
+////			query1.append(")");
+//			query1.append(withNullCustodian);
+
+			query.append(remainingStr);
+			exchangeRateVOs = jdbcTemplate.query(query1.toString(), new PreparedStatementSetter() {
+				int cnt = 0;
+
+				@Override
+				public void setValues(PreparedStatement preparedStatement) throws SQLException {
+					for (int i = 0; i < exchangeRateVO.size(); i++) {
+//						if (i == exchangeRateVO.size() - 1) {
+						preparedStatement.setString(++cnt, exchangeRateVO.get(i).getFromCurrencyConfigName());
+						preparedStatement.setString(++cnt, exchangeRateVO.get(i).getToCurrencyConfigName());
+						if (exchangeRateVO.get(i).getCustodianConfigName() != null) {
+							preparedStatement.setString(++cnt, exchangeRateVO.get(i).getCustodianConfigName());
+//							}
+//						} else {
+//							preparedStatement.setString(++cnt, exchangeRateVO.get(i).getFromCurrencyConfigName());
+//							preparedStatement.setString(++cnt, exchangeRateVO.get(i).getToCurrencyConfigName());
+//							if(exchangeRateVO.get(i).getCustodianConfigName()!=null) {
+//							preparedStatement.setString(++cnt, exchangeRateVO.get(i).getCustodianConfigName());
+//							}
+						}
+					}
+					preparedStatement.setDate(++cnt, AssetUtil.DateFormater(referenceDate));
+					preparedStatement.setDate(++cnt, AssetUtil.DateFormater(referenceDate));
+
+//					for (int i = 0; i < exchangeRateVO.size(); i++) {
+////						if (i == exchangeRateVO.size() - 1) {
+//						preparedStatement.setString(++cnt, exchangeRateVO.get(i).getFromCurrencyConfigName());
+//						preparedStatement.setString(++cnt, exchangeRateVO.get(i).getToCurrencyConfigName());
+////						} else {
+////							preparedStatement.setString(++cnt, exchangeRateVO.get(i).getFromCurrencyConfigName());
+////							preparedStatement.setString(++cnt, exchangeRateVO.get(i).getToCurrencyConfigName());
+////						}
+//					}
+//					preparedStatement.setDate(++cnt, AssetUtil.DateFormater(referenceDate));
+//					preparedStatement.setDate(++cnt, AssetUtil.DateFormater(referenceDate));
+					log.fatal(preparedStatement);
+				}
+			}, new ExchangeRateRowMapper());
+
+		} catch (Exception ex) {
+			log.fatal("Error in getExchangeRateByInfo: ", ex);
+			throw ex;
+		}
+		return exchangeRateVOs;
+	}
+
+	@Override
+	public List<ExchangeRateVO> getExchangeRateByInfoByDate(String tenantCode, List<AssetGetRequestVO> request)
+			throws Exception {
+		List<ExchangeRateVO> exchangeRateVOs = new ArrayList<ExchangeRateVO>();
+		StringBuilder query1 = new StringBuilder(GET_EXCHANGE_RATE_WITH_NULL);
+		List<AssetGetRequestVO> exchangeRateVO = request;
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+			String lastStr;
+			String normStr;
+
+			for (int i = 0; i < exchangeRateVO.size(); i++) {
+
+				if (i == exchangeRateVO.size() - 1) {
+					if (exchangeRateVO.get(i).getCustodianConfigName() == null) {
+						lastStr = "(from_currency_config_name = ? AND to_currency_config_name = ? AND ((TO_DATE(?, 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(?, 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME is null)";
+					} else {
+						lastStr = "(from_currency_config_name = ? AND to_currency_config_name = ? AND ((TO_DATE(?, 'yyyy-mm-DD')  BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(?, 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME= ?)";
+					}
+					query1.append(lastStr);
+				} else {
+					if (exchangeRateVO.get(i).getCustodianConfigName() == null) {
+						normStr = "(from_currency_config_name = ? AND to_currency_config_name = ? AND ((TO_DATE(?, 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(?, 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME is null) OR ";
+					} else {
+						normStr = "(from_currency_config_name = ? AND to_currency_config_name = ? AND ((TO_DATE(?, 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(?, 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME= ?) OR ";
+					}
+					query1.append(normStr);
+				}
+			}
+
+			String remainingStr1 = ")) priceWithCustodian FULL OUTER JOIN (" + " select * from exchange_rate where";
+			query1.append(remainingStr1);
+
+			for (int i = 0; i < exchangeRateVO.size(); i++) {
+
+				if (i == exchangeRateVO.size() - 1) {
+					lastStr = "(from_currency_config_name = ? AND to_currency_config_name = ? AND ((TO_DATE(?, 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND EFF_FROM_DATE <= TO_DATE(?, 'yyyy-mm-DD'))) AND CUSTODIAN_CONFIG_NAME is null)";
+					query1.append(lastStr);
+				} else {
+					normStr = "(from_currency_config_name = ? AND to_currency_config_name = ? AND ((TO_DATE(?, 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND EFF_FROM_DATE <= TO_DATE(?, 'yyyy-mm-DD'))) AND CUSTODIAN_CONFIG_NAME is null) OR ";
+					query1.append(normStr);
+				}
+			}
+
+			String withNullCustodian = ") priceWithoutCustodian\r\n"
+					+ "ON (priceWithoutCustodian.from_currency_config_name = priceWithCustodian.from_currency_config_name\r\n"
+					+ "AND priceWithoutCustodian.to_currency_config_name = priceWithCustodian.to_currency_config_name)";
+			query1.append(withNullCustodian);
+
+			exchangeRateVOs = jdbcTemplate.query(query1.toString(), new PreparedStatementSetter() {
+				int cnt = 0;
+
+				@Override
+				public void setValues(PreparedStatement preparedStatement) throws SQLException {
+					for (int i = 0; i < exchangeRateVO.size(); i++) {
+
+						preparedStatement.setString(++cnt, exchangeRateVO.get(i).getFromCurrencyConfigName());
+						preparedStatement.setString(++cnt, exchangeRateVO.get(i).getToCurrencyConfigName());
+						preparedStatement.setDate(++cnt,
+								AssetUtil.DateFormater(exchangeRateVO.get(i).getReferenceDate()));
+						preparedStatement.setDate(++cnt,
+								AssetUtil.DateFormater(exchangeRateVO.get(i).getReferenceDate()));
+						if (exchangeRateVO.get(i).getCustodianConfigName() != null) {
+							preparedStatement.setString(++cnt, exchangeRateVO.get(i).getCustodianConfigName());
+
+						}
+					}
+
+					for (int i = 0; i < exchangeRateVO.size(); i++) {
+
+						preparedStatement.setString(++cnt, exchangeRateVO.get(i).getFromCurrencyConfigName());
+						preparedStatement.setString(++cnt, exchangeRateVO.get(i).getToCurrencyConfigName());
+						preparedStatement.setDate(++cnt,
+								AssetUtil.DateFormater(exchangeRateVO.get(i).getReferenceDate()));
+						preparedStatement.setDate(++cnt,
+								AssetUtil.DateFormater(exchangeRateVO.get(i).getReferenceDate()));
+					}
+				}
+			}, new ExchangeRateRowMapper());
+		} catch (Exception ex) {
+			log.fatal("Error in getExchangeRateByInfoByDate: ", ex);
+			throw ex;
+		}
+		return exchangeRateVOs;
+	}
+
+	@Override
+	public Map<String, ExchangeRateVO> getExchangeRateInfoForIntermediateCurrency(String tenantCode,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, List<String> intermediateCurrencyList, Date referenceDate)
+			throws Exception {
+
+		Map<String, ExchangeRateVO> exchangeRateMap = null;
+		log.debug("Entering");
+		try {
+
+			StringBuilder query = new StringBuilder(exchangeRateSelect);
+			StringBuilder query1 = new StringBuilder(GET_EXCHANGE_RATE_WITH_NULL);
+			String lastStr;
+			String normStr;
+			List<ExchangeRateVO> exchangeRates = null;
+
+			namedParameterJdbcTemplate = dataSourceManager.refreshCustomNamedJdbc(tenantCode, null);
+			MapSqlParameterSource map = new MapSqlParameterSource();
+
+			for (int i = 0; i < failedVOs.size(); i++) {
+
+				List<String> currencyList = new ArrayList<String>();
+				currencyList.add(failedVOs.get(i).getIdentityDetails().getFromCurrencyConfigName());
+				currencyList.add(failedVOs.get(i).getIdentityDetails().getToCurrencyConfigName());
+				
+				if (i == failedVOs.size() - 1) {
+//					if (failedVOs.get(i).getIdentityDetails().getCustodianConfigName() == null) {
+//						lastStr = "((from_currency_config_name in (:from_currency_config_nameA" + i
+//								+ ") AND to_currency_config_name in (:to_currency_config_nameA" + i
+//								+ ") AND CUSTODIAN_CONFIG_NAME is null) OR (from_currency_config_name in (:from_currency_config_nameB"
+//								+ i + ") AND to_currency_config_name in (:to_currency_config_nameB" + i
+//								+ ") AND CUSTODIAN_CONFIG_NAME is null))";
+//
+//					} else {
+						lastStr = "((from_currency_config_name in (:from_currency_config_nameA" + i
+								+ ") AND to_currency_config_name in (:to_currency_config_nameA" + i
+								+ ") AND CUSTODIAN_CONFIG_NAME= :CUSTODIAN_CONFIG_NAME" + i
+								+ " ) OR (from_currency_config_name in (:from_currency_config_nameB" + i
+								+ ") AND to_currency_config_name in (:to_currency_config_nameB" + i
+								+ ") AND CUSTODIAN_CONFIG_NAME= :CUSTODIAN_CONFIG_NAME" + i + " ))";
+//					}
+					query1.append(lastStr);
+				} else {
+//					if (failedVOs.get(i).getIdentityDetails().getCustodianConfigName() == null) {
+//						normStr = "((from_currency_config_name in (:from_currency_config_nameA" + i
+//								+ ") AND to_currency_config_name in (:to_currency_config_nameA" + i
+//								+ ") AND CUSTODIAN_CONFIG_NAME is null) OR (from_currency_config_name in (:from_currency_config_nameB"
+//								+ i + ") AND to_currency_config_name in (:to_currency_config_nameB" + i
+//								+ ") AND CUSTODIAN_CONFIG_NAME is null)) OR ";
+//					} else {
+						normStr = "((from_currency_config_name in (:from_currency_config_nameA" + i
+								+ ") AND to_currency_config_name in (:to_currency_config_nameA" + i
+								+ ") AND CUSTODIAN_CONFIG_NAME= :CUSTODIAN_CONFIG_NAME" + i
+								+ " ) OR (from_currency_config_name in (:from_currency_config_nameB" + i
+								+ ") AND to_currency_config_name in (:to_currency_config_nameB" + i
+								+ ") AND CUSTODIAN_CONFIG_NAME= :CUSTODIAN_CONFIG_NAME" + i + " )) OR ";
+//					}
+					query1.append(normStr);
+				}
+
+				map.addValue("from_currency_config_nameA" + i, currencyList);
+				map.addValue("to_currency_config_nameA" + i, intermediateCurrencyList);
+
+				map.addValue("from_currency_config_nameB" + i, intermediateCurrencyList);
+				map.addValue("to_currency_config_nameB" + i, currencyList);
+
+				if (failedVOs.get(i).getIdentityDetails().getCustodianConfigName() == null) {
+					map.addValue("CUSTODIAN_CONFIG_NAME" + i, null);
+				} else {
+					map.addValue("CUSTODIAN_CONFIG_NAME" + i,
+							failedVOs.get(i).getIdentityDetails().getCustodianConfigName());
+				}
+			}
+			query1.append(")");
+
+			String remainingStr = "AND (EFF_FROM_DATE <= TO_DATE(?, 'yyyy-mm-DD') AND (EFF_TO_DATE is null OR EFF_TO_DATE >= TO_DATE(?, 'yyyy-mm-DD')))  ORDER BY EFF_FROM_DATE";
+
+			String remainingStr1 = " AND ((TO_DATE(:reference_date, 'yyyy-mm-DD')  BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR\r\n"
+					+ "(EFF_TO_DATE is null AND TO_DATE(:reference_date, 'yyyy-mm-DD') >= EFF_FROM_DATE))\r\n"
+					+ ") priceWithCustodian ";
+			query1.append(remainingStr1);
+
+//			for (int i = 0; i < failedVOs.size(); i++) {
+//
+//				List<String> currencyList = new ArrayList<String>();
+//				currencyList.add(failedVOs.get(i).getIdentityDetails().getFromCurrencyConfigName());
+//				currencyList.add(failedVOs.get(i).getIdentityDetails().getToCurrencyConfigName());
+//
+//				if (i == failedVOs.size() - 1) {
+//					lastStr = "((from_currency_config_name in (:from_currency_config_nameA" + i
+//							+ ") AND to_currency_config_name in (:to_currency_config_nameA" + i
+//							+ ") AND CUSTODIAN_CONFIG_NAME is null) OR (from_currency_config_name in (:from_currency_config_nameB"
+//							+ i + ") AND to_currency_config_name in (:to_currency_config_nameB" + i
+//							+ ") AND CUSTODIAN_CONFIG_NAME is null))";
+//					query1.append(lastStr);
+//				} else {
+//					normStr = "((from_currency_config_name in (:from_currency_config_nameA" + i
+//							+ ") AND to_currency_config_name in (:to_currency_config_nameA" + i
+//							+ ") AND CUSTODIAN_CONFIG_NAME is null) OR (from_currency_config_name in (:from_currency_config_nameB"
+//							+ i + ") AND to_currency_config_name in (:to_currency_config_nameB" + i
+//							+ ") AND CUSTODIAN_CONFIG_NAME is null)) OR ";
+//					query1.append(normStr);
+//				}
+//
+//				map.addValue("from_currency_config_nameA" + i, currencyList);
+//				map.addValue("to_currency_config_nameA" + i, intermediateCurrencyList);
+//
+//				map.addValue("from_currency_config_nameB" + i, intermediateCurrencyList);
+//				map.addValue("to_currency_config_nameB" + i, currencyList);
+//
+//			}
+//
+//			String withNullCustodian = "AND ((TO_DATE(:reference_date, 'yyyy-mm-DD')  BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR\r\n"
+//					+ "(EFF_TO_DATE is null AND EFF_FROM_DATE <= TO_DATE(:reference_date, 'yyyy-mm-DD')))\r\n"
+//					+ ") priceWithoutCustodian\r\n"
+//					+ "ON (priceWithoutCustodian.from_currency_config_name = priceWithCustodian.from_currency_config_name\r\n"
+//					+ "AND priceWithoutCustodian.to_currency_config_name = priceWithCustodian.to_currency_config_name)";
+//			query1.append(withNullCustodian);
+
+			query.append(remainingStr);
+
+			map.addValue("reference_date", referenceDate);
+			log.fatal("QUERY="+query1);
+			exchangeRates = namedParameterJdbcTemplate.query(query1.toString(), map, new ExchangeRateRowMapper());
+
+			// Converting list into HashMap for fast access.
+			if (exchangeRates != null && exchangeRates.size() > 0) {
+				exchangeRateMap = new HashMap<String, ExchangeRateVO>();
+				for (ExchangeRateVO exchangeRate : exchangeRates) {
+					exchangeRateMap.put(exchangeRate.get_fromCurrencyAppConfigName() + "|"
+							+ exchangeRate.get_toCurrencyAppConfigName(), exchangeRate);
+				}
+
+				exchangeRates = null;
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in getExchangeRateInfoForIntermediate: ", ex);
+			throw ex;
+		}
+
+		log.debug("Leaving");
+		return exchangeRateMap;
+	}
+
+	@Override
+	public List<String> getIntermediateCurrencyList(String tenantCode) throws Exception {
+
+		log.debug("Entering");
+		List<String> intermediateCurrencyList = new ArrayList<String>();
+		;
+		try {
+
+			String getIntermediateCurrencyList = "select reference_currency_config_name from Exchange_Rate_Reference_Currency where is_active = 1";
+
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+			SqlRowSet rs = jdbcTemplate.queryForRowSet(getIntermediateCurrencyList);
+
+			while (rs.next()) {
+				intermediateCurrencyList.add(rs.getString("REFERENCE_CURRENCY_CONFIG_NAME"));
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in getIntermediateCurrencyList: ", ex);
+			throw ex;
+		}
+
+		log.debug("Leaving");
+		return intermediateCurrencyList;
+
+	}
+
+	@Override
+	public Map<String, ExchangeRateVO> getExchangeRateInfoByDateForIntermediateCurrency(String tenantCode,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, List<String> intermediateCurrencyList) throws Exception {
+
+		Map<String, ExchangeRateVO> exchangeRateMap = null;
+		log.debug("Entering");
+		try {
+
+			StringBuilder query = new StringBuilder(exchangeRateSelect);
+			StringBuilder query1 = new StringBuilder(GET_EXCHANGE_RATE_WITH_NULL);
+			String lastStr;
+			String normStr;
+			List<ExchangeRateVO> exchangeRates = null;
+
+			namedParameterJdbcTemplate = dataSourceManager.refreshCustomNamedJdbc(tenantCode, null);
+			MapSqlParameterSource map = new MapSqlParameterSource();
+
+			for (int i = 0; i < failedVOs.size(); i++) {
+
+				List<String> currencyList = new ArrayList<String>();
+				currencyList.add(failedVOs.get(i).getIdentityDetails().getFromCurrencyConfigName());
+				currencyList.add(failedVOs.get(i).getIdentityDetails().getToCurrencyConfigName());
+
+				if (i == failedVOs.size() - 1) {
+					if (failedVOs.get(i).getIdentityDetails().getCustodianConfigName() == null) {
+						lastStr = "((from_currency_config_name in (:from_currency_config_nameA" + i
+								+ ") AND to_currency_config_name in (:to_currency_config_nameA" + i
+								+ ") AND ((TO_DATE(:reference_date" + i
+								+ ", 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(:reference_date"
+								+ i
+								+ ", 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME is null) OR (from_currency_config_name in (:from_currency_config_nameB"
+								+ i + ") AND to_currency_config_name in (:to_currency_config_nameB" + i
+								+ ") AND ((TO_DATE(:reference_date" + i
+								+ ", 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(:reference_date"
+								+ i + ", 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME is null))";
+
+					} else {
+						lastStr = "((from_currency_config_name in (:from_currency_config_nameA" + i
+								+ ") AND to_currency_config_name in (:to_currency_config_nameA" + i
+								+ ") AND ((TO_DATE(:reference_date" + i
+								+ ", 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(:reference_date"
+								+ i
+								+ ", 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME= :CUSTODIAN_CONFIG_NAME"
+								+ i + " ) OR (from_currency_config_name in (:from_currency_config_nameB" + i
+								+ ") AND to_currency_config_name in (:to_currency_config_nameB" + i
+								+ ") AND ((TO_DATE(:reference_date" + i
+								+ ", 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(:reference_date"
+								+ i
+								+ ", 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME= :CUSTODIAN_CONFIG_NAME"
+								+ i + " ))";
+					}
+					query1.append(lastStr);
+				} else {
+					if (failedVOs.get(i).getIdentityDetails().getCustodianConfigName() == null) {
+						normStr = "((from_currency_config_name in (:from_currency_config_nameA" + i
+								+ ") AND to_currency_config_name in (:to_currency_config_nameA" + i
+								+ ") AND ((TO_DATE(:reference_date" + i
+								+ ", 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(:reference_date"
+								+ i
+								+ ", 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME is null) OR (from_currency_config_name in (:from_currency_config_nameB"
+								+ i + ") AND to_currency_config_name in (:to_currency_config_nameB" + i
+								+ ") AND ((TO_DATE(:reference_date" + i
+								+ ", 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(:reference_date"
+								+ i + ", 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME is null)) OR ";
+					} else {
+						normStr = "((from_currency_config_name in (:from_currency_config_nameA" + i
+								+ ") AND to_currency_config_name in (:to_currency_config_nameA" + i
+								+ ") AND ((TO_DATE(:reference_date" + i
+								+ ", 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(:reference_date"
+								+ i
+								+ ", 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME= :CUSTODIAN_CONFIG_NAME"
+								+ i + " ) OR (from_currency_config_name in (:from_currency_config_nameB" + i
+								+ ") AND to_currency_config_name in (:to_currency_config_nameB" + i
+								+ ") AND ((TO_DATE(:reference_date" + i
+								+ ", 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(:reference_date"
+								+ i
+								+ ", 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME= :CUSTODIAN_CONFIG_NAME"
+								+ i + " )) OR ";
+					}
+					query1.append(normStr);
+				}
+
+				map.addValue("from_currency_config_nameA" + i, currencyList);
+				map.addValue("to_currency_config_nameA" + i, intermediateCurrencyList);
+
+				map.addValue("from_currency_config_nameB" + i, intermediateCurrencyList);
+				map.addValue("to_currency_config_nameB" + i, currencyList);
+				map.addValue("reference_date" + i, failedVOs.get(i).getIdentityDetails().getReferenceDate());
+
+				if (failedVOs.get(i).getIdentityDetails().getCustodianConfigName() == null) {
+					map.addValue("CUSTODIAN_CONFIG_NAME" + i, null);
+				} else {
+					map.addValue("CUSTODIAN_CONFIG_NAME" + i,
+							failedVOs.get(i).getIdentityDetails().getCustodianConfigName());
+				}
+			}
+			query1.append(")");
+
+			String remainingStr = " ORDER BY EFF_FROM_DATE";
+
+			String remainingStr1 = ") priceWithCustodian FULL OUTER JOIN (" + " select * from exchange_rate where ";
+			query1.append(remainingStr1);
+
+			for (int i = 0; i < failedVOs.size(); i++) {
+
+				List<String> currencyList = new ArrayList<String>();
+				currencyList.add(failedVOs.get(i).getIdentityDetails().getFromCurrencyConfigName());
+				currencyList.add(failedVOs.get(i).getIdentityDetails().getToCurrencyConfigName());
+
+				if (i == failedVOs.size() - 1) {
+					lastStr = "((from_currency_config_name in (:from_currency_config_nameA" + i
+							+ ") AND to_currency_config_name in (:to_currency_config_nameA" + i
+							+ ") AND ((TO_DATE(:reference_date" + i
+							+ ", 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(:reference_date"
+							+ i
+							+ ", 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME is null) OR (from_currency_config_name in (:from_currency_config_nameB"
+							+ i + ") AND to_currency_config_name in (:to_currency_config_nameB" + i
+							+ ")  AND ((TO_DATE(:reference_date" + i
+							+ ", 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(:reference_date"
+							+ i + ", 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME is null))";
+					query1.append(lastStr);
+				} else {
+					normStr = "((from_currency_config_name in (:from_currency_config_nameA" + i
+							+ ") AND to_currency_config_name in (:to_currency_config_nameA" + i
+							+ ")  AND ((TO_DATE(:reference_date" + i
+							+ ", 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(:reference_date"
+							+ i
+							+ ", 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME is null) OR (from_currency_config_name in (:from_currency_config_nameB"
+							+ i + ") AND to_currency_config_name in (:to_currency_config_nameB" + i
+							+ ")  AND ((TO_DATE(:reference_date" + i
+							+ ", 'yyyy-mm-DD') BETWEEN EFF_FROM_DATE AND EFF_TO_DATE) OR (EFF_TO_DATE is null AND TO_DATE(:reference_date"
+							+ i + ", 'yyyy-mm-DD') >= EFF_FROM_DATE)) AND CUSTODIAN_CONFIG_NAME is null)) OR ";
+					query1.append(normStr);
+				}
+
+				map.addValue("from_currency_config_nameA" + i, currencyList);
+				map.addValue("to_currency_config_nameA" + i, intermediateCurrencyList);
+
+				map.addValue("from_currency_config_nameB" + i, intermediateCurrencyList);
+				map.addValue("to_currency_config_nameB" + i, currencyList);
+				map.addValue("reference_date" + i, failedVOs.get(i).getIdentityDetails().getReferenceDate());
+
+			}
+
+			String withNullCustodian = ") priceWithoutCustodian\r\n"
+					+ "ON (priceWithoutCustodian.from_currency_config_name = priceWithCustodian.from_currency_config_name\r\n"
+					+ "AND priceWithoutCustodian.to_currency_config_name = priceWithCustodian.to_currency_config_name)";
+			query1.append(withNullCustodian);
+
+			query.append(remainingStr);
+
+			exchangeRates = namedParameterJdbcTemplate.query(query1.toString(), map, new ExchangeRateRowMapper());
+
+			// Converting list into HashMap for fast access.
+			if (exchangeRates != null && exchangeRates.size() > 0) {
+				exchangeRateMap = new HashMap<String, ExchangeRateVO>();
+				for (ExchangeRateVO exchangeRate : exchangeRates) {
+					exchangeRateMap.put(exchangeRate.get_fromCurrencyAppConfigName() + "|"
+							+ exchangeRate.get_toCurrencyAppConfigName(), exchangeRate);
+				}
+
+				exchangeRates = null;
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in getExchangeRateInfoForIntermediate: ", ex);
+			throw ex;
+		}
+
+		log.debug("Leaving");
+		return exchangeRateMap;
+	}
+
+	public void insertIntoAssetCustodianWiseLastDate(String tenantCode, List<ExchangeRateVO> insertList)
+			throws Exception {
+		// TODO Auto-generated method stub
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+//			List<ExchangeRateVO> insertList = new ArrayList<ExchangeRateVO>();
+//			List<ExchangeRateVO> updateList = new ArrayList<ExchangeRateVO>();
+//
+//			for (ExchangeRateVO exchangeRateVO : maxDateList) {
+//				String query = "select id from asset_custodianwise_last_date where To_Currency_Config_Name ='" + exchangeRateVO.get_toCurrencyAppConfigName()
+//						+ "' and From_Currency_Config_Name = '" + exchangeRateVO.get_fromCurrencyAppConfigName()
+//						+ "' and max_eff_from_date_for_config_name = '"+AssetConstants.EXCHANGERATECONFIGNAME+"'";
+//				List<BigDecimal> ids = jdbcTemplate.queryForList(query, BigDecimal.class);
+//				BigDecimal id;
+//				if(ids.isEmpty()) {
+//					id=null;
+//				}else {
+//					id=ids.get(0);
+//				}
+//				if (id != null) {
+//					updateList.add(exchangeRateVO);
+//				} else {
+//					insertList.add(exchangeRateVO);
+//				}
+//			}
+
+			if (insertList.size() > 0) {
+				jdbcTemplate.batchUpdate(INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE_FOR_EXCHANGE_RATE,
+						new BatchPreparedStatementSetter() {
+							@Override
+							public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+								int j = 0;
+								preparedStatement.setBigDecimal(++j, insertList.get(i).get_tenantId());
+								preparedStatement.setLong(++j, service);
+								preparedStatement.setBigDecimal(++j, insertList.get(i).get_fromCurrencyAppId());
+								preparedStatement.setString(++j, insertList.get(i).get_fromCurrencyAppConfigName());
+								preparedStatement.setBigDecimal(++j, insertList.get(i).get_toCurrencyAppId());
+								preparedStatement.setString(++j, insertList.get(i).get_toCurrencyAppConfigName());
+								preparedStatement.setBigDecimal(++j, insertList.get(i).get_custodianAppId());
+								preparedStatement.setString(++j, insertList.get(i).get_custodianAppConfigName());
+								preparedStatement.setBigDecimal(++j, AssetConstants.EXCHANGERATEID);
+								preparedStatement.setString(++j, AssetConstants.EXCHANGERATECONFIGNAME);
+
+								try {
+									preparedStatement.setTimestamp(++j,
+											AssetUtil.stringToTimestamp(insertList.get(i).getEffectiveFromDate()));
+								} catch (Exception e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+								preparedStatement.setString(++j, insertList.get(i).getUsername());
+							}
+
+							@Override
+							public int getBatchSize() {
+								return insertList.size();
+							}
+						});
+			}
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+			throw e;
+
+		}
+	}
+
+	public void updateAssetCustodianWiseLastDate(String tenantCode, List<ExchangeRateVO> updateList) throws Exception {
+		// TODO Auto-generated method stub
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+			if (updateList.size() > 0) {
+				int[] updateCount = jdbcTemplate.batchUpdate(UPDATE_ASSET_CUSTODIANWISE_LAST_DATE_FOR_EXCHANGE_RATE,
+						new BatchPreparedStatementSetter() {
+							@Override
+							public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+								int j = 0;
+								try {
+									preparedStatement.setTimestamp(++j,
+											AssetUtil.stringToTimestamp(updateList.get(i).getEffectiveFromDate()));
+								} catch (Exception e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+								preparedStatement.setString(++j, updateList.get(i).getUsername());
+								preparedStatement.setString(++j, updateList.get(i).get_fromCurrencyAppConfigName());
+								preparedStatement.setString(++j, updateList.get(i).get_toCurrencyAppConfigName());
+								preparedStatement.setString(++j, updateList.get(i).get_custodianAppConfigName());
+								preparedStatement.setString(++j, AssetConstants.EXCHANGERATECONFIGNAME);
+							}
+
+							@Override
+							public int getBatchSize() {
+								return updateList.size();
+							}
+						});
+				List<ExchangeRateVO> freshRecordsList = new ArrayList<ExchangeRateVO>();
+				for (int i = 0; i < updateCount.length; i++) {
+					if (updateCount[i] == 0) {
+						freshRecordsList.add(updateList.get(i));
+					}
+				}
+				if (freshRecordsList.size() > 0)
+					this.insertIntoAssetCustodianWiseLastDate(tenantCode, freshRecordsList);
+			}
+
+		} catch (Exception e) {
+			// TODO: handle exception
+			throw e;
+		}
+	}
+}

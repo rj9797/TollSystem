@@ -1,0 +1,23 @@
+package com.klayx.asset.service;
+
+import java.util.List;
+import java.util.Map;
+
+
+import com.google.gson.JsonObject;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.FailedVO;
+
+public interface IAssetPriceService {
+
+	public void addAssetPrice(String tenantcode, List<AssetPriceVO> successVO, List<FailedVO<AssetPriceVO>> failedVO,
+			List<JsonObject> totalVOs, boolean isInterfaceRequest, AssetRequestVO passetvo) throws Exception;
+
+	Map<String, Object> getAssetPrice(String tenantCode, List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO assetCompositeRequestByInfoVO) throws Exception;
+
+	public boolean isStructureProduct(String isin, String Currency, String tenantCode) throws Exception;
+
+}

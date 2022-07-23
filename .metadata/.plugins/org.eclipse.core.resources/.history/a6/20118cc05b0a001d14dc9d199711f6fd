@@ -1,0 +1,25 @@
+package com.klayx.asset.rowmapper;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.springframework.jdbc.core.RowMapper;
+
+import com.klayx.asset.model.FailedAssetVO;
+
+public class FailedAssetRowMapper implements RowMapper<FailedAssetVO>{
+
+	@Override
+	public FailedAssetVO mapRow(ResultSet rs, int rowNum) throws SQLException {
+		FailedAssetVO fialAssetVO=new FailedAssetVO();
+		fialAssetVO.setDefaultedFor(rs.getString("defaulted_for"));
+		fialAssetVO.setISIN(rs.getString("isin"));
+		fialAssetVO.setCurrency(rs.getString("currency"));
+		fialAssetVO.setCustodian(rs.getString("custodian"));
+		fialAssetVO.setReferenceDate(rs.getTimestamp("reference_date"));
+		fialAssetVO.setEffFromDate(rs.getTimestamp("eff_from_date"));
+		fialAssetVO.setEffToDate(rs.getTimestamp("eff_to_date"));
+		return fialAssetVO;
+	}
+
+}

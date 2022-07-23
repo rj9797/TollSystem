@@ -1,0 +1,16 @@
+package com.klayx.asset.service;
+
+import java.util.List;
+
+
+import com.google.gson.JsonObject;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetReturnsVO;
+import com.klayx.asset.model.FailedVO;
+
+public interface IAssetReturnsService {
+
+	public void addAssetReturns(String tenantCode, List<AssetReturnsVO> successVOs,
+			List<FailedVO<AssetReturnsVO>> failedVOs, List<JsonObject> totalVOs, boolean isInterfaceRequest,
+			AssetRequestVO passetvo) throws Exception;
+}

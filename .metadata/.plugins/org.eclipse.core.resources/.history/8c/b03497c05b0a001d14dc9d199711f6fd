@@ -1,0 +1,190 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+public class AssetInterestDetailsVO {
+	private BigDecimal id;
+	
+	private BigDecimal assetID;
+	private BigDecimal _interestPracticeAppId;
+	private BigDecimal _interestDivisorAppId;
+	private BigDecimal _interestFrequencyAppId;
+	private BigDecimal _interestCurrencyAppId;
+	private String createdBy;
+	private Date createdDate;
+	private int scheduleFlag;
+	private String interestPracticeAppConfigName;
+	private String interestDivisorAppConfigName;
+	private String interestCurrencyAppConfigName;
+	private String interestFrequencyAppConfigName;
+	
+	private BigDecimal _thirdPartyProcessorId1;
+	private BigDecimal _thirdPartyProcessorId2;
+	private int hasError;
+	private List<ErrorVO> errors;
+	private List<AssetInterestScheduleVO> assetInterestSchedule;
+
+	
+	//getter and setter
+	public BigDecimal getId() {
+		return id;
+	}
+
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+
+	public AssetInterestDetailsVO() {
+		super();
+	}
+
+	public BigDecimal getAssetID() {
+		return assetID;
+	}
+
+	public void setAssetID(BigDecimal assetID) {
+		this.assetID = assetID;
+	}
+
+	public BigDecimal getInterestFrequency() {
+		return _interestFrequencyAppId;
+	}
+
+	public void setInterestFrequency(BigDecimal interestFrequency) {
+		this._interestFrequencyAppId = interestFrequency;
+	}
+
+	public int getScheduleFlag() {
+		return scheduleFlag;
+	}
+
+	public void setScheduleFlag(int scheduleFlag) {
+		this.scheduleFlag = scheduleFlag;
+	}
+
+	public List<AssetInterestScheduleVO> getAssetInterestSchedule() {
+		return assetInterestSchedule;
+	}
+
+	public void setAssetInterestSchedule(List<AssetInterestScheduleVO> assetIterestSchedule) {
+		this.assetInterestSchedule = assetIterestSchedule;
+	}
+
+	public String getCreatedBy() {
+		return createdBy;
+	}
+
+	public void setCreatedBy(String createdBy) {
+		this.createdBy = createdBy;
+	}
+
+	public Date getCreatedDate() {
+		return createdDate;
+	}
+
+	public void setCreatedDate(Date createdDate) {
+		this.createdDate = createdDate;
+	}
+
+	public BigDecimal get_interestPracticeAppId() {
+		return _interestPracticeAppId;
+	}
+
+	public void set_interestPracticeAppId(BigDecimal _interestPracticeAppId) {
+		this._interestPracticeAppId = _interestPracticeAppId;
+	}
+
+	public BigDecimal get_interestDivisorAppId() {
+		return _interestDivisorAppId;
+	}
+
+	public void set_interestDivisorAppId(BigDecimal _interestDivisorAppId) {
+		this._interestDivisorAppId = _interestDivisorAppId;
+	}
+
+	public BigDecimal get_interestCurrencyAppId() {
+		return _interestCurrencyAppId;
+	}
+
+	public void set_interestCurrencyAppId(BigDecimal _interestCurrencyAppId) {
+		this._interestCurrencyAppId = _interestCurrencyAppId;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+
+	public void set_thirdPartyProcessorId1(BigDecimal _thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = _thirdPartyProcessorId1;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+
+	public void set_thirdPartyProcessorId2(BigDecimal _thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = _thirdPartyProcessorId2;
+	}
+
+	public int getHasError() {
+		return hasError;
+	}
+
+	public void setHasError(int hasError) {
+		this.hasError = hasError;
+	}
+
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+
+	public String getInterestPracticeAppConfigName() {
+		return interestPracticeAppConfigName;
+	}
+
+	public void setInterestPracticeAppConfigName(String interestPracticeAppConfigName) {
+		this.interestPracticeAppConfigName = interestPracticeAppConfigName;
+	}
+
+	public String getInterestDivisorAppConfigName() {
+		return interestDivisorAppConfigName;
+	}
+
+	public void setInterestDivisorAppConfigName(String interestDivisorAppConfigName) {
+		this.interestDivisorAppConfigName = interestDivisorAppConfigName;
+	}
+
+	public String getInterestCurrencyAppConfigName() {
+		return interestCurrencyAppConfigName;
+	}
+
+	public void setInterestCurrencyAppConfigName(String interestCurrencyAppConfigName) {
+		this.interestCurrencyAppConfigName = interestCurrencyAppConfigName;
+	}
+
+	public String getInterestFrequencyAppConfigName() {
+		return interestFrequencyAppConfigName;
+	}
+
+	public void setInterestFrequencyAppConfigName(String interestFrequencyAppConfigName) {
+		this.interestFrequencyAppConfigName = interestFrequencyAppConfigName;
+	}
+
+	@Override
+	public String toString() {
+		return "AssetInterestDetails [assetID=" + assetID + ", _interestPracticeAppId=" + _interestPracticeAppId
+				+ ", _interestDivisorAppId=" + _interestDivisorAppId + ", interestFrequency=" + _interestFrequencyAppId
+				+ ", _interestCurrencyAppId=" + _interestCurrencyAppId + ", createdBy=" + createdBy + ", createdDate="
+				+ createdDate + ", scheduleFlag=" + scheduleFlag 
+				+ ", _thirdPartyProcessorId1=" + _thirdPartyProcessorId1 + ", _thirdPartyProcessorId2="
+				+ _thirdPartyProcessorId2 + ", hasError=" + hasError + ", errors=" + errors + ", assetIterestSchedule="
+				+ assetInterestSchedule + "]";
+	}
+
+}

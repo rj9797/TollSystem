@@ -1,0 +1,553 @@
+package com.klayx.asset.service.impl;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IAssetDAO;
+import com.klayx.asset.dao.IExchangeRateDAO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.ExchangeRateVO;
+import com.klayx.asset.model.FailedAssetVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.service.IExchangeRateService;
+import com.klayx.asset.validator.IAssetBusinessValidator;
+
+@Service(AssetConstants.EXCHANGERATESERVICE)
+public class ExchangeRateServiceImpl implements IExchangeRateService {
+
+	private static final Logger log = LogManager.getLogger(ExchangeRateServiceImpl.class);
+
+	@Autowired
+	@Qualifier(AssetConstants.EXCHANGERATEDAO)
+	IExchangeRateDAO exchangeRateDao;
+
+	@Autowired
+	@Qualifier(AssetConstants.BUSINESSVALIDATORSERVICE)
+	private IAssetBusinessValidator assetBusinessValidator;
+	
+	@Autowired
+	@Qualifier(AssetConstants.ASSETDAO)
+	private IAssetDAO assetDao;
+
+	@Override
+	//@Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+	public void addExchangeRates(String tenantCode,List<ExchangeRateVO> successVOs, List<FailedVO<ExchangeRateVO>> failedVOs,
+			List<JsonObject> totalVOs,boolean isInterfaceRequest, AssetRequestVO request) throws Exception {
+
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		
+		//Method to compute priceAmt of reverse exchangeRate combination
+		List<ExchangeRateVO> exchangeRateList = createReverseExchangeRate(successVOs);
+		if(exchangeRateList!=null && exchangeRateList.size()>0) {
+			successVOs.addAll(exchangeRateList);
+		}
+		
+		try {
+			if (successVOs.size() > 0)
+				exchangeRateDao.addExchangeRates(tenantCode,successVOs,totalVOs,request.getAccessToken());
+		} catch (Exception exp) {
+			throw exp;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+	}
+
+	@Override
+	public Map<String, Object> getExchangeRateById(String tenantcode,List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO reqParam) {
+		Map<String, Object> responseMap = new HashMap<>();
+		int successCnt = 0;
+		int failedCnt = 0;
+		List<AssetRequestVO> failedList = null;
+
+		List<ExchangeRateVO> result = new ArrayList<ExchangeRateVO>();
+		try {
+			result = exchangeRateDao.getExchangeRate(tenantcode,reqParam);
+			boolean[] requestParams = new boolean[reqParam.getAssetGetRequest().size()];
+
+			HashMap<String, List<Integer>> requestMap = new HashMap<>();
+
+			/* Iterating request and convert to hashmap for easy access */
+			for (int i = 0; i < reqParam.getAssetGetRequest().size(); i++) {
+				AssetGetRequestVO vo = reqParam.getAssetGetRequest().get(i);
+				BigDecimal baseCurrId = vo.get_fromCurrencyAppId();
+				BigDecimal currId = vo.get_toCurrencyAppId();
+				BigDecimal custodian = vo.get_custodianAppId();
+				String key = baseCurrId + " " + currId + " " + custodian;
+				if (!requestMap.containsKey(key)) {
+					List<Integer> indicies = new ArrayList<Integer>();
+					indicies.add(i);
+					requestMap.put(key, indicies);
+				} else {
+					List<Integer> indicies = requestMap.get(key);
+					indicies.add(i);
+					requestMap.replace(key, indicies);
+				}
+
+			}
+			/* Iterating and checking result with request */
+			for (int i = 0; i < result.size(); i++) {
+				ExchangeRateVO vo = result.get(i);
+
+				BigDecimal baseCurrId = vo.get_fromCurrencyAppId();
+				BigDecimal currId = vo.get_toCurrencyAppId();
+				BigDecimal custodian = vo.get_custodianAppId();
+				String key = baseCurrId + " " + currId + " " + custodian;
+
+				if (requestMap.containsKey(key)) {
+					List<Integer> indicies = requestMap.get(key);
+					for (int index : indicies) {
+						requestParams[index] = true;
+					}
+
+				}
+			}
+
+			ArrayList<FailedVO<AssetGetRequestVO>> failed = new ArrayList<>();
+
+			/* Populating failed list */
+			for (int i = 0; i < requestParams.length; i++) {
+				if (requestParams[i] == false) {
+					if (failedList == null) {
+						failedList = new ArrayList<>();
+					}
+					failedCnt++;
+					failedCnt++;
+					/* Setting failed Details */
+					AssetGetRequestVO failedRequestVO = reqParam.getAssetGetRequest().get(i);
+					// failedRequestVO.setReferenceDate(reqParam.getReferenceDate());
+					FailedVO<AssetGetRequestVO> failedVO = new FailedVO<AssetGetRequestVO>();
+					List<ErrorVO> errorList = new ArrayList<>();
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorCode("206");
+					errorVO.setErrorMessage("Data Not Found");
+					errorList.add(errorVO);
+					failedVO.setIdentityDetails(failedRequestVO);
+					failedVO.setErrors(errorList);
+					failed.add(failedVO);
+				} else
+					successCnt++;
+			}
+			/* Setting response Vo */
+//			responseVO.setFailed(failed);
+//			responseVO.setSuccess(result);
+//			responseVO.setTotalfailedRecords(failedCnt);
+//			responseVO.setTotalRecords(reqParam.getAssetGetRequest().size());
+
+			responseMap.put("successVOs", result);
+			responseMap.put("failedVOs", failed);
+		} catch (Exception exp) {
+			throw exp;
+		}
+		return responseMap;
+	}
+
+	@Override
+	public Map<String, Object> getExchangeRate(String tenantCode,List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO reqParam) throws Exception {
+
+		Map<String, Object> responseMap = new HashMap<>();
+		int successCnt = 0;
+		int failedCnt = 0;
+		List<AssetRequestVO> failedList = null;
+
+		List<ExchangeRateVO> result = new ArrayList<ExchangeRateVO>();
+		try {
+
+			result = exchangeRateDao.getExchangeRateByInfo(tenantCode,successVOs,reqParam.getReferenceDate());//change here************************
+
+			boolean[] requestParams = new boolean[successVOs.size()];
+
+			HashMap<String, List<Integer>> requestMap = new HashMap<>();
+
+			reqParam.setAssetGetRequest(successVOs);
+			/* Iterating request and convert to hashmap for easy access */
+			for (int i = 0; i < successVOs.size(); i++) {
+				AssetGetRequestVO vo = successVOs.get(i);
+				String baseCurrId = vo.getFromCurrencyConfigName();
+				String currId = vo.getToCurrencyConfigName();
+				String custodian = vo.getCustodianConfigName();
+				String key = baseCurrId + " " + currId + " " + custodian;
+				if (!requestMap.containsKey(key)) {
+					List<Integer> indicies = new ArrayList<Integer>();
+					indicies.add(i);
+					requestMap.put(key, indicies);
+				} else {
+					List<Integer> indicies = requestMap.get(key);
+					indicies.add(i);
+					requestMap.replace(key, indicies);
+				}
+
+			}
+			/* Iterating and checking result with request */
+			for (int i = 0; i < result.size(); i++) {
+				ExchangeRateVO vo = result.get(i);
+
+				String baseCurrId = vo.get_fromCurrencyAppConfigName();
+				String currId = vo.get_toCurrencyAppConfigName();
+				String custodian = vo.get_custodianAppConfigName();
+				String key = baseCurrId + " " + currId + " " + custodian;
+
+				if (requestMap.containsKey(key)) {
+					List<Integer> indicies = requestMap.get(key);
+					for (int index : indicies) {
+						requestParams[index] = true;
+					}
+
+				}
+			}
+
+			assetBusinessValidator.validateExchangeRateResult(successVOs, failedVOs, reqParam, result,tenantCode);
+			
+			//Approach 2 (Going for approach 2 only when there are failedVOs)
+			List<FailedVO<AssetGetRequestVO>> failedVOsWithoutNullCustodian = failedVOs
+					  .stream()
+					  .filter(f -> f.getIdentityDetails().getCustodianConfigName()!=null)
+					  .collect(Collectors.toList());
+			log.fatal("failedVOsWithoutNullCustodian="+failedVOsWithoutNullCustodian.size());
+			if(failedVOsWithoutNullCustodian!=null && failedVOsWithoutNullCustodian.size()>0) {
+				
+				List<String> intermediateCurrencyList = exchangeRateDao.getIntermediateCurrencyList(tenantCode);
+
+				Map<String, ExchangeRateVO> exchangeRateMap = exchangeRateDao.getExchangeRateInfoForIntermediateCurrency(tenantCode, failedVOsWithoutNullCustodian,intermediateCurrencyList,reqParam.getReferenceDate());
+				
+				List<FailedVO<AssetGetRequestVO>> failedVOsToBeRemoved = new ArrayList<FailedVO<AssetGetRequestVO>>();
+				Set<String> availableExchangeRates = new HashSet<String>();
+				if(exchangeRateMap!=null && exchangeRateMap.size()>0) {
+					for(String intermediateCurrency: intermediateCurrencyList) {  
+
+						for(FailedVO<AssetGetRequestVO> failedVO :failedVOsWithoutNullCustodian) {   
+
+							String fromCurrency = failedVO.getIdentityDetails().getFromCurrencyConfigName();
+							String toCurrency = failedVO.getIdentityDetails().getToCurrencyConfigName();
+							
+							if(!availableExchangeRates.contains(fromCurrency+"|"+toCurrency)) {
+								//Scenario 1
+								if(exchangeRateMap.containsKey(fromCurrency+"|"+intermediateCurrency) && exchangeRateMap.containsKey(intermediateCurrency+"|"+toCurrency)) {
+
+									BigDecimal priceAmt = (exchangeRateMap.get(fromCurrency + "|" + intermediateCurrency)
+											.getPriceAmt()
+											.multiply(exchangeRateMap.get(intermediateCurrency + "|" + toCurrency)
+													.getPriceAmt())).setScale(AssetConstants.AMOUNT_PRECISION,
+															RoundingMode.HALF_UP);
+									result.add(AssetUtil.constructExchangeRateVO(failedVO.getIdentityDetails(),priceAmt));
+									availableExchangeRates.add(fromCurrency+"|"+toCurrency);
+									failedVOsToBeRemoved.add(failedVO);
+									
+								}
+								//Scenario 2
+								else if(exchangeRateMap.containsKey(fromCurrency+"|"+intermediateCurrency) && exchangeRateMap.containsKey(toCurrency+"|"+intermediateCurrency)) {
+								
+									BigDecimal priceAmt = (exchangeRateMap.get(fromCurrency + "|" + intermediateCurrency)
+											.getPriceAmt()
+											.divide(exchangeRateMap.get(toCurrency + "|" + intermediateCurrency)
+													.getPriceAmt(),AssetConstants.AMOUNT_PRECISION, RoundingMode.HALF_UP));
+									result.add(AssetUtil.constructExchangeRateVO(failedVO.getIdentityDetails(),priceAmt));
+									availableExchangeRates.add(fromCurrency+"|"+toCurrency);
+									failedVOsToBeRemoved.add(failedVO);
+									
+								}
+
+								//Scenario 3
+								else if(exchangeRateMap.containsKey(toCurrency+"|"+intermediateCurrency) && exchangeRateMap.containsKey(intermediateCurrency+"|"+fromCurrency)) {
+									
+									BigDecimal priceAmt = BigDecimal.ONE.divide(
+											((exchangeRateMap.get(toCurrency + "|" + intermediateCurrency).getPriceAmt()
+													.multiply(exchangeRateMap.get(intermediateCurrency + "|" + fromCurrency)
+															.getPriceAmt())).setScale(AssetConstants.AMOUNT_PRECISION,
+																	RoundingMode.HALF_UP)),
+											AssetConstants.AMOUNT_PRECISION, RoundingMode.HALF_UP);
+									result.add(AssetUtil.constructExchangeRateVO(failedVO.getIdentityDetails(),priceAmt));
+									availableExchangeRates.add(fromCurrency+"|"+toCurrency);
+									failedVOsToBeRemoved.add(failedVO);
+									
+								}
+								//Scenario 4
+								else if(exchangeRateMap.containsKey(toCurrency+"|"+intermediateCurrency) && exchangeRateMap.containsKey(fromCurrency+"|"+intermediateCurrency)) {
+									
+									BigDecimal priceAmt = BigDecimal.ONE.divide(((exchangeRateMap.get(toCurrency + "|" + intermediateCurrency)
+											.getPriceAmt()
+											.divide(exchangeRateMap.get(fromCurrency + "|" + intermediateCurrency)
+													.getPriceAmt(),AssetConstants.AMOUNT_PRECISION, RoundingMode.HALF_UP))),AssetConstants.AMOUNT_PRECISION, RoundingMode.HALF_UP);
+									
+									result.add(AssetUtil.constructExchangeRateVO(failedVO.getIdentityDetails(),priceAmt));
+									availableExchangeRates.add(fromCurrency+"|"+toCurrency);
+									failedVOsToBeRemoved.add(failedVO);
+								}
+							}
+						}
+					}	
+				}
+				
+				if(failedVOsToBeRemoved!=null && failedVOsToBeRemoved.size()>0) {
+					failedVOs.removeAll(failedVOsToBeRemoved);
+					failedVOsToBeRemoved.clear();
+				}	
+			}
+			
+			//Defaulting missing ExchangeRates
+			if(failedVOs!=null && failedVOs.size()>0) {
+				List<FailedAssetVO> failedExchangeRates = new ArrayList<FailedAssetVO>();
+				List<ExchangeRateVO> defaultExchangeRates = getDefaultExchangeRates(failedVOs,failedExchangeRates);
+				result.addAll(defaultExchangeRates);
+				
+				if(failedExchangeRates!=null && failedExchangeRates.size()>0) {
+					assetDao.insertFailedAsset(failedExchangeRates, tenantCode);
+				}
+			}
+			
+			responseMap.put("successVOs", result);
+			responseMap.put("failedVOs", failedVOs);
+		} catch (Exception exp) {
+			throw exp;
+		}
+		return responseMap;
+	}
+	
+	
+	@Override
+	public Map<String, Object> getExchangeRateInfoByDate(String tenantCode,List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO assetRequest) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		Map<String, Object> responseMap = new HashMap<>();
+		List<ExchangeRateVO> exchangeRateVos = new ArrayList<ExchangeRateVO>();
+		try {
+
+			exchangeRateVos = exchangeRateDao.getExchangeRateByInfoByDate(tenantCode,successVOs);
+			assetRequest.setAssetGetRequest(successVOs);
+			assetBusinessValidator.validateExchangeRateInfoByDateResult(successVOs, failedVOs, assetRequest,
+					exchangeRateVos,tenantCode);
+			
+			//Approach 2 (Going for approach 2 only when there are failedVOs)
+			if(failedVOs!=null && failedVOs.size()>0) {
+				
+				List<String> intermediateCurrencyList = exchangeRateDao.getIntermediateCurrencyList(tenantCode);
+
+				Map<String, ExchangeRateVO> exchangeRateMap = exchangeRateDao.getExchangeRateInfoByDateForIntermediateCurrency(tenantCode, failedVOs,intermediateCurrencyList);
+				
+				List<FailedVO<AssetGetRequestVO>> failedVOsToBeRemoved = new ArrayList<FailedVO<AssetGetRequestVO>>();
+				Set<String> availableExchangeRates = new HashSet<String>();
+				if(exchangeRateMap!=null && exchangeRateMap.size()>0) {
+					for(String intermediateCurrency: intermediateCurrencyList) {  
+
+						for(FailedVO<AssetGetRequestVO> failedVO :failedVOs) {   
+
+							String fromCurrency = failedVO.getIdentityDetails().getFromCurrencyConfigName();
+							String toCurrency = failedVO.getIdentityDetails().getToCurrencyConfigName();
+							
+							if(!availableExchangeRates.contains(fromCurrency+"|"+toCurrency)) {
+								//Scenario 1
+								if(exchangeRateMap.containsKey(fromCurrency+"|"+intermediateCurrency) && exchangeRateMap.containsKey(intermediateCurrency+"|"+toCurrency)) {
+
+									BigDecimal priceAmt = (exchangeRateMap.get(fromCurrency + "|" + intermediateCurrency)
+											.getPriceAmt()
+											.multiply(exchangeRateMap.get(intermediateCurrency + "|" + toCurrency)
+													.getPriceAmt())).setScale(AssetConstants.AMOUNT_PRECISION,
+															RoundingMode.HALF_UP);
+									exchangeRateVos.add(AssetUtil.constructExchangeRateVO(failedVO.getIdentityDetails(),priceAmt));
+									availableExchangeRates.add(fromCurrency+"|"+toCurrency);
+									failedVOsToBeRemoved.add(failedVO);
+									
+								}
+								//Scenario 2
+								else if(exchangeRateMap.containsKey(fromCurrency+"|"+intermediateCurrency) && exchangeRateMap.containsKey(toCurrency+"|"+intermediateCurrency)) {
+								
+									BigDecimal priceAmt = (exchangeRateMap.get(fromCurrency + "|" + intermediateCurrency)
+											.getPriceAmt()
+											.divide(exchangeRateMap.get(toCurrency + "|" + intermediateCurrency)
+													.getPriceAmt(),AssetConstants.AMOUNT_PRECISION, RoundingMode.HALF_UP));
+									exchangeRateVos.add(AssetUtil.constructExchangeRateVO(failedVO.getIdentityDetails(),priceAmt));
+									availableExchangeRates.add(fromCurrency+"|"+toCurrency);
+									failedVOsToBeRemoved.add(failedVO);
+									
+								}
+
+								//Scenario 3
+								else if(exchangeRateMap.containsKey(toCurrency+"|"+intermediateCurrency) && exchangeRateMap.containsKey(intermediateCurrency+"|"+fromCurrency)) {
+									
+									BigDecimal priceAmt = BigDecimal.ONE.divide(
+											((exchangeRateMap.get(toCurrency + "|" + intermediateCurrency).getPriceAmt()
+													.multiply(exchangeRateMap.get(intermediateCurrency + "|" + fromCurrency)
+															.getPriceAmt())).setScale(AssetConstants.AMOUNT_PRECISION,
+																	RoundingMode.HALF_UP)),
+											AssetConstants.AMOUNT_PRECISION, RoundingMode.HALF_UP);
+									exchangeRateVos.add(AssetUtil.constructExchangeRateVO(failedVO.getIdentityDetails(),priceAmt));
+									availableExchangeRates.add(fromCurrency+"|"+toCurrency);
+									failedVOsToBeRemoved.add(failedVO);
+									
+								}
+								//Scenario 4
+								else if(exchangeRateMap.containsKey(toCurrency+"|"+intermediateCurrency) && exchangeRateMap.containsKey(fromCurrency+"|"+intermediateCurrency)) {
+									
+									BigDecimal priceAmt = BigDecimal.ONE.divide(((exchangeRateMap.get(toCurrency + "|" + intermediateCurrency)
+											.getPriceAmt()
+											.divide(exchangeRateMap.get(fromCurrency + "|" + intermediateCurrency)
+													.getPriceAmt(),AssetConstants.AMOUNT_PRECISION, RoundingMode.HALF_UP))),AssetConstants.AMOUNT_PRECISION, RoundingMode.HALF_UP);
+									
+									exchangeRateVos.add(AssetUtil.constructExchangeRateVO(failedVO.getIdentityDetails(),priceAmt));
+									availableExchangeRates.add(fromCurrency+"|"+toCurrency);
+									failedVOsToBeRemoved.add(failedVO);
+								}
+							}
+						}
+					}	
+				}
+				
+				if(failedVOsToBeRemoved!=null && failedVOsToBeRemoved.size()>0) {
+					failedVOs.removeAll(failedVOsToBeRemoved);
+					failedVOsToBeRemoved.clear();
+				}
+			}
+			
+			//Defaulting missing ExchangeRates
+			if(failedVOs!=null && failedVOs.size()>0) {
+				List<FailedAssetVO> failedExchangeRates = new ArrayList<FailedAssetVO>();
+				List<ExchangeRateVO> defaultExchangeRates = getDefaultExchangeRates(failedVOs,failedExchangeRates);
+				exchangeRateVos.addAll(defaultExchangeRates);
+				
+				if(failedExchangeRates!=null && failedExchangeRates.size()>0) {
+					assetDao.insertFailedAsset(failedExchangeRates, tenantCode);
+				}
+			}
+			
+			responseMap.put("successVOs", exchangeRateVos);
+			responseMap.put("failedVOs", failedVOs);
+		} catch (Exception exp) {
+			if (log.isFatalEnabled())
+				log.fatal("Error in getExchangeRateInfoByDate: ", exp);
+			throw exp;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return responseMap;
+	}
+	
+	public List<ExchangeRateVO> createReverseExchangeRate(List<ExchangeRateVO> exchangeRateList) throws Exception{
+		
+		List<ExchangeRateVO> reverseExchangeRates = null;
+		try {
+			StringBuilder exchangeRateKey = null;
+			Set<String> exchangeRateKeySet = new HashSet<String>();
+			
+			for(ExchangeRateVO exchangeRate : exchangeRateList) {
+				
+				if(exchangeRate.get_custodianAppConfigName()!=null && exchangeRate.get_custodianAppConfigName().equalsIgnoreCase("ACM1769")) {
+					exchangeRateKey = new StringBuilder();
+					exchangeRateKey.append(exchangeRate.get_fromCurrencyAppConfigName()).append("~").append(exchangeRate.get_toCurrencyAppConfigName()).append("~")
+					.append(exchangeRate.get_custodianAppConfigName());
+
+					exchangeRateKeySet.add(exchangeRateKey.toString());
+				}
+				
+	
+			}
+			
+			for(ExchangeRateVO exchangeRate : exchangeRateList) {
+				
+				exchangeRateKey = new StringBuilder();
+				
+				//Key formation of reverse exchange rate
+				exchangeRateKey.append(exchangeRate.get_toCurrencyAppConfigName()).append("~").append(exchangeRate.get_fromCurrencyAppConfigName()).append("~")
+				.append(exchangeRate.get_custodianAppConfigName());
+				
+				if((exchangeRate.get_custodianAppConfigName()!=null && exchangeRate.get_custodianAppConfigName().equalsIgnoreCase("ACM1769")) 
+						&& (!exchangeRateKeySet.contains(exchangeRateKey.toString()))
+						&& (exchangeRate.get_fromCurrencyAppConfigName()!=null && exchangeRate.get_toCurrencyAppConfigName()!=null 
+							&& !exchangeRate.get_fromCurrencyAppConfigName().equalsIgnoreCase(exchangeRate.get_toCurrencyAppConfigName()))) {
+					
+					ExchangeRateVO reverseExchangeRateVO = (ExchangeRateVO) exchangeRate.clone();
+					
+					reverseExchangeRateVO.set_fromCurrencyAppId(exchangeRate.get_toCurrencyAppId());
+					reverseExchangeRateVO.set_fromCurrencyAppConfigName(exchangeRate.get_toCurrencyAppConfigName());
+					reverseExchangeRateVO.set_toCurrencyAppId(exchangeRate.get_fromCurrencyAppId());
+					reverseExchangeRateVO.set_toCurrencyAppConfigName(exchangeRate.get_fromCurrencyAppConfigName());
+					reverseExchangeRateVO.set_thirdPartyProcessorId1(null);
+					
+					reverseExchangeRateVO.setPriceAmt(BigDecimal.ONE.divide(exchangeRate.getPriceAmt(),AssetConstants.AMOUNT_PRECISION, RoundingMode.HALF_UP));
+					
+					if(reverseExchangeRates==null) {
+						reverseExchangeRates = new ArrayList<ExchangeRateVO>();
+					}					
+					
+					reverseExchangeRates.add(reverseExchangeRateVO);
+				}	
+			}
+		}catch(Exception ex) {
+			log.fatal("Error occurred in createReverseExchangeRate: ",ex);
+			throw ex;	
+		}
+		
+		return reverseExchangeRates;
+	}
+	
+	
+	public static List<ExchangeRateVO> getDefaultExchangeRates(List<FailedVO<AssetGetRequestVO>> failedVOs , List<FailedAssetVO> failedExchangeRates) throws  Exception{
+		
+		
+		List<ExchangeRateVO> defaultExchangeRates = null;
+		List<FailedVO<AssetGetRequestVO>> failedVOsToBeRemoved = null;
+		try {
+			
+			if(failedVOs!=null && failedVOs.size()>0) {
+				defaultExchangeRates = new ArrayList<ExchangeRateVO>();
+				failedVOsToBeRemoved = new ArrayList<FailedVO<AssetGetRequestVO>>();
+				for(FailedVO<AssetGetRequestVO> failedVO : failedVOs) {
+					
+					if(failedVO.getIdentityDetails().getFromCurrencyConfigName()!=null && failedVO.getIdentityDetails().getToCurrencyConfigName()!=null
+							&& failedVO.getIdentityDetails().getCustodianConfigName()!=null) {
+						defaultExchangeRates.add(AssetUtil.constructExchangeRateVO(failedVO.getIdentityDetails(), new BigDecimal("1")));
+						
+						FailedAssetVO failedAssetVO=new FailedAssetVO();
+						failedAssetVO.setDefaultedFor("ExchangeRate");
+						failedAssetVO.setFromCurrency(failedVO.getIdentityDetails().getFromCurrencyConfigName());
+						failedAssetVO.setToCurrency(failedVO.getIdentityDetails().getToCurrencyConfigName());
+						failedAssetVO.setCustodian(failedVO.getIdentityDetails().getCustodianConfigName());
+						failedAssetVO.setReferenceDate(failedVO.getIdentityDetails().getReferenceDate());
+						failedAssetVO.setEffFromDate(failedVO.getIdentityDetails().getReferenceDate());
+						failedAssetVO.setEffToDate(null);
+						
+						failedExchangeRates.add(failedAssetVO);
+						
+						failedVOsToBeRemoved.add(failedVO);
+					}
+					
+				}	
+			}
+			
+			if(failedVOsToBeRemoved!=null && failedVOsToBeRemoved.size()>0) {
+				failedVOs.removeAll(failedVOsToBeRemoved);
+				failedVOsToBeRemoved.clear();
+			}
+			
+		}catch(Exception ex) {
+			log.fatal("Error in getDefaultExchangeRates: ",ex);
+			throw ex;
+		}
+		
+		return defaultExchangeRates;
+		
+		
+	}
+}

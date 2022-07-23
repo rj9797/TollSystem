@@ -1,0 +1,82 @@
+#//spring.datasource.url=jdbc:postgresql://localhost:5432/poc_test
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.hibernate.ddl-auto=none
+spring.jpa.hibernate.show-sql=true
+
+
+spring.klayx.datasource.driver-class-name=org.postgresql.Driver
+spring.klayx.datasource.url=${spring.klayx.datasource.url}
+spring.klayx.datasource.username=${spring.klayx.datasource.username}
+spring.klayx.datasource.password=${spring.klayx.datasource.password}
+spring.klayx.datasource.platform=postgresql
+
+spring.klayassetmasterdummy.datasource.driver-class-name=org.postgresql.Driver
+spring.klayassetmasterdummy.datasource.url=${spring.klayassetmasterdummy.datasource.url}
+spring.klayassetmasterdummy.datasource.username=${spring.klayassetmasterdummy.datasource.username}
+spring.klayassetmasterdummy.datasource.password=${spring.klayassetmasterdummy.datasource.password}
+spring.klayassetmasterdummy.datasource.platform=postgresql
+
+
+#HIKARI
+spring.t4k8.datasource.driver-class-name=org.postgresql.Driver
+spring.t4k8.datasource.url=${spring.t4k8.datasource.url}
+spring.t4k8.datasource.username=${spring.t4k8.datasource.username}
+spring.t4k8.datasource.password=${spring.t4k8.datasource.password}
+spring.t4k8.datasource.platform=postgresql
+spring.t4k8.datasource.hikari.maximumPoolSize=100
+spring.t4k8.datasource.hikari.idleTimeout=30000
+spring.t4k8.datasource.hikari.connectionTimeout=10000
+
+
+spring.t4c7.datasource.driver-class-name=org.postgresql.Driver
+spring.t4c7.datasource.url=${spring.t4c7.datasource.url}
+spring.t4c7.datasource.username=${spring.t4c7.datasource.username}
+spring.t4c7.datasource.password=${spring.t4c7.datasource.password}
+spring.t4c7.datasource.hikari.maximumPoolSize=100
+spring.t4c7.datasource.hikari.idleTimeout=30000
+spring.t4c7.datasource.hikari.connectionTimeout=10000
+
+spring.klayassetmasterdummy.datasource.hikari.maximumPoolSize=100
+spring.klayassetmasterdummy.datasource.hikari.idleTimeout=30000
+spring.klayassetmasterdummy.datasource.hikari.connectionTimeout=10000
+
+
+spring.datasource.platform=postgresql
+
+spring.datasource.initialize=true
+spring.datasource.initialization-mode=always
+#spring.datasource.schema=classpath:/schema.sql
+spring.datasource.continue-on-error=true
+
+#HIKARI
+spring.klayx.datasource.hikari.maximumPoolSize=100
+spring.klayx.datasource.hikari.idleTimeout=30000
+spring.klayx.datasource.hikari.connectionTimeout=10000
+
+RUNOUTPUTFILEFLAG = true 
+
+SERVICE_ID=101 
+Service_id=101
+server.port=${server.port}
+connector.port=${connector.port}
+
+server.ssl.enabled=true
+server.ssl.key-store : certificate/pmscertificate.p12
+server.ssl.key-store-password : pms
+server.ssl.keyStoreType : JKS
+
+DBSQLFILE = postgres
+
+pagination.offset=10
+keycloak_certs_url=https://192.168.13.155:8200/auth/realms/klay/protocol/openid-connect/certs
+AMT_SCALE=40
+AMT_ROUNDING_PRECISION=80
+
+APPLICATION_CONFIG_MAP_INFO = https://uat-maintainance:8085/Maintainance/v1/applicationconfigmapinfo
+ADD_DOCUMENT_URL= https://uat-document:8089/document/v1/addDocument
+GET_UUID_URL=https://uat-utility:8181/utility/v1/getUUIDs
+
+GET_TENANT_INFO_URL = https://uat-maintainance:8085/Maintainance/v1/tenantInfo
+CACHE_INFO_URL = https://uat-maintainance:8085/Maintainance/v1/cacheinfo
+MAINTAINANCE_CACHEINFO_URL =https://uat-maintainance:8085/Maintainance/v1/cacheinfo
+DOCUMENT_UUID = https://dev-utility:8181/utility/v1/getUUIDs

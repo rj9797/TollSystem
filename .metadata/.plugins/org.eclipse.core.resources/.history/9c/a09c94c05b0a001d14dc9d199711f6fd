@@ -1,0 +1,108 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+
+public class ConsolidationDetails
+{
+    private BigDecimal id;
+    private BigDecimal categoryId;
+    private String categoryConfigName;
+    private BigDecimal subcategory1Id;
+    private String subcategory1ConfigName;
+    private BigDecimal subcategory2Id;
+    private String subcategory2ConfigName;
+    private BigDecimal subcategory3Id;
+    private String subcategory3ConfigName;
+    private BigDecimal countryId;
+    private String countryConfigName;
+
+    public BigDecimal getId() {
+        return id;
+    }
+
+    public void setId(BigDecimal id) {
+        this.id = id;
+    }
+
+    public String getCountryConfigName() {
+        return countryConfigName;
+    }
+
+    public void setCountryConfigName(String countryConfigName) {
+        this.countryConfigName = countryConfigName;
+    }
+
+    public BigDecimal getCountryId() {
+        return countryId;
+    }
+
+    public void setCountryId(BigDecimal countryId) {
+        countryId = countryId;
+    }
+
+    public BigDecimal getCategoryId() {
+        return categoryId;
+    }
+
+    public BigDecimal getSubcategory1Id() {
+        return subcategory1Id;
+    }
+
+    public BigDecimal getSubcategory2Id() {
+        return subcategory2Id;
+    }
+
+    public BigDecimal getSubcategory3Id() {
+        return subcategory3Id;
+    }
+
+    public String getCategoryConfigName() {
+        return categoryConfigName;
+    }
+
+    public String getSubcategory1ConfigName() {
+        return subcategory1ConfigName;
+    }
+
+    public String getSubcategory2ConfigName() {
+        return subcategory2ConfigName;
+    }
+
+    public String getSubcategory3ConfigName() {
+        return subcategory3ConfigName;
+    }
+
+    public void setCategoryConfigName(String categoryConfigName) {
+        this.categoryConfigName = categoryConfigName;
+    }
+
+    public void setCategoryId(BigDecimal categoryId) {
+        this.categoryId = categoryId;
+    }
+
+    public void setSubcategory1ConfigName(String subcategory1Config_name) {
+        this.subcategory1ConfigName = subcategory1Config_name;
+    }
+
+    public void setSubcategory1Id(BigDecimal subcategory1Id) {
+        this.subcategory1Id = subcategory1Id;
+    }
+
+    public void setSubcategory2ConfigName(String subcategory2_config_name) {
+        this.subcategory2ConfigName = subcategory2_config_name;
+    }
+
+    public void setSubcategory2Id(BigDecimal subcategory2Id) {
+        this.subcategory2Id = subcategory2Id;
+    }
+
+    public void setSubcategory3ConfigName(String subcategory3ConfigName) {
+        this.subcategory3ConfigName = subcategory3ConfigName;
+    }
+
+    public void setSubcategory3Id(BigDecimal subcategory3Id) {
+        this.subcategory3Id = subcategory3Id;
+    }
+
+}
+

@@ -1,0 +1,71 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+public class AccessDetailVO {
+
+	String entityCode;
+	BigDecimal entityId;
+	List<String> userGroupPath;
+	String tenantCode;
+	BigDecimal tenantId;
+	String locale;
+	String timezone;
+	String username;
+	
+	public String getEntityCode() {
+		return entityCode;
+	}
+	public void setEntityCode(String entityCode) {
+		this.entityCode = entityCode;
+	}
+	public BigDecimal getEntityId() {
+		return entityId;
+	}
+	public void setEntityId(BigDecimal entityId) {
+		this.entityId = entityId;
+	}
+	public List<String> getUserGroupPath() {
+		return userGroupPath;
+	}
+	public void setUserGroupPath(List<String> userGroupPath) {
+		this.userGroupPath = userGroupPath;
+	}
+	public String getTenantCode() {
+		return tenantCode;
+	}
+	public void setTenantCode(String tenantCode) {
+		this.tenantCode = tenantCode;
+	}
+	public BigDecimal getTenantId() {
+		return tenantId;
+	}
+	public void setTenantId(BigDecimal tenantId) {
+		this.tenantId = tenantId;
+	}
+	public String getLocale() {
+		return locale;
+	}
+	public void setLocale(String locale) {
+		this.locale = locale;
+	}
+	public String getTimezone() {
+		return timezone;
+	}
+	public void setTimezone(String timezone) {
+		this.timezone = timezone;
+	}
+	public String getUsername() {
+		return username;
+	}
+	public void setUsername(String username) {
+		this.username = username;
+	}
+	@Override
+	public String toString() {
+		return "AccessDetailVO [entityCode=" + entityCode + ", entityId=" + entityId + ", userGroupPath="
+				+ userGroupPath + ", tenantCode=" + tenantCode + ", tenantId=" + tenantId + ", locale=" + locale
+				+ ", timezone=" + timezone + ", username=" + username + "]";
+	}
+}

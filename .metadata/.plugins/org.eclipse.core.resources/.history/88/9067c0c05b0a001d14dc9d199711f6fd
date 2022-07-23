@@ -1,0 +1,98 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+public class AdditionalInfoVO {
+
+	private BigDecimal _id;
+	private String infoKey;
+	private BigDecimal infoValue;
+	private BigDecimal _thirdPartyProcessorId1;
+	private BigDecimal _thirdPartyProcessorId2;
+	private int hasError;
+	private BigDecimal tenantId;
+	private int isActive;
+
+	private List<ErrorVO> errors;
+
+	public BigDecimal get_id() {
+		return _id;
+	}
+
+	public void set_id(BigDecimal _id) {
+		this._id = _id;
+	}
+
+	public String getInfoKey() {
+		return infoKey;
+	}
+
+	public void setInfoKey(String infoKey) {
+		this.infoKey = infoKey;
+	}
+
+	public BigDecimal getInfoValue() {
+		return infoValue;
+	}
+
+	public void setInfoValue(BigDecimal infoValueNbr) {
+		this.infoValue = infoValueNbr;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+
+	public void set_thirdPartyProcessorId1(BigDecimal _thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = _thirdPartyProcessorId1;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+
+	public void set_thirdPartyProcessorId2(BigDecimal _thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = _thirdPartyProcessorId2;
+	}
+
+	public int getHasError() {
+		return hasError;
+	}
+
+	public void setHasError(int hasError) {
+		this.hasError = hasError;
+	}
+
+	public BigDecimal getTenantId() {
+		return tenantId;
+	}
+
+	public void setTenantId(BigDecimal tenantId) {
+		this.tenantId = tenantId;
+	}
+
+	public int getIsActive() {
+		return isActive;
+	}
+
+	public void setIsActive(int isActive) {
+		this.isActive = isActive;
+	}
+
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+
+	@Override
+	public String toString() {
+		return "AdditionalInfos [_id=" + _id + ", infoKey=" + infoKey + ", infoValueNbr=" + infoValue
+				+ ", _thirdPartyProcessorId1=" + _thirdPartyProcessorId1 + ", _thirdPartyProcessorId2="
+				+ _thirdPartyProcessorId2 + ", hasError=" + hasError + ", errors=" + errors + "]";
+	}
+
+}

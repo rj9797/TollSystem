@@ -1,0 +1,34 @@
+package com.klayx.asset.model;
+
+import java.util.List;
+
+public class SortRequestVO {
+
+	private String sortParameter;
+	
+	private List<SortFieldVO> sortFieldList;
+
+	public String getSortParameter() {
+		return sortParameter;
+	}
+
+	public void setSortParameter(String sortParameter) {
+		this.sortParameter = sortParameter;
+	}
+
+	public List<SortFieldVO> getSortFieldList() {
+		return sortFieldList;
+	}
+
+	public void setSortFieldList(List<SortFieldVO> sortFieldList) {
+		this.sortFieldList = sortFieldList;
+	}
+
+	@Override
+	public String toString() {
+		return "SortRequestVO [sortParameter=" + sortParameter + ", sortFieldList=" + sortFieldList + "]";
+	}
+	
+	
+	
+}

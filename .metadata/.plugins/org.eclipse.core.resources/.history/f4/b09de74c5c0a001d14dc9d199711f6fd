@@ -1,0 +1,9 @@
+spring.profiles.active=@activatedProperties@
+
+#spring.datasource.schema=classpath:/schema.sql
+spring.datasource.continue-on-error=true
+
+SERVICE_ID=101 
+Service_id=101
+server.port=8089
+DBSQLFILE = postgres

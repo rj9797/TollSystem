@@ -1,0 +1,1909 @@
+package com.klayx.asset.dao.impl;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.sql.Types;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCreator;
+import org.springframework.jdbc.core.PreparedStatementSetter;
+import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Repository;
+
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IUniverseStockDAO;
+import com.klayx.asset.datasourcemanager.DataSourceManager;
+import com.klayx.asset.model.AccessDetailVO;
+import com.klayx.asset.model.AssetDocumentVO;
+import com.klayx.asset.model.AssetDocumentsBusinessDefinitionsVO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.DocumentVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.ResponseVO;
+import com.klayx.asset.model.SearchResultDataVO;
+import com.klayx.asset.model.SqlExtractVO;
+import com.klayx.asset.model.UniverseStockDetailsByBrokerVO;
+import com.klayx.asset.model.UniverseStockDetailsByTerminalVO;
+import com.klayx.asset.model.UniverseStockInitialRated;
+import com.klayx.asset.model.UniverseStockVO;
+import com.klayx.asset.rowmapper.SqlExtractRowMapper;
+
+@PropertySource({ "classpath:${DBSQLFILE}.properties" })
+@Repository(AssetConstants.UNIVERSESTOCKDAO)
+public class UniverseStockDAOImpl implements IUniverseStockDAO {
+
+	private static final Logger log = LogManager.getLogger(UniverseStockDAOImpl.class);
+
+	@Autowired
+	DataSourceManager dataSourceManager;
+
+	private JdbcTemplate jdbcTemplate;
+
+	private NamedParameterJdbcTemplate namedJdbcTemplate;
+
+	@Value("${pagination.offset}")
+	private int paginationOffset;
+
+	@Value("${UPDATE_UNIVERSE_STOCKS}")
+	private String updateUniverseStocks;
+
+	@Value("${ADD_UNIVERSE_STOCKS}")
+	private String addUniverseStocks;
+
+	@Value("${SERVICE_ID}")
+	private BigDecimal SERVICE_ID;
+
+	@Value("${UNIVERSE_STOCK_DETAIL_BY_TERMINAL}")
+	private String universestockdetailbyterminal;
+
+	@Value("${FETCH_MAXDATE_LIST_FOR_TERMINAL}")
+	private String getmaxdateforterminal;
+
+	@Value("${Service_id}")
+	private Long service;
+
+	@Value("${INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE_FOR_UNIVERSE_STOCK_BY_TERMINAL}")
+	private String insertformaxdatebyterminal;
+
+	@Value("${UPDATE_ASSET_CUSTODIANWISE_LAST_DATE_FOR_UNIVERSE_STOCK_BY_TERMINAL}")
+	private String updatelastdateforuniversestockbyterminal;
+
+	@Value("${UPDATE_UNIVERSE_STOCK_DETAIL_BY_TERMINAL}")
+	private String updateuniversestockdetailbyterminal;
+
+	@Value("${UPDATE_UNIVERSE_STOCK_DETAIL_BY_TERMINAL_FOR_OLD_RECORDS}")
+	private String updateoldrecords;
+
+	@Value("${GET_UNIVERSAL_STOCK_MASTER_HISTORY}")
+	private String GetUniversalStockMasterHistory;
+
+	@Value("${INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE_FOR_UNIVERSE_STOCK_DETAILS_BY_BROKER}")
+	private String INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE_FOR_UNIVERSE_STOCK_DETAILS_BY_BROKER;
+
+	@Value("${UPDATE_ASSET_CUSTODIANWISE_LAST_DATE_FOR_UNIVERSE_STOCK_DETAILS_BY_BROKER}")
+	private String UPDATE_ASSET_CUSTODIANWISE_LAST_DATE_FOR_UNIVERSE_STOCK_DETAILS_BY_BROKER;
+
+	@Value("${UPDATE_UNIVERSE_STOCK_DETAILS_BY_BROKER}")
+	private String UPDATE_UNIVERSE_STOCK_DETAILS_BY_BROKER;
+
+	@Value("${UNIVERSE_STOCK_DETAILS_BY_BROKER}")
+	private String UNIVERSE_STOCK_DETAILS_BY_BROKER;
+
+	@Value("${UPDATE_UNIVERSE_STOCK_DETAILS_BY_BROKER_FOR_OLD_RECORDS}")
+	private String UPDATE_UNIVERSE_STOCK_DETAILS_BY_BROKER_FOR_OLD_RECORDS;
+
+	@Value("${GET_ASSET_CUSTODIANWISE_LAST_DATE_FOR_UNIVERSE_STOCK_DETAILS_BY_BROKER}")
+	private String GET_ASSET_CUSTODIANWISE_LAST_DATE_FOR_UNIVERSE_STOCK_DETAILS_BY_BROKER;
+
+	@Value("${UNIVERSE_STOCK_BROKER_INITIAL_RATED}")
+	private String UNIVERSE_STOCK_BROKER_INITIAL_RATED;
+
+	@Value("${INSERT_UNIVERSE_STOCK_BROKER_INITIAL_RATED}")
+	private String INSERT_UNIVERSE_STOCK_BROKER_INITIAL_RATED;
+
+	@Value("${INSERT_ASSET_DOC_MAP}")
+	private String INSERT_ASSET_DOC_MAP;
+
+	@Value("${ASSET_DOCUMENTS_BUSINESS_DEFINATIONS}")
+	private String assetDocumentsBusinessDefinitions;
+
+	@Value("${SEARCH_UNIVERSE_STOCK}")
+	private String SEARCH_UNIVERSE_STOCK;
+
+	@Value("${DOCUMENTS_MAP_UPDATE}")
+	private String DOCUMENTS_MAP_UPDATE;
+
+	@Value("${GET_INT_EXT_REFNBR_DOCUMENTS_MAP_UPDATE}")
+	private String GET_INT_EXT_REFNBR_DOCUMENTS_MAP_UPDATE;
+
+	@Value("${DELETE_ASSET_DOCUMENTS_BUSINESS_DEFINATION}")
+	private String DELETE_ASSET_DOCUMENTS_BUSINESS_DEFINATION;
+
+	@Value("${GET_MISSING_UNIVERSE_STOCK}")
+	private String GET_MISSING_UNIVERSE_STOCK;
+
+	@Value("${UPDATE_UNIVERSE_STOCK_BROKER_INITIAL_RATED}")
+	private String UPDATE_UNIVERSE_STOCK_BROKER_INITIAL_RATED;
+
+	@Override
+	public void addUniverseStocks(String tenantCode, List<UniverseStockVO> universeStockVOs,
+			AssetRequestVO assetRequestVO) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			int[] updatedRecords = null;
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			List<UniverseStockVO> insertUniverseStockVOs = new ArrayList<>();
+			;
+
+			if (universeStockVOs != null && universeStockVOs.size() > 0) {
+
+				updatedRecords = jdbcTemplate.batchUpdate(updateUniverseStocks, new BatchPreparedStatementSetter() {
+
+					@Override
+					public void setValues(PreparedStatement ps, int i) throws SQLException {
+						int j = 0;
+						ps.setString(++j, universeStockVOs.get(i).getName());
+						ps.setBigDecimal(++j, universeStockVOs.get(i).getRegionId());
+						ps.setString(++j, universeStockVOs.get(i).getRegionConfigName());
+						ps.setBigDecimal(++j, universeStockVOs.get(i).getCountryId());
+						ps.setString(++j, universeStockVOs.get(i).getCountryConfigName());
+						ps.setBigDecimal(++j, universeStockVOs.get(i).getGicsSectorId());
+						ps.setString(++j, universeStockVOs.get(i).getGicsSectorConfigName());
+						ps.setBigDecimal(++j, universeStockVOs.get(i).getSuperSelectModelAttributeId());
+						ps.setString(++j, universeStockVOs.get(i).getSuperSelectModelAttributeConfigName());
+						ps.setBigDecimal(++j, universeStockVOs.get(i).getSignalModelAttributeId());
+						ps.setString(++j, universeStockVOs.get(i).getSignalModelAttributeConfigName());
+						ps.setBigDecimal(++j, universeStockVOs.get(i).getKlayOfferingModelAttributeId());
+						ps.setString(++j, universeStockVOs.get(i).getKlayOfferingModelAttributeConfigName());
+						ps.setBigDecimal(++j, universeStockVOs.get(i).getRankingBasedChangeBrokerRatings());
+						ps.setString(++j, universeStockVOs.get(i).getUsername());
+						ps.setString(++j, universeStockVOs.get(i).getIsin());
+						ps.setString(++j, universeStockVOs.get(i).getCurrencyConfigName());
+					}
+
+					@Override
+					public int getBatchSize() {
+						return universeStockVOs.size();
+					}
+				});
+			}
+
+			// Populating the insertList
+
+			if (updatedRecords != null) {
+				for (int k = 0; k < updatedRecords.length; k++) {
+					if (updatedRecords[k] == 0) {
+						insertUniverseStockVOs.add(universeStockVOs.get(k));
+					}
+				}
+			}
+
+			if (insertUniverseStockVOs != null && insertUniverseStockVOs.size() > 0) {
+
+				jdbcTemplate.batchUpdate(addUniverseStocks, new BatchPreparedStatementSetter() {
+
+					@Override
+					public void setValues(PreparedStatement ps, int i) throws SQLException {
+						int j = 0;
+						ps.setBigDecimal(++j, SERVICE_ID);
+						ps.setBigDecimal(++j, assetRequestVO.get_tenantId());
+						ps.setString(++j, insertUniverseStockVOs.get(i).getIsin());
+						ps.setBigDecimal(++j, insertUniverseStockVOs.get(i).getCurrencyId());
+						ps.setString(++j, insertUniverseStockVOs.get(i).getCurrencyConfigName());
+						ps.setString(++j, insertUniverseStockVOs.get(i).getName());
+						ps.setBigDecimal(++j, insertUniverseStockVOs.get(i).getRegionId());
+						ps.setString(++j, insertUniverseStockVOs.get(i).getRegionConfigName());
+						ps.setBigDecimal(++j, insertUniverseStockVOs.get(i).getCountryId());
+						ps.setString(++j, insertUniverseStockVOs.get(i).getCountryConfigName());
+						ps.setBigDecimal(++j, insertUniverseStockVOs.get(i).getGicsSectorId());
+						ps.setString(++j, insertUniverseStockVOs.get(i).getGicsSectorConfigName());
+						ps.setBigDecimal(++j, insertUniverseStockVOs.get(i).getSuperSelectModelAttributeId());
+						ps.setString(++j, insertUniverseStockVOs.get(i).getSuperSelectModelAttributeConfigName());
+						ps.setBigDecimal(++j, insertUniverseStockVOs.get(i).getSignalModelAttributeId());
+						ps.setString(++j, insertUniverseStockVOs.get(i).getSignalModelAttributeConfigName());
+						ps.setBigDecimal(++j, insertUniverseStockVOs.get(i).getKlayOfferingModelAttributeId());
+						ps.setString(++j, insertUniverseStockVOs.get(i).getKlayOfferingModelAttributeConfigName());
+						ps.setBigDecimal(++j, insertUniverseStockVOs.get(i).getRankingBasedChangeBrokerRatings());
+						ps.setInt(++j, 1);
+						ps.setString(++j, insertUniverseStockVOs.get(i).getUsername());
+					}
+
+					@Override
+					public int getBatchSize() {
+						return insertUniverseStockVOs.size();
+					}
+				});
+
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in addUniverseStocks : ", ex);
+			throw ex;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+	}
+
+	@Override
+	public void addUniverseStockDetailByTerminal(String tenantCode, List<UniverseStockDetailsByTerminalVO> reqList,
+			List<JsonObject> totalVOs) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		final String query = universestockdetailbyterminal;
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			jdbcTemplate.batchUpdate(query, new BatchPreparedStatementSetter() {
+
+				@Override
+				public void setValues(PreparedStatement ps, int i) throws SQLException {
+					int j = 0;
+					ps.setLong(++j, 1);
+					ps.setLong(++j, service);
+					ps.setString(++j, reqList.get(i).getISIN());
+					ps.setString(++j, reqList.get(i).getCurrencyAppConfigName());
+
+					ps.setString(++j, reqList.get(i).getISIN());
+					ps.setBigDecimal(++j, reqList.get(i).getCurrencyAppId());
+					ps.setString(++j, reqList.get(i).getCurrencyAppConfigName());
+					ps.setString(++j, reqList.get(i).getFactSetTicker());
+					ps.setBigDecimal(++j, new BigDecimal(2659));
+					ps.setString(++j, "ACM1936");
+					ps.setInt(++j, reqList.get(i).getAnalystCount());
+					ps.setInt(++j, reqList.get(i).getBuyCount());
+					ps.setInt(++j, reqList.get(i).getHoldCount());
+					ps.setInt(++j, reqList.get(i).getSellCount());
+					if (reqList.get(i).getVolatility1YPer() != null) {
+						ps.setDouble(++j, reqList.get(i).getVolatility1YPer());
+					} else {
+						ps.setNull(++j, Types.NUMERIC);
+					}
+					ps.setBigDecimal(++j, reqList.get(i).getPriceAmt());
+					ps.setBigDecimal(++j, reqList.get(i).getTargetPriceMeanAmt());
+					ps.setBigDecimal(++j, reqList.get(i).getTargetPriceMedianAmt());
+					ps.setBigDecimal(++j, reqList.get(i).getPriceSysCurrencyAmt());
+					ps.setBigDecimal(++j, reqList.get(i).getTargetPriceSysCurrencyAmt());
+					ps.setBigDecimal(++j, reqList.get(i).getMarketCapSysCurrencyAmt());
+					if (reqList.get(i).getForwardDivYield12MPerc() != null) {
+						ps.setDouble(++j, reqList.get(i).getForwardDivYield12MPerc());
+					} else {
+						ps.setNull(++j, Types.NUMERIC);
+					}
+					ps.setBigDecimal(++j, reqList.get(i).getTrailingPriceToBookNbr());
+					ps.setBigDecimal(++j, reqList.get(i).getForwardPE12MNbr());
+					if (reqList.get(i).getForwardROE12MPerc() != null) {
+						ps.setDouble(++j, reqList.get(i).getForwardROE12MPerc());
+					} else {
+						ps.setNull(++j, Types.NUMERIC);
+					}
+					ps.setBigDecimal(++j, reqList.get(i).getForwardEVToEbitda12MNbr());
+					if (reqList.get(i).getPriceChange1DPerc() != null) {
+						ps.setDouble(++j, reqList.get(i).getPriceChange1DPerc());
+					} else {
+						ps.setNull(++j, Types.NUMERIC);
+					}
+					if (reqList.get(i).getPriceChange1WPerc() != null) {
+						ps.setDouble(++j, reqList.get(i).getPriceChange1WPerc());
+					} else {
+						ps.setNull(++j, Types.NUMERIC);
+					}
+					if (reqList.get(i).getPriceChange1MPerc() != null) {
+						ps.setDouble(++j, reqList.get(i).getPriceChange1MPerc());
+					} else {
+						ps.setNull(++j, Types.NUMERIC);
+					}
+					if (reqList.get(i).getPriceChange3MPerc() != null) {
+						ps.setDouble(++j, reqList.get(i).getPriceChange3MPerc());
+					} else {
+						ps.setNull(++j, Types.NUMERIC);
+					}
+					if (reqList.get(i).getPriceChange6MPerc() != null) {
+						ps.setDouble(++j, reqList.get(i).getPriceChange6MPerc());
+					} else {
+						ps.setNull(++j, Types.NUMERIC);
+					}
+					if (reqList.get(i).getPriceChange1YPerc() != null) {
+						ps.setDouble(++j, reqList.get(i).getPriceChange1YPerc());
+					} else {
+						ps.setNull(++j, Types.NUMERIC);
+					}
+					if (reqList.get(i).getPriceChange2YPerc() != null) {
+						ps.setDouble(++j, reqList.get(i).getPriceChange2YPerc());
+					} else {
+						ps.setNull(++j, Types.NUMERIC);
+					}
+					if (reqList.get(i).getPriceChange3YPerc() != null) {
+						ps.setDouble(++j, reqList.get(i).getPriceChange3YPerc());
+					} else {
+						ps.setNull(++j, Types.NUMERIC);
+					}
+					if (reqList.get(i).getPriceChange5YPerc() != null) {
+						ps.setDouble(++j, reqList.get(i).getPriceChange5YPerc());
+					} else {
+						ps.setNull(++j, Types.NUMERIC);
+					}
+					ps.setBigDecimal(++j, reqList.get(i).getRelativeStrengthIndex14DNbr());
+					ps.setBigDecimal(++j, reqList.get(i).getBollBonds20DNbr());
+					ps.setBigDecimal(++j, reqList.get(i).getUpsideToPriceTarget());
+					ps.setBigDecimal(++j, reqList.get(i).getOverSold());
+					ps.setBigDecimal(++j, reqList.get(i).getBuyRatings());
+					ps.setBigDecimal(++j, reqList.get(i).getSellRatings());
+					try {
+						ps.setTimestamp(++j, AssetUtil.stringToTimestamp(reqList.get(i).getEffectiveFromDate()));
+						ps.setTimestamp(++j, AssetUtil.stringToTimestamp(reqList.get(i).getEffectiveToDate()));
+						ps.setString(++j, reqList.get(i).getUsername());
+						ps.setString(++j, null);
+						ps.setTimestamp(++j, null);
+					} catch (SQLException e) {
+						log.fatal("SQL exception in universe STock by terminal DAO");
+						throw e;
+					} catch (Exception e) {
+						log.fatal("INSIDE exception in universe STock by terminal DAO");
+
+					}
+				}
+
+				@Override
+				public int getBatchSize() {
+					return reqList.size();
+				}
+			});
+		} catch (Exception e) {
+			log.fatal("Exception in universestock by terminal: ", e);
+			e.printStackTrace();
+			throw e;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+	}
+
+	@Override
+	public Map<String, SqlExtractVO> getListForMaxDate(String tenantCode, String getQuery) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		Map<String, SqlExtractVO> map = null;
+		try {
+			List<SqlExtractVO> extractedListVO = null;
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			try {
+				map = new HashMap<String, SqlExtractVO>();
+				extractedListVO = jdbcTemplate.query(getQuery, new SqlExtractRowMapper());
+				for (SqlExtractVO vo : extractedListVO) {
+					map.put(vo.getIsin() + vo.getCurrencyId(), vo);
+				}
+			} catch (Exception e) {
+				log.fatal("Exception: in getting list for max date", e);
+			}
+
+		} catch (Exception e) {
+			log.fatal("Exception in get List For Max Date");
+			throw e;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return map;
+	}
+
+	public void freshInsertForMaxDate(String tenantCode, List<UniverseStockDetailsByTerminalVO> listVo)
+			throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			if (listVo != null && listVo.size() > 0) {
+				jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+				jdbcTemplate.batchUpdate(insertformaxdatebyterminal, new BatchPreparedStatementSetter() {
+
+					@Override
+					public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+						int j = 0;
+						preparedStatement.setLong(++j, 1);
+						preparedStatement.setLong(++j, service);
+						preparedStatement.setString(++j, listVo.get(i).getISIN());
+						preparedStatement.setString(++j, listVo.get(i).getCurrencyAppConfigName());
+						preparedStatement.setBigDecimal(++j, listVo.get(i).getCurrencyAppId());
+
+						try {
+							preparedStatement.setTimestamp(++j,
+									AssetUtil.stringToTimestamp(listVo.get(i).getEffectiveFromDate()));
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+						preparedStatement.setBigDecimal(++j, new BigDecimal(2737));
+						preparedStatement.setString(++j, "ACM2002");
+						preparedStatement.setBigDecimal(++j, new BigDecimal(2659));
+						preparedStatement.setString(++j, "ACM1936");
+						preparedStatement.setString(++j, listVo.get(i).getUsername());
+					}
+
+					@Override
+					public int getBatchSize() {
+						return listVo.size();
+					}
+				});
+			}
+		} catch (Exception e) {
+			log.fatal("Exception in addtion of max date");
+			e.printStackTrace();
+			throw e;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@Override
+	public void updateForMaxDate(String tenantCode, List<UniverseStockDetailsByTerminalVO> listVo) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			if (listVo != null && listVo.size() > 0) {
+				jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+				jdbcTemplate.batchUpdate(updatelastdateforuniversestockbyterminal, new BatchPreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement ps, int i) throws SQLException {
+						int j = 0;
+						try {
+
+							ps.setTimestamp(++j, AssetUtil.stringToTimestamp(listVo.get(i).getEffectiveFromDate()));
+							ps.setString(++j, listVo.get(i).getUsername());
+							ps.setString(++j, listVo.get(i).getISIN());
+							ps.setBigDecimal(++j, listVo.get(i).getCurrencyAppId());
+							ps.setString(++j, "ACM2002");
+						} catch (SQLException e) {
+							log.fatal("Exception: ", e);
+
+						} catch (Exception e) {
+
+							log.fatal("Exception: ", e);
+
+						}
+					}
+
+					@Override
+					public int getBatchSize() {
+						return listVo.size();
+					}
+				});
+			}
+		} catch (Exception e) {
+			log.fatal("Exception in update For Max Date", e);
+			throw e;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@Override
+	public void updateUniverseStockDetailByTerminal(String tenantCode, List<UniverseStockDetailsByTerminalVO> reqParam,
+			List<UniverseStockDetailsByTerminalVO> newUpdate) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			if (reqParam.size() > 0 && reqParam != null) {
+
+				jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+				jdbcTemplate.batchUpdate(updateuniversestockdetailbyterminal, new BatchPreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement ps, int i) throws SQLException {
+						int j = 0;
+						try {
+							ps.setTimestamp(++j, AssetUtil.stringToTimestamp(reqParam.get(i).getEffectiveToDate()));
+							ps.setString(++j, reqParam.get(i).getFactSetTicker());
+							ps.setString(++j, reqParam.get(i).getISIN());
+							ps.setInt(++j, reqParam.get(i).getAnalystCount());
+
+							ps.setString(++j, reqParam.get(i).getCurrencyAppConfigName());
+							ps.setBigDecimal(++j, new BigDecimal(2659));
+							ps.setString(++j, "ACM1936");
+							ps.setInt(++j, reqParam.get(i).getBuyCount());
+							ps.setInt(++j, reqParam.get(i).getHoldCount());
+							ps.setInt(++j, reqParam.get(i).getSellCount());
+							if (reqParam.get(i).getVolatility1YPer() != null) {
+								ps.setDouble(++j, reqParam.get(i).getVolatility1YPer());
+							} else {
+								ps.setNull(++j, Types.NUMERIC);
+							}
+							ps.setBigDecimal(++j, reqParam.get(i).getPriceAmt());
+							ps.setBigDecimal(++j, reqParam.get(i).getTargetPriceMeanAmt());
+							ps.setBigDecimal(++j, reqParam.get(i).getTargetPriceMedianAmt());
+							ps.setBigDecimal(++j, reqParam.get(i).getPriceSysCurrencyAmt());
+							ps.setBigDecimal(++j, reqParam.get(i).getTargetPriceSysCurrencyAmt());
+							ps.setBigDecimal(++j, reqParam.get(i).getMarketCapSysCurrencyAmt());
+							if (reqParam.get(i).getForwardDivYield12MPerc() != null) {
+								ps.setDouble(++j, reqParam.get(i).getForwardDivYield12MPerc());
+							} else {
+								ps.setNull(++j, Types.NUMERIC);
+							}
+							ps.setBigDecimal(++j, reqParam.get(i).getTrailingPriceToBookNbr());
+							ps.setBigDecimal(++j, reqParam.get(i).getForwardPE12MNbr());
+							if (reqParam.get(i).getForwardROE12MPerc() != null) {
+								ps.setDouble(++j, reqParam.get(i).getForwardROE12MPerc());
+							} else {
+								ps.setNull(++j, Types.NUMERIC);
+							}
+							ps.setBigDecimal(++j, reqParam.get(i).getForwardEVToEbitda12MNbr());
+							if (reqParam.get(i).getPriceChange1DPerc() != null) {
+								ps.setDouble(++j, reqParam.get(i).getPriceChange1DPerc());
+							} else {
+								ps.setNull(++j, Types.NUMERIC);
+							}
+							if (reqParam.get(i).getPriceChange1WPerc() != null) {
+								ps.setDouble(++j, reqParam.get(i).getPriceChange1WPerc());
+							} else {
+								ps.setNull(++j, Types.NUMERIC);
+							}
+							if (reqParam.get(i).getPriceChange1MPerc() != null) {
+								ps.setDouble(++j, reqParam.get(i).getPriceChange1MPerc());
+							} else {
+								ps.setNull(++j, Types.NUMERIC);
+							}
+							if (reqParam.get(i).getPriceChange3MPerc() != null) {
+								ps.setDouble(++j, reqParam.get(i).getPriceChange3MPerc());
+							} else {
+								ps.setNull(++j, Types.NUMERIC);
+							}
+							if (reqParam.get(i).getPriceChange6MPerc() != null) {
+								ps.setDouble(++j, reqParam.get(i).getPriceChange6MPerc());
+							} else {
+								ps.setNull(++j, Types.NUMERIC);
+							}
+							if (reqParam.get(i).getPriceChange1YPerc() != null) {
+								ps.setDouble(++j, reqParam.get(i).getPriceChange1YPerc());
+							} else {
+								ps.setNull(++j, Types.NUMERIC);
+							}
+							if (reqParam.get(i).getPriceChange2YPerc() != null) {
+								ps.setDouble(++j, reqParam.get(i).getPriceChange2YPerc());
+							} else {
+								ps.setNull(++j, Types.NUMERIC);
+							}
+							if (reqParam.get(i).getPriceChange3YPerc() != null) {
+								ps.setDouble(++j, reqParam.get(i).getPriceChange3YPerc());
+							} else {
+								ps.setNull(++j, Types.NUMERIC);
+							}
+							if (reqParam.get(i).getPriceChange5YPerc() != null) {
+								ps.setDouble(++j, reqParam.get(i).getPriceChange5YPerc());
+							} else {
+								ps.setNull(++j, Types.NUMERIC);
+							}
+							ps.setBigDecimal(++j, reqParam.get(i).getRelativeStrengthIndex14DNbr());
+							ps.setBigDecimal(++j, reqParam.get(i).getBollBonds20DNbr());
+							ps.setBigDecimal(++j, reqParam.get(i).getUpsideToPriceTarget());
+							ps.setBigDecimal(++j, reqParam.get(i).getOverSold());
+							ps.setBigDecimal(++j, reqParam.get(i).getBuyRatings());
+							ps.setBigDecimal(++j, reqParam.get(i).getSellRatings());
+
+							ps.setString(++j, reqParam.get(i).getUsername());
+
+							ps.setString(++j, reqParam.get(i).getISIN());
+							ps.setBigDecimal(++j, reqParam.get(i).getCurrencyAppId());
+
+						} catch (SQLException e) {
+							log.fatal("Error in updating universe stock details by terminal");
+							throw e;
+						} catch (Exception ex) {
+							log.fatal("Error in updating universe stock details by terminal");
+						}
+
+					}
+
+					@Override
+					public int getBatchSize() {
+						return reqParam.size();
+					}
+				});
+			}
+
+			// Updating the old records to be replaced by new records
+			if (newUpdate.size() > 0 && newUpdate != null) {
+				jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+				jdbcTemplate.batchUpdate(updateoldrecords, new BatchPreparedStatementSetter() {
+
+					@Override
+					public void setValues(PreparedStatement ps, int i) throws SQLException {
+						int j = 0;
+						try {
+							Date effectiveFromDate = newUpdate.get(i).getEffectiveFromDate();
+							//
+							Calendar calender = Calendar.getInstance();
+							calender.setTime(effectiveFromDate);
+							calender.add(Calendar.MILLISECOND, -1);
+							Date oneMinuteBefore = calender.getTime();
+
+							ps.setTimestamp(++j, AssetUtil.stringToTimestamp(oneMinuteBefore));
+							ps.setString(++j, newUpdate.get(i).getUsername());
+
+							ps.setString(++j, newUpdate.get(i).getISIN());
+							ps.setBigDecimal(++j, newUpdate.get(i).getCurrencyAppId());
+						} catch (SQLException e) {
+							log.fatal("Error in updating universe stock details by terminal", e);
+							throw e;
+						} catch (Exception e) {
+							log.fatal("EXCEPTION ", e);
+						}
+
+					}
+
+					@Override
+					public int getBatchSize() {
+						return newUpdate.size();
+					}
+				});
+			}
+		} catch (Exception e) {
+			log.fatal("Exception in update universe Stock By Terminal");
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@Override
+	public String getBrokerRatingHistory(List<AssetGetRequestVO> req, String tenantCode, Date date) throws Exception {
+		ResponseVO<UniverseStockDetailsByBrokerVO, AssetRequestVO> response = new ResponseVO<>();
+		String statement1 = "(USM.isin = ? and USM.currency_config_name = ? and USDBB.broker_app_config_name = ?) ";
+		String statementCloserAtEnd = ")";
+		String statementMerge = " or ";
+		String query = GetUniversalStockMasterHistory;
+		String pattern = "yyyy-MM-dd";
+		SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
+		String dateInRequest = simpleDateFormat.format(date);
+		query = query + " ( ? >=to_char(rating_date,'yyyy-mm-dd')   )  and (";
+		for (int i = 0; i < req.size(); i++) {
+			query = query + statement1;
+			Boolean checkFinalizer = true;
+			if (i == req.size() - 1) {
+				query = query + statementCloserAtEnd + statementCloserAtEnd;
+				checkFinalizer = false;
+			}
+			if (checkFinalizer) {
+				query = query + statementMerge;
+			}
+		}
+		jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+		List<UniverseStockDetailsByBrokerVO> output = null;
+		output = jdbcTemplate.query(query, new PreparedStatementSetter() {
+			@Override
+			public void setValues(PreparedStatement ps) throws SQLException {
+				int counter = 0;
+				for (int i = 0; i < req.size(); i++) {
+					if (i == 0) {
+						counter++;
+						ps.setString(counter, dateInRequest);
+					}
+					counter++;
+					ps.setString(counter, req.get(i).getIsin());
+					counter++;
+					ps.setString(counter, req.get(i).getCurrencyConfigName());
+					counter++;
+					ps.setString(counter, req.get(i).getBrokerAppConfigName());
+				}
+			}
+		}, new ResultSetExtractor<List<UniverseStockDetailsByBrokerVO>>() {
+			@Override
+			public List<UniverseStockDetailsByBrokerVO> extractData(ResultSet rs)
+					throws SQLException, DataAccessException {
+				List<UniverseStockDetailsByBrokerVO> outputFromDB = new ArrayList<>();
+				while (rs.next()) {
+					UniverseStockDetailsByBrokerVO individuals = new UniverseStockDetailsByBrokerVO();
+					BigDecimal brokerAppId;
+					individuals.setBrokerAppId(rs.getBigDecimal("Broker_App_Id"));
+					individuals.setTargetPriceAmt(rs.getBigDecimal("Target_Price_Amt"));
+					individuals.setBrokerAppId(rs.getBigDecimal("broker_Rating_Id"));
+					individuals.setBrokerAppConfigName(rs.getString("broker_Rating_Config_Name"));
+					individuals.setRatingDate(rs.getDate("rating_date"));
+					individuals.setRemarks(rs.getString("Remarks"));
+					individuals.setEffFromDate(rs.getDate("Eff_From_Date"));
+					individuals.setEffToDate(rs.getDate("Eff_To_Date"));
+					individuals.setBrokerAppConfigName(rs.getString("Broker_App_Config_Name"));
+					individuals.setCurrencyAppConfigName(rs.getString("Currency_Config_Name"));
+					individuals.setIsin(rs.getString("isin"));
+
+					outputFromDB.add(individuals);
+				}
+				return outputFromDB;
+			}
+		});
+		if (output == null || (output != null && output.size() == 0)) {
+			List<FailedVO<AssetRequestVO>> failedAttachment = new ArrayList<>();
+			AssetRequestVO requestFailure = new AssetRequestVO();
+			requestFailure.setAssetGetRequest(req);
+			FailedVO<AssetRequestVO> attachment = new FailedVO<>();
+			attachment.setIdentityDetails(requestFailure);
+			List<ErrorVO> errorVOS = new ArrayList<>();
+			errorVOS.add(AssetUtil.getError("BUSAST42"));
+			attachment.setErrors(errorVOS);
+			failedAttachment.add(attachment);
+			response.setFailed(failedAttachment);
+			response.setTotalfailedRecords(req.size());
+			response.setTotalRecords(req.size());
+			response.setSuccess(null);
+			return AssetUtil.fromObjectToJSON(response);
+		}
+		response.setSuccess(output);
+		response.setTotalRecords(output.size());
+		List<AssetGetRequestVO> tracker = new ArrayList<>();
+		for (int i = 0; i < req.size(); i++) {
+			String isIn = req.get(i).getIsin();
+			String currencyConfigName = req.get(i).getCurrencyConfigName();
+			String brokerAppConfigName = req.get(i).getBrokerAppConfigName();
+			for (int j = 0; j < output.size(); j++) {
+				UniverseStockDetailsByBrokerVO check = output.get(j);
+				if (isIn.equals(check.getIsin()) && currencyConfigName.equals(check.getCurrencyAppConfigName())
+						&& brokerAppConfigName.equals(check.getBrokerAppConfigName())) {
+					break;
+				}
+				if (j == output.size() - 1) {
+					tracker.add(req.get(i));
+				}
+			}
+		}
+		if (tracker.size() >= 1) {
+			List<FailedVO<AssetRequestVO>> failedAttachment = new ArrayList<>();
+			AssetRequestVO requestFailure = new AssetRequestVO();
+			requestFailure.setAssetGetRequest(tracker);
+			FailedVO<AssetRequestVO> attachment = new FailedVO<>();
+			attachment.setIdentityDetails(requestFailure);
+			List<ErrorVO> errorVOS = new ArrayList<>();
+			errorVOS.add(AssetUtil.getError("BUSAST43"));
+			attachment.setErrors(errorVOS);
+			failedAttachment.add(attachment);
+			response.setFailed(failedAttachment);
+			response.setTotalfailedRecords(tracker.size());
+			response.setTotalRecords(output.size() + tracker.size());
+			response.setSuccess(output);
+		}
+		return AssetUtil.fromObjectToJSON(response);
+	}
+
+	@Override
+	public Map<String, UniverseStockDetailsByBrokerVO> getAssetCustodianwiseLastDateForUniverseStockDetailsByBroker(
+			String tenantCode, List<UniverseStockDetailsByBrokerVO> uniqueVOs) throws Exception {
+
+		try {
+
+			StringBuilder universeStockDetailsByBrokerWhereClause = new StringBuilder();
+			StringBuilder assetCustodianWiseLastDateWhereClause = new StringBuilder();
+
+			MapSqlParameterSource map = new MapSqlParameterSource();
+			int size = uniqueVOs.size() - 1;
+			for (int i = 0; i < size; i++) {
+				UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO = uniqueVOs.get(i);
+
+				universeStockDetailsByBrokerWhereClause
+						.append("(isin = :isinA" + i + " AND currency_id = :currency_idA" + i + ") OR ");
+				assetCustodianWiseLastDateWhereClause.append("(isin = :isinB" + i + " AND currency_id = :currency_idB"
+						+ i + " AND max_eff_from_date_for_config_name = 'ACM2001') OR ");
+
+				map.addValue("isinA" + i, universeStockDetailsByBrokerVO.getIsin());
+				map.addValue("currency_idA" + i, universeStockDetailsByBrokerVO.getCurrencyAppId());
+//				map.addValue("USDBB.broker_app_idA"+i, universeStockDetailsByBrokerVO.getBrokerAppId());
+
+				map.addValue("isinB" + i, universeStockDetailsByBrokerVO.getIsin());
+				map.addValue("currency_idB" + i, universeStockDetailsByBrokerVO.getCurrencyAppId());
+//				map.addValue("broker_idB"+i, universeStockDetailsByBrokerVO.getBrokerAppId());
+			}
+
+			universeStockDetailsByBrokerWhereClause
+					.append("(isin = :isinA" + size + " AND currency_id = :currency_idA" + size + ")");
+			assetCustodianWiseLastDateWhereClause.append("(isin = :isinB" + size + " AND currency_id = :currency_idB"
+					+ size + " AND max_eff_from_date_for_config_name = 'ACM2001')");
+
+			map.addValue("isinA" + size, uniqueVOs.get(size).getIsin());
+			map.addValue("currency_idA" + size, uniqueVOs.get(size).getCurrencyAppId());
+//			map.addValue("USDBB.broker_app_idA"+size, uniqueVOs.get(size).getBrokerAppId());
+
+			map.addValue("isinB" + size, uniqueVOs.get(size).getIsin());
+			map.addValue("currency_idB" + size, uniqueVOs.get(size).getCurrencyAppId());
+//			map.addValue("broker_idB"+size,uniqueVOs.get(size).getBrokerAppId());
+
+			namedJdbcTemplate = dataSourceManager.refreshCustomNamedJdbc(tenantCode, null);
+
+			StringBuilder finalQuery = new StringBuilder(
+					GET_ASSET_CUSTODIANWISE_LAST_DATE_FOR_UNIVERSE_STOCK_DETAILS_BY_BROKER
+							.replace("<universeStockDetailsByBrokerWhereClause>",
+									universeStockDetailsByBrokerWhereClause.toString())
+							.replace("<assetCustodianWiseLastDateWhereClause>", assetCustodianWiseLastDateWhereClause));
+
+			return namedJdbcTemplate.query(finalQuery.toString(), map,
+					new ResultSetExtractor<Map<String, UniverseStockDetailsByBrokerVO>>() {
+
+						@Override
+						public Map<String, UniverseStockDetailsByBrokerVO> extractData(ResultSet rs)
+								throws SQLException, DataAccessException {
+
+							Map<String, UniverseStockDetailsByBrokerVO> assetCustodianwiseLastDateForUniverseStockDetailsByBrokerMap = new HashMap<String, UniverseStockDetailsByBrokerVO>();
+
+							UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO = null;
+							while (rs.next()) {
+
+								universeStockDetailsByBrokerVO = new UniverseStockDetailsByBrokerVO();
+
+								universeStockDetailsByBrokerVO.setIsin(rs.getString("isin"));
+								universeStockDetailsByBrokerVO
+										.setCurrencyAppConfigName(rs.getString("currency_config_name"));
+								universeStockDetailsByBrokerVO
+										.setBrokerAppConfigName((rs.getString("broker_app_config_name")));
+								universeStockDetailsByBrokerVO
+										.setEffFromDate(rs.getDate("universestockdetailsbybrokermaxdate"));
+
+								assetCustodianwiseLastDateForUniverseStockDetailsByBrokerMap
+										.put(rs.getString("uniquekey"), universeStockDetailsByBrokerVO);
+							}
+							return assetCustodianwiseLastDateForUniverseStockDetailsByBrokerMap;
+						}
+					});
+
+		} catch (Exception ex) {
+			log.fatal("Error in getAssetCustodianwiseLastDateForUniverseStockDetailsByBroker: ", ex);
+			throw ex;
+		}
+
+	}
+
+	@Override
+	public void freshInsertUniverseStockDetailsByBrokerVOsForMaxDate(String tenantCode,
+			List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerVOs) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			if (universeStockDetailsByBrokerVOs != null && universeStockDetailsByBrokerVOs.size() > 0) {
+				jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+				jdbcTemplate.batchUpdate(INSERT_INTO_ASSET_CUSTODIANWISE_LAST_DATE_FOR_UNIVERSE_STOCK_DETAILS_BY_BROKER,
+						new BatchPreparedStatementSetter() {
+
+							@Override
+							public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+								int j = 0;
+								preparedStatement.setLong(++j, 1);
+								preparedStatement.setLong(++j, service);
+								preparedStatement.setString(++j, universeStockDetailsByBrokerVOs.get(i).getIsin());
+								preparedStatement.setString(++j,
+										universeStockDetailsByBrokerVOs.get(i).getCurrencyAppConfigName());
+								preparedStatement.setString(++j, universeStockDetailsByBrokerVOs.get(i).getIsin());
+								preparedStatement.setString(++j,
+										universeStockDetailsByBrokerVOs.get(i).getCurrencyAppConfigName());
+								preparedStatement.setBigDecimal(++j,
+										universeStockDetailsByBrokerVOs.get(i).getCurrencyAppId());
+
+								try {
+									preparedStatement.setTimestamp(++j, AssetUtil.stringToTimestamp(
+											universeStockDetailsByBrokerVOs.get(i).getEffFromDate()));
+								} catch (Exception e) {
+									e.printStackTrace();
+								}
+								preparedStatement.setBigDecimal(++j, new BigDecimal(2736));
+								preparedStatement.setString(++j, "ACM2001");
+								preparedStatement.setBigDecimal(++j,
+										universeStockDetailsByBrokerVOs.get(i).getBrokerAppId());
+								preparedStatement.setString(++j,
+										universeStockDetailsByBrokerVOs.get(i).getBrokerAppConfigName());
+								preparedStatement.setString(++j, universeStockDetailsByBrokerVOs.get(i).getUsername());
+							}
+
+							@Override
+							public int getBatchSize() {
+								return universeStockDetailsByBrokerVOs.size();
+							}
+						});
+			}
+		} catch (Exception e) {
+			log.fatal("Exception in freshInsertUniverseStockDetailsByBrokerVOsForMaxDate: ", e);
+			throw e;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@Override
+	public void updateUniverseStockDetailsByBrokerVOsForMaxDate(String tenantCode,
+			List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerVOs) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			if (universeStockDetailsByBrokerVOs != null && universeStockDetailsByBrokerVOs.size() > 0) {
+				jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+				jdbcTemplate.batchUpdate(UPDATE_ASSET_CUSTODIANWISE_LAST_DATE_FOR_UNIVERSE_STOCK_DETAILS_BY_BROKER,
+						new BatchPreparedStatementSetter() {
+							@Override
+							public void setValues(PreparedStatement ps, int i) throws SQLException {
+								int j = 0;
+								try {
+
+									ps.setTimestamp(++j, AssetUtil.stringToTimestamp(
+											universeStockDetailsByBrokerVOs.get(i).getEffFromDate()));
+									ps.setString(++j, universeStockDetailsByBrokerVOs.get(i).getUsername());
+									ps.setString(++j, universeStockDetailsByBrokerVOs.get(i).getIsin());
+									ps.setString(++j,
+											universeStockDetailsByBrokerVOs.get(i).getCurrencyAppConfigName());
+									ps.setString(++j, "ACM2001");
+									ps.setString(++j, universeStockDetailsByBrokerVOs.get(i).getBrokerAppConfigName());
+
+								} catch (SQLException e) {
+									log.fatal("Exception: ", e);
+
+								} catch (Exception e) {
+
+									log.fatal("Exception: ", e);
+
+								}
+							}
+
+							@Override
+							public int getBatchSize() {
+								return universeStockDetailsByBrokerVOs.size();
+							}
+						});
+			}
+		} catch (Exception e) {
+			log.fatal("Exception in updateUniverseStockDetailsByBrokerVOsForMaxDate: ", e);
+			throw e;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@Override
+	public void updateUniverseStockDetailsByBroker(String tenantCode, List<UniverseStockDetailsByBrokerVO> reqParam,
+			List<UniverseStockDetailsByBrokerVO> newUpdate) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			if (reqParam != null && reqParam.size() > 0) {
+
+				jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+				jdbcTemplate.batchUpdate(UPDATE_UNIVERSE_STOCK_DETAILS_BY_BROKER, new BatchPreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement ps, int i) throws SQLException {
+						int j = 0;
+						try {
+
+							ps.setBigDecimal(++j, reqParam.get(i).getRatingCoverageTypeId());
+							ps.setString(++j, reqParam.get(i).getRatingCoverageTypeConfigName());
+							ps.setBigDecimal(++j, reqParam.get(i).getBrokerCurrencyAppId());
+							ps.setString(++j, reqParam.get(i).getBrokerCurrencyAppConfigName());
+							ps.setBigDecimal(++j, reqParam.get(i).getTargetPriceAmt());
+							ps.setBigDecimal(++j, reqParam.get(i).getBrokerRatingId());
+							ps.setString(++j, reqParam.get(i).getBrokerRatingConfigName());
+							ps.setBigDecimal(++j, reqParam.get(i).getRatingAppId());
+							ps.setString(++j, reqParam.get(i).getRatingAppConfigName());
+							ps.setString(++j, reqParam.get(i).getRemarks());
+
+							LocalDate localDate = reqParam.get(i).getEffFromDate().toInstant()
+									.atZone(ZoneId.systemDefault()).toLocalDate();
+
+							ps.setInt(++j, localDate.getYear());
+							ps.setInt(++j, localDate.getMonthValue());
+
+							ps.setTimestamp(++j, AssetUtil.stringToTimestamp(reqParam.get(i).getEffFromDate()));
+							ps.setString(++j, reqParam.get(i).getUsername());
+
+							ps.setString(++j, reqParam.get(i).getIsin());
+							ps.setString(++j, reqParam.get(i).getCurrencyAppConfigName());
+							ps.setString(++j, reqParam.get(i).getBrokerAppConfigName());
+							ps.setTimestamp(++j, AssetUtil.stringToTimestamp(reqParam.get(i).getEffFromDate()));
+
+						} catch (SQLException e) {
+							log.fatal("SQLException in updateUniverseStockDetailsByBroker: ", e);
+							throw e;
+						} catch (Exception ex) {
+							log.fatal("Exception in updateUniverseStockDetailsByBroker: ", ex);
+						}
+					}
+
+					@Override
+					public int getBatchSize() {
+						return reqParam.size();
+					}
+				});
+			}
+
+			// Updating the old records to be replaced by new records
+			if (newUpdate.size() > 0 && newUpdate != null) {
+				jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+				jdbcTemplate.batchUpdate(UPDATE_UNIVERSE_STOCK_DETAILS_BY_BROKER_FOR_OLD_RECORDS,
+						new BatchPreparedStatementSetter() {
+
+							@Override
+							public void setValues(PreparedStatement ps, int i) throws SQLException {
+								int j = 0;
+								try {
+									Date effectiveFromDate = newUpdate.get(i).getEffFromDate();
+
+									Calendar calender = Calendar.getInstance();
+									calender.setTime(effectiveFromDate);
+									calender.add(Calendar.MILLISECOND, -1);
+									Date oneMinuteBefore = calender.getTime();
+
+									ps.setTimestamp(++j, AssetUtil.stringToTimestamp(oneMinuteBefore));
+									ps.setString(++j, newUpdate.get(i).getUsername());
+
+									ps.setString(++j, newUpdate.get(i).getIsin());
+									ps.setString(++j, newUpdate.get(i).getCurrencyAppConfigName());
+									ps.setString(++j, newUpdate.get(i).getBrokerAppConfigName());
+
+								} catch (SQLException e) {
+									log.fatal("Error in updateUniverseStockDetailsByBroker: ", e);
+									throw e;
+								} catch (Exception e) {
+									log.fatal("Error in updateUniverseStockDetailsByBroker ", e);
+								}
+							}
+
+							@Override
+							public int getBatchSize() {
+								return newUpdate.size();
+							}
+						});
+			}
+		} catch (Exception e) {
+			log.fatal("Exception in updateUniverseStockDetailsByBroker: ", e);
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@Override
+	public void addUniverseStockDetailsByBroker(String tenantCode, List<UniverseStockDetailsByBrokerVO> reqList,
+			List<JsonObject> totalVOs, HashMap<String, UniverseStockInitialRated> universeStockInitialRatedMap)
+			throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			jdbcTemplate.batchUpdate(UNIVERSE_STOCK_DETAILS_BY_BROKER, new BatchPreparedStatementSetter() {
+
+				@Override
+				public void setValues(PreparedStatement ps, int i) throws SQLException {
+					String key = reqList.get(i).getIsin() + "~" + reqList.get(i).getCurrencyAppId() + "~"
+							+ reqList.get(i).getBrokerAppId();
+					UniverseStockInitialRated universeStockInitialRated = null;
+					if (universeStockInitialRatedMap.containsKey(key)) {
+						universeStockInitialRated = universeStockInitialRatedMap.get(key);
+					}
+					int j = 0;
+					ps.setLong(++j, 1);
+					ps.setLong(++j, service);
+					ps.setString(++j, reqList.get(i).getIsin());
+					ps.setString(++j, reqList.get(i).getCurrencyAppConfigName());
+
+					ps.setBigDecimal(++j, reqList.get(i).getRatingCoverageTypeId());
+					ps.setString(++j, reqList.get(i).getRatingCoverageTypeConfigName());
+					ps.setBigDecimal(++j, reqList.get(i).getBrokerAppId());
+					ps.setString(++j, reqList.get(i).getBrokerAppConfigName());
+					ps.setBigDecimal(++j, reqList.get(i).getBrokerCurrencyAppId());
+					ps.setString(++j, reqList.get(i).getBrokerCurrencyAppConfigName());
+					ps.setBigDecimal(++j, reqList.get(i).getTargetPriceAmt());
+					ps.setBigDecimal(++j, reqList.get(i).getBrokerRatingId());
+					ps.setString(++j, reqList.get(i).getBrokerRatingConfigName());
+
+					ps.setBigDecimal(++j, reqList.get(i).getRatingAppId());
+					ps.setString(++j, reqList.get(i).getRatingAppConfigName());
+
+					ps.setString(++j, reqList.get(i).getRemarks());
+
+//						Calendar cal = Calendar.getInstance(TimeZone.getDefault());
+//						cal.setTime(reqList.get(i).getEffFromDate());
+
+					LocalDate localDate = reqList.get(i).getEffFromDate().toInstant().atZone(ZoneId.systemDefault())
+							.toLocalDate();
+
+					ps.setInt(++j, localDate.getYear());
+					ps.setInt(++j, localDate.getMonthValue());
+					try {
+						ps.setTimestamp(++j, AssetUtil.stringToTimestamp(reqList.get(i).getEffFromDate()));
+					} catch (Exception ex) {
+						log.fatal("Exception occurred: ", ex);
+					}
+
+					ps.setString(++j, reqList.get(i).getUsername());
+
+					try {
+						if (universeStockInitialRated != null) {
+							ps.setTimestamp(++j,
+									AssetUtil.stringToTimestamp(universeStockInitialRated.getLast_rating_date()));
+
+							if (!AssetConstants.KLAY_ASSET_RATING_NOT_RATED
+									.equals(reqList.get(i).getRatingAppConfigName())
+									&& !AssetConstants.KLAY_ASSET_RATING_NOT_COVERED
+											.equals(reqList.get(i).getRatingAppConfigName())) {
+								universeStockInitialRated.setLast_rating_date(reqList.get(i).getEffFromDate());
+								universeStockInitialRated.setUpdatedFlag(true);
+							}
+						} else {
+							ps.setNull(++j, java.sql.Types.TIMESTAMP_WITH_TIMEZONE);
+						}
+
+					} catch (SQLException e) {
+						e.printStackTrace();
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+
+				}
+
+				@Override
+				public int getBatchSize() {
+					return reqList.size();
+				}
+			});
+		} catch (Exception e) {
+			log.fatal("Exception in addUniverseStockDetailsByBroker: ", e);
+			throw e;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+	}
+
+	@Override
+	public HashMap<String, UniverseStockInitialRated> addUniverseStockBrokerInitialRated(String tenantCode,
+			List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerVOs,
+			List<UniverseStockDetailsByBrokerVO> uniqueVOs, List<UniverseStockDetailsByBrokerVO> uniqueBrokerVOs)
+			throws Exception {
+		HashMap<String, UniverseStockInitialRated> availableAssetsWithBroker = new HashMap<>();
+		try {
+//			TODO
+			availableAssetsWithBroker = getAvailableBrokerWithAsset(tenantCode, universeStockDetailsByBrokerVOs,
+					uniqueVOs, uniqueBrokerVOs);
+
+			List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerInsertList = new ArrayList<UniverseStockDetailsByBrokerVO>();
+			for (UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO : universeStockDetailsByBrokerVOs) {
+				if ((!AssetConstants.KLAY_ASSET_RATING_NOT_RATED
+						.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName())
+						&& !AssetConstants.KLAY_ASSET_RATING_NOT_COVERED
+								.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName()))
+						&& !availableAssetsWithBroker.containsKey(universeStockDetailsByBrokerVO.getIsin() + "~"
+								+ universeStockDetailsByBrokerVO.getCurrencyAppId() + "~"
+								+ universeStockDetailsByBrokerVO.getBrokerAppId())) {
+					universeStockDetailsByBrokerInsertList.add(universeStockDetailsByBrokerVO);
+				}
+			}
+
+			if (universeStockDetailsByBrokerInsertList != null && universeStockDetailsByBrokerInsertList.size() > 0) {
+				jdbcTemplate.batchUpdate(INSERT_UNIVERSE_STOCK_BROKER_INITIAL_RATED,
+						new BatchPreparedStatementSetter() {
+
+							@Override
+							public void setValues(PreparedStatement ps, int i) throws SQLException {
+								int j = 0;
+
+								ps.setLong(++j, 1);
+								ps.setLong(++j, service);
+								ps.setString(++j, universeStockDetailsByBrokerInsertList.get(i).getIsin());
+								ps.setString(++j,
+										universeStockDetailsByBrokerInsertList.get(i).getCurrencyAppConfigName());
+								ps.setBigDecimal(++j, universeStockDetailsByBrokerInsertList.get(i).getBrokerAppId());
+								ps.setString(++j,
+										universeStockDetailsByBrokerInsertList.get(i).getBrokerAppConfigName());
+
+								try {
+									ps.setTimestamp(++j, AssetUtil.stringToTimestamp(
+											universeStockDetailsByBrokerInsertList.get(i).getEffFromDate()));
+								} catch (Exception ex) {
+									log.fatal("Exception occurred: ", ex);
+								}
+
+								ps.setInt(++j, 1);
+								ps.setString(++j, universeStockDetailsByBrokerInsertList.get(i).getUsername());
+								try {
+									ps.setTimestamp(++j, AssetUtil.stringToTimestamp(
+											universeStockDetailsByBrokerInsertList.get(i).getEffFromDate()));
+								} catch (SQLException e) {
+									e.printStackTrace();
+								} catch (Exception e) {
+									e.printStackTrace();
+								}
+							}
+
+							@Override
+							public int getBatchSize() {
+								return universeStockDetailsByBrokerInsertList.size();
+							}
+						});
+			}
+
+		} catch (Exception ex) {
+			log.fatal("addUniverseStockBrokerInitialRated: ", ex);
+			throw ex;
+		}
+		return availableAssetsWithBroker;
+	}
+
+	public HashMap<String, UniverseStockInitialRated> getAvailableBrokerWithAsset(String tenantCode,
+			List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerVOs,
+			List<UniverseStockDetailsByBrokerVO> uniqueVOs, List<UniverseStockDetailsByBrokerVO> uniqueBrokerVOs) {
+
+		HashMap<String, UniverseStockInitialRated> availableAssetsWithBroker = null;
+		HashMap<String, UniverseStockInitialRated> mainavailableAssetsWithBroker = new HashMap<>();
+		try {
+			StringBuilder UniverseStockBrokerInitialRatedWhereClause = new StringBuilder();
+			MapSqlParameterSource map = new MapSqlParameterSource();
+			int size = uniqueBrokerVOs.size() - 1;
+			int start = 0;
+			int end = 9999;
+			int j = 0;
+			int batchSize = size / 10000;
+			if ((float) batchSize < (float) size / 10000) {
+				batchSize++;
+			}
+			if (size < end) {
+				end = size;
+			}
+			for (int i = 0; i < batchSize; i++) {
+				if (!UniverseStockBrokerInitialRatedWhereClause.toString().isEmpty()) {
+					UniverseStockBrokerInitialRatedWhereClause.delete(0,
+							UniverseStockBrokerInitialRatedWhereClause.length());
+				}
+				availableAssetsWithBroker = new HashMap<>();
+				for (j = start; j < end; j++) {
+					UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO = uniqueBrokerVOs.get(j);
+
+					UniverseStockBrokerInitialRatedWhereClause
+							.append("(isin = :isin" + j + " AND currency_id = :currency_id" + j
+									+ " AND Broker_App_Id = :Broker_App_Id" + j + ") OR ");
+
+					map.addValue("isin" + j, universeStockDetailsByBrokerVO.getIsin());
+					map.addValue("currency_id" + j, universeStockDetailsByBrokerVO.getCurrencyAppId());
+					map.addValue("Broker_App_Id" + j, universeStockDetailsByBrokerVO.getBrokerAppId());
+				}
+
+				UniverseStockBrokerInitialRatedWhereClause
+						.append("(isin = :isin" + (end) + " AND currency_id = :currency_id" + (end)
+								+ " AND Broker_App_Id = :Broker_App_Id" + (end) + ")");
+
+				map.addValue("isin" + (end), uniqueBrokerVOs.get((end)).getIsin());
+				map.addValue("currency_id" + (end), uniqueBrokerVOs.get((end)).getCurrencyAppId());
+				map.addValue("Broker_App_Id" + (end), uniqueBrokerVOs.get((end)).getBrokerAppId());
+
+				namedJdbcTemplate = dataSourceManager.refreshCustomNamedJdbc(tenantCode, null);
+
+				StringBuilder finalQuery = new StringBuilder(UNIVERSE_STOCK_BROKER_INITIAL_RATED
+						.replace("<whereclause>", UniverseStockBrokerInitialRatedWhereClause.toString()));
+				availableAssetsWithBroker = namedJdbcTemplate.query(finalQuery.toString(), map,
+						new ResultSetExtractor<HashMap<String, UniverseStockInitialRated>>() {
+
+							@Override
+							public HashMap<String, UniverseStockInitialRated> extractData(ResultSet rs)
+									throws SQLException, DataAccessException {
+
+								HashMap<String, UniverseStockInitialRated> availableAssetsWithBroker = new HashMap<>();
+								while (rs.next()) {
+									UniverseStockInitialRated universeStockInitialRated = new UniverseStockInitialRated();
+									universeStockInitialRated.setId(rs.getInt("id"));
+									universeStockInitialRated.setIsin(rs.getString("ISIN"));
+									universeStockInitialRated.setCurrency_id(rs.getInt("currency_id"));
+									universeStockInitialRated.setBroker_app_id(rs.getInt("Broker_App_Id"));
+									universeStockInitialRated.setRating_count(rs.getInt("rating_count"));
+									universeStockInitialRated.setLast_rating_date(rs.getDate("last_rating_date"));
+									availableAssetsWithBroker.put(rs.getString("ISIN") + "~"
+											+ rs.getBigDecimal("currency_id") + "~" + rs.getBigDecimal("Broker_App_Id"),
+											universeStockInitialRated);
+
+								}
+								return availableAssetsWithBroker;
+							}
+						});
+
+				start = end + 1;
+				end += 10000;
+				if (end > size) {
+					end = size;
+				}
+				mainavailableAssetsWithBroker.putAll(availableAssetsWithBroker);
+			}
+
+		} catch (DataAccessException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return mainavailableAssetsWithBroker;
+	}
+
+	@Override
+	public List<SearchResultDataVO> getUniverseStockSearchInResponse(String tenantCode, String queryConditions,
+			StringBuilder dateSearchQuery, StringBuilder sortingFilterQuery, List<String> searchInTextParams,
+			List<String> textSearchParams, List<String> dateSearchParams, List<String> numberSearchParams,
+			AssetRequestVO assetRequestVO, List<String> numberSearchBigDecimalParams) throws Exception {
+
+		log.debug("Entering");
+		StringBuilder universeStockSearchquery = new StringBuilder();
+
+		String universeStockSearchSql = null;
+		List<SearchResultDataVO> searchResultDataList = new ArrayList<SearchResultDataVO>();
+		try {
+//			System.out.println(" Service dateSearchQuery==>"+dateSearchQuery);
+			if (dateSearchQuery == null || dateSearchQuery.length() == 0) {
+				universeStockSearchSql = SEARCH_UNIVERSE_STOCK.replace("<dateFilterCondition>", "");
+			} else {
+				universeStockSearchSql = SEARCH_UNIVERSE_STOCK.replace("<dateFilterCondition>",
+						"where " + dateSearchQuery.toString());
+			}
+
+			if (queryConditions == null || queryConditions.length() == 0) {
+				universeStockSearchquery.append(universeStockSearchSql.replaceAll("<filterCondition>", ""));
+			} else {
+				universeStockSearchquery.append(universeStockSearchSql.concat(" where ( sectionId = 'Documents' ) OR ")
+						.concat(queryConditions));
+			}
+
+			if (sortingFilterQuery != null && sortingFilterQuery.length() > 0) {
+				universeStockSearchquery.append(" order by ").append(sortingFilterQuery);
+			}
+
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+
+			String assetSearchQuery = universeStockSearchquery.toString();
+
+//			log.debug("AssetDAOImpl.mandateSearchQuery: " + assetSearchQuery);
+//			log.debug("AssetDAOImpl.textSearchParam: " + textSearchParams);
+//			log.debug("AssetDAOImpl.dateSearchParams: " + dateSearchParams);
+//			log.debug("AssetDAOImpl.searchInTextParams: " + searchInTextParams);
+//			log.debug("AssetDAOImpl.numberSearchParams: " + numberSearchParams);
+			searchResultDataList = jdbcTemplate.query(assetSearchQuery, new PreparedStatementSetter() {
+				public void setValues(PreparedStatement preparedStatement) throws SQLException {
+					int i = 0;
+
+					if (dateSearchParams != null && !dateSearchParams.isEmpty()) {
+						for (String dateSearch : dateSearchParams) {
+							if (dateSearch.length() == 4) {
+								preparedStatement.setInt(++i, Integer.parseInt(dateSearch.split("-")[0]));
+							} else {
+								preparedStatement.setDate(++i, java.sql.Date.valueOf(dateSearch.trim()));
+							}
+						}
+					}
+					if (textSearchParams != null && !textSearchParams.isEmpty()) {
+						for (String textSearch : textSearchParams) {
+							preparedStatement.setString(++i, textSearch.trim());
+						}
+					}
+					if (numberSearchBigDecimalParams != null && !numberSearchBigDecimalParams.isEmpty()) {
+						for (String numberSearch : numberSearchBigDecimalParams) {
+							preparedStatement.setBigDecimal(++i, new BigDecimal(numberSearch.trim()));
+						}
+					}
+					if (numberSearchParams != null && !numberSearchParams.isEmpty()) {
+						for (String numberSearch : numberSearchParams) {
+							preparedStatement.setInt(++i, Integer.parseInt(numberSearch.trim()));
+						}
+					}
+
+				}
+			}, new ResultSetExtractor<List<SearchResultDataVO>>() {
+				public List<SearchResultDataVO> extractData(ResultSet rs) throws SQLException, DataAccessException {
+					LinkedHashMap<BigDecimal, SearchResultDataVO> searchUniverseStockMap = new LinkedHashMap<>();
+					Map<BigDecimal, Map<BigDecimal, UniverseStockDetailsByBrokerVO>> universeStockDetailsByBrokerVOMaps = new HashMap<>();
+					Map<BigDecimal, Map<BigDecimal, AssetDocumentVO>> assetDocumentVOMaps = new HashMap<>();
+					Map<BigDecimal, Map<BigDecimal, AssetDocumentsBusinessDefinitionsVO>> assetDocumentsBusinessDefinitionsVOMaps = new HashMap<>();
+
+					List<SearchResultDataVO> searchResultDataList = new ArrayList<SearchResultDataVO>();
+					while (rs.next()) {
+
+						String sectionid = rs.getString("sectionid");
+						BigDecimal usmId = rs.getBigDecimal("ism_ID");
+
+						if ("usm".equalsIgnoreCase(sectionid)) {
+
+							SearchResultDataVO searchResultDataVO = searchUniverseStockMap.get(usmId);
+
+							if (searchResultDataVO == null) {
+								searchResultDataVO = setSearchResultDataVO(rs);
+								searchUniverseStockMap.put(usmId, searchResultDataVO);
+							}
+
+							Map<BigDecimal, UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerVOMap = universeStockDetailsByBrokerVOMaps
+									.get(usmId) == null ? new HashMap<BigDecimal, UniverseStockDetailsByBrokerVO>()
+											: universeStockDetailsByBrokerVOMaps.get(usmId);
+
+							BigDecimal bkrDtlId = rs.getBigDecimal("bkrDtl_Id");
+
+							UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO = universeStockDetailsByBrokerVOMap
+									.get(bkrDtlId);
+
+							if (universeStockDetailsByBrokerVO == null) {
+								universeStockDetailsByBrokerVO = getUniverseStockDetailsByBrokerVO(rs);
+								universeStockDetailsByBrokerVOMap.put(bkrDtlId, universeStockDetailsByBrokerVO);
+							}
+
+							universeStockDetailsByBrokerVOMaps.put(usmId, universeStockDetailsByBrokerVOMap);
+
+						}
+
+						else if ("Documents".equalsIgnoreCase(sectionid)) {
+							BigDecimal admId = rs.getBigDecimal("ADM_Id");
+							if (admId != null) {
+								Map<BigDecimal, AssetDocumentVO> AssetDocumentVOMap = assetDocumentVOMaps
+										.get(usmId) == null ? new HashMap<BigDecimal, AssetDocumentVO>()
+												: assetDocumentVOMaps.get(usmId);
+
+								AssetDocumentVO assetDocumentVO = AssetDocumentVOMap.get(admId);
+
+								if (assetDocumentVO == null) {
+									assetDocumentVO = getAssetDocumentVO(rs);
+									AssetDocumentVOMap.put(admId, assetDocumentVO);
+								}
+
+								assetDocumentVOMaps.put(usmId, AssetDocumentVOMap);
+
+								Map<BigDecimal, AssetDocumentsBusinessDefinitionsVO> assetDocumentsBusinessDefinitionsVOMap = assetDocumentsBusinessDefinitionsVOMaps
+										.get(admId) == null
+												? new HashMap<BigDecimal, AssetDocumentsBusinessDefinitionsVO>()
+												: assetDocumentsBusinessDefinitionsVOMaps.get(admId);
+
+								BigDecimal adbdId = rs.getBigDecimal("adbd_id");
+
+								AssetDocumentsBusinessDefinitionsVO assetDocumentsBusinessDefinitionsVO = assetDocumentsBusinessDefinitionsVOMap
+										.get(adbdId);
+
+								if (assetDocumentsBusinessDefinitionsVO == null) {
+									assetDocumentsBusinessDefinitionsVO = getAssetDocumentsBusinessDefinitionsVO(rs);
+									assetDocumentsBusinessDefinitionsVOMap.put(adbdId,
+											assetDocumentsBusinessDefinitionsVO);
+
+								}
+								assetDocumentsBusinessDefinitionsVOMaps.put(admId,
+										assetDocumentsBusinessDefinitionsVOMap);
+							}
+						}
+					}
+
+					searchUniverseStockMap.forEach((usmId, searchResultData) -> {
+
+						List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerList = new ArrayList<UniverseStockDetailsByBrokerVO>();
+						List<AssetDocumentVO> assetDocumentList = new ArrayList<AssetDocumentVO>();
+
+						if (universeStockDetailsByBrokerVOMaps.containsKey(usmId)) {
+
+							universeStockDetailsByBrokerVOMaps.get(usmId)
+									.forEach((bkrDtlId, universeStockDetailsByBrokerVO) -> {
+										universeStockDetailsByBrokerList.add(universeStockDetailsByBrokerVO);
+									});
+
+							Map<BigDecimal, AssetDocumentVO> assetDocumentVOMap = assetDocumentVOMaps.get(usmId);
+
+							if (assetDocumentVOMap != null && assetDocumentVOMap.size() > 0) {
+								assetDocumentVOMap.forEach((admId, assetDocumentVO) -> {
+
+									List<AssetDocumentsBusinessDefinitionsVO> documentTypes = new ArrayList<AssetDocumentsBusinessDefinitionsVO>();
+									assetDocumentsBusinessDefinitionsVOMaps.get(admId)
+											.forEach((adbdId, assetDocumentsBusinessDefinitionsVO) -> {
+
+												documentTypes.add(assetDocumentsBusinessDefinitionsVO);
+											});
+
+									assetDocumentVO.setDocumentTypes(documentTypes);
+									assetDocumentList.add(assetDocumentVO);
+								});
+							}
+							searchResultData.setUniverseStockDetailsByBroker(universeStockDetailsByBrokerList);
+							searchResultData.setDocuments(assetDocumentList);
+						}
+						searchResultDataList.add(searchResultData);
+					});
+					return searchResultDataList;
+				}
+			});
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			log.fatal("Error occurred in getMandateSearchInResponse: ", ex);
+			throw ex;
+		}
+
+		log.debug("Leaving");
+		return searchResultDataList;
+	}
+
+	private AssetDocumentsBusinessDefinitionsVO getAssetDocumentsBusinessDefinitionsVO(ResultSet rs)
+			throws SQLException {
+		AssetDocumentsBusinessDefinitionsVO assetDocumentsBusinessDefinitionsVO = new AssetDocumentsBusinessDefinitionsVO();
+		try {
+			assetDocumentsBusinessDefinitionsVO
+					.setBusinessDefinitionId(rs.getBigDecimal("document_business_definition_id"));
+			assetDocumentsBusinessDefinitionsVO
+					.setBusinessDefinitionConfigName(rs.getString("document_business_definition_config_name"));
+
+		} catch (Exception ex) {
+			log.fatal("Error in getAssetDocumentsBusinessDefinitionsVO");
+		}
+		return assetDocumentsBusinessDefinitionsVO;
+	}
+
+	@Override
+	public BigDecimal addAssetDocumentsForUSM(String tenantCode, DocumentVO documentVO) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		BigDecimal primaryKey;
+		int count = 0;
+		try {
+
+//			count = updateDocumentsExternalReferenceNumber(tenantCode, documentVO);
+			if (count == 0) {
+				jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+				KeyHolder keyHolder = new GeneratedKeyHolder();
+				int recordsInserted = jdbcTemplate.update(new PreparedStatementCreator() {
+					public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+						PreparedStatement ps = connection.prepareStatement(INSERT_ASSET_DOC_MAP, new String[] { "id" });
+						int j = 0;
+						ps.setString(++j, documentVO.getIsin());
+						ps.setBigDecimal(++j, documentVO.getCurrencyId());
+						ps.setString(++j, documentVO.getCurrencyConfigName());
+						ps.setBigDecimal(++j, new BigDecimal(2671));
+						ps.setString(++j, "ACM1937");
+						ps.setString(++j, documentVO.getIsin());
+						ps.setString(++j, documentVO.getCurrencyConfigName());
+						ps.setString(++j, documentVO.getInternalReferenceNumber());
+						ps.setString(++j, documentVO.getExternalReferenceNumber());
+						ps.setInt(++j, 1);
+						ps.setString(++j, "Klay");
+						ps.setTimestamp(++j, new Timestamp(new Date().getTime()));
+						ps.setInt(++j, documentVO.getDocumentReferenceTypeAppId());
+						ps.setString(++j, documentVO.getDocumentReferenceTypeAppConfigName());
+						return ps;
+					}
+				}, keyHolder);
+				primaryKey = (BigDecimal) keyHolder.getKey();
+			} else {
+				primaryKey = documentVO.getId();
+			}
+		}
+
+		catch (Exception e) {
+			log.fatal("Exception in addAssetDocumentsForUSM: ", e);
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return primaryKey;
+	}
+
+	@Override
+	public void addAssetDocumentsForUSMBusinessDefination(String tenantCode, DocumentVO documentVO,
+			BigDecimal primaryKey, AccessDetailVO accessDetailVO) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		int count = 0;
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			count = jdbcTemplate.update(DELETE_ASSET_DOCUMENTS_BUSINESS_DEFINATION, primaryKey);
+
+			jdbcTemplate.batchUpdate(assetDocumentsBusinessDefinitions, new BatchPreparedStatementSetter() {
+				@Override
+				public void setValues(PreparedStatement ps, int i) throws SQLException {
+					int j = 0;
+					ps.setBigDecimal(++j, primaryKey);
+					ps.setBigDecimal(++j, documentVO.getDocumentTypes().get(i).getBusinessDefinitionAppId());
+					ps.setString(++j, documentVO.getDocumentTypes().get(i).getBusinessDefinitionAppConfigName());
+					ps.setString(++j, accessDetailVO.getUsername());
+					ps.setString(++j, "SYSTEM");
+				}
+
+				@Override
+				public int getBatchSize() {
+					return documentVO.getDocumentTypes().size();
+				}
+			});
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.fatal("Exception in addAssetDocumentsForUSM: ", e);
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@Override
+	public Map<String, String> getAssetDocumentMapInternalExternalRefNbr(String tenantCode, DocumentVO documentVO,
+			UniverseStockVO universeStockVO) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		Map<String, String> documentMap = new HashMap<>();
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			Object[] obj = { universeStockVO.getIsin(), universeStockVO.getCurrencyConfigName(),
+					documentVO.getDocumentReferenceTypeAppConfigName() };
+			jdbcTemplate.query(GET_INT_EXT_REFNBR_DOCUMENTS_MAP_UPDATE, obj,
+					new ResultSetExtractor<Map<String, String>>() {
+
+						@Override
+						public Map<String, String> extractData(ResultSet rs) throws SQLException, DataAccessException {
+							while (rs.next()) {
+								documentMap.put("document_internal_reference_nbr",
+										rs.getString("document_internal_reference_nbr"));
+								documentMap.put("document_external_reference_nbr",
+										rs.getString("document_external_reference_nbr"));
+							}
+							return documentMap;
+						}
+					});
+		} catch (Exception e) {
+			log.fatal("Error while getAssetDocumentMapInternalExternalRefNbr" + e);
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return documentMap;
+	}
+
+	@Override
+	public void updateDocumentsExternalReferenceNumber(String tenantCode, List<DocumentVO> documentVOs)
+			throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			jdbcTemplate.batchUpdate(DOCUMENTS_MAP_UPDATE, new BatchPreparedStatementSetter() {
+				@Override
+				public void setValues(PreparedStatement ps, int i) throws SQLException {
+					ps.setString(1, documentVOs.get(i).getExternalReferenceNumber());
+					ps.setString(2, "SYSTEM");
+					ps.setString(3, documentVOs.get(i).getInternalReferenceNumber());
+				}
+
+				@Override
+				public int getBatchSize() {
+					return documentVOs.size();
+				}
+			});
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.fatal("Error while updateDocumentsExternalReferenceNumber" + e);
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	private SearchResultDataVO setSearchResultDataVO(ResultSet rs) throws SQLException {
+
+		SearchResultDataVO searchResultDataObj = new SearchResultDataVO();
+		try {
+
+			searchResultDataObj.setIsin(rs.getString("ISIN"));
+			searchResultDataObj.setCompany(rs.getString("Name"));
+			searchResultDataObj.setCurrencyAppConfigName(rs.getString("Currency"));
+			searchResultDataObj.setMarketCap(rs.getBigDecimal("market_cap_syscurr_amt"));
+			searchResultDataObj.setPrice(rs.getBigDecimal("price_amt"));
+			searchResultDataObj.setRegion(rs.getString("region_config_name"));
+			searchResultDataObj.setCountry(rs.getString("country_config_name"));
+			searchResultDataObj.setSector(rs.getString("gics_sector_config_name"));
+
+			searchResultDataObj
+					.setSuperSelectModelAttributeConfigName(rs.getString("super_select_model_attribute_config_name"));
+			searchResultDataObj.setSignalModelAttributeConfigName(rs.getString("signal_model_attribute_config_name"));
+			searchResultDataObj
+					.setKlayOfferingModelAttributeConfigName(rs.getString("klay_offering_model_attribute_config_name"));
+			searchResultDataObj.setOverSold(rs.getInt("over_sold"));
+
+			searchResultDataObj.setAnalystCount(rs.getInt("analyst_cnt"));
+			searchResultDataObj.setBuyAnalystCount(rs.getInt("buy_ratings"));
+			searchResultDataObj.setSellAnalystCount(rs.getInt("sell_ratings"));
+			searchResultDataObj.setAveragePriceTarget(rs.getBigDecimal("target_price_syscurr_amt"));
+			searchResultDataObj.setUpsideToPriceTarget(rs.getBigDecimal("upside_to_price_target"));
+
+			// performance
+			searchResultDataObj.setPriceChange1DPerc(rs.getDouble("price_change_1d_perc"));
+			searchResultDataObj.setPriceChange1WPerc(rs.getDouble("price_change_1w_perc"));
+			searchResultDataObj.setPriceChange1MPerc(rs.getDouble("price_change_1m_perc"));
+			searchResultDataObj.setPriceChange3MPerc(rs.getDouble("price_change_3m_perc"));
+			searchResultDataObj.setPriceChange6MPerc(rs.getDouble("price_change_6m_perc"));
+			searchResultDataObj.setPriceChange1YPerc(rs.getDouble("price_change_1y_perc"));
+			searchResultDataObj.setPriceChange2YPerc(rs.getDouble("price_change_2y_perc"));
+			searchResultDataObj.setPriceChange3YPerc(rs.getDouble("price_change_3y_perc"));
+			searchResultDataObj.setPriceChange5YPerc(rs.getDouble("price_change_5y_perc"));
+
+			// Financial metrics
+			searchResultDataObj.setTrailingPriceToBookNbr(rs.getBigDecimal("trailing_price_to_book_nbr"));
+			searchResultDataObj.setForwardPE12MNbr(rs.getBigDecimal("forward_price_to_earning_12m_nbr"));
+			searchResultDataObj.setForwardROE12MPerc(rs.getDouble("forward_roe_12m_perc"));
+			searchResultDataObj.setForwardEVToEbitda12MNbr(rs.getBigDecimal("forward_ev_to_ebitda_12m_nbr"));
+			searchResultDataObj.setForwardDivYield12MPerc(rs.getDouble("forward_dividend_yield_12m_perc"));
+			searchResultDataObj.setVolatility1YPer(rs.getDouble("forward_dividend_yield_12m_perc"));
+
+			// Technicals
+			searchResultDataObj.setRelativeStrengthIndex14DNbr(rs.getBigDecimal("relative_strength_index_14d_nbr"));
+			searchResultDataObj.setBollBonds20DNbr(rs.getBigDecimal("boll_bands_20d_nbr"));
+
+		} catch (Exception ex) {
+			log.fatal("Error in setSearchResultDataVO: ", ex);
+			throw ex;
+		}
+
+		return searchResultDataObj;
+	}
+
+	public UniverseStockDetailsByBrokerVO getUniverseStockDetailsByBrokerVO(ResultSet rs) throws SQLException {
+
+		UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO = new UniverseStockDetailsByBrokerVO();
+		try {
+
+			universeStockDetailsByBrokerVO.setBrokerAppId(rs.getBigDecimal("broker_app_id"));
+			universeStockDetailsByBrokerVO.setBrokerAppConfigName(rs.getString("broker_app_config_name"));
+
+			universeStockDetailsByBrokerVO.setRatingAppId(rs.getBigDecimal("rating_id"));
+			universeStockDetailsByBrokerVO.setRatingAppConfigName(rs.getString("rating_config_name"));
+
+			universeStockDetailsByBrokerVO.setBrokerRatingId(rs.getBigDecimal("broker_rating_id"));
+			universeStockDetailsByBrokerVO.setBrokerRatingConfigName(rs.getString("broker_rating_config_name"));
+
+			universeStockDetailsByBrokerVO.setTargetPriceAmt(rs.getBigDecimal("target_price_amt"));
+			universeStockDetailsByBrokerVO.setAsRatedOrNot(rs.getString("asratedornot"));
+			universeStockDetailsByBrokerVO.setEffFromDate(rs.getDate("eff_from_date"));
+			universeStockDetailsByBrokerVO.setLast_rating_date(rs.getDate("last_rating_date"));
+			universeStockDetailsByBrokerVO.setLast_rating_config_name(rs.getString("last_rating_config_name"));
+
+		} catch (Exception ex) {
+			log.fatal("Error in getUniverseStockDetailsByBrokerVO: ", ex);
+			throw ex;
+		}
+
+		return universeStockDetailsByBrokerVO;
+
+	}
+
+	private AssetDocumentVO getAssetDocumentVO(ResultSet rs) throws SQLException {
+		AssetDocumentVO assetDocumentVO = new AssetDocumentVO();
+		try {
+
+			assetDocumentVO.setId(rs.getBigDecimal("ADM_Id"));
+			assetDocumentVO.setLevelId(rs.getBigDecimal("level_id"));
+			assetDocumentVO.setLevelConfigName(rs.getString("level_config_name"));
+			assetDocumentVO.setLevelReferenceId(rs.getBigDecimal("level_reference_id"));
+			assetDocumentVO.setInternalReferenceNumber(rs.getString("document_internal_reference_nbr"));
+			assetDocumentVO.setExternalReferenceNumber(rs.getString("document_external_reference_nbr"));
+			assetDocumentVO.setDocumentReferenceTypeId(rs.getBigDecimal("document_type_id"));
+			assetDocumentVO.setDocumentReferenceTypeConfigName(rs.getString("document_type_config_name"));
+			assetDocumentVO.setIsActive(rs.getInt("Is_active"));
+
+		} catch (Exception ex) {
+			log.fatal("Error in getAssetDocumentVO: ", ex);
+			throw ex;
+		}
+
+		return assetDocumentVO;
+	}
+
+	@Override
+	public List<UniverseStockVO> getMissingUniverseStockVOInRequest(String tenantCode,
+			List<UniverseStockDetailsByBrokerVO> uniqueVOs) throws Exception {
+		List<UniverseStockVO> missingUniverseStockVO = null;
+		try {
+
+			StringBuilder isinCurrClause = new StringBuilder();
+			MapSqlParameterSource map = new MapSqlParameterSource();
+			int size = uniqueVOs.size() - 1;
+			for (int i = 0; i < size; i++) {
+				isinCurrClause.append(
+						"(isin = :isin" + i + " AND currency_config_name = :currency_config_name" + i + ") OR ");
+
+				map.addValue("isin" + i, uniqueVOs.get(i).getIsin());
+				map.addValue("currency_config_name" + i, uniqueVOs.get(i).getCurrencyAppConfigName());
+			}
+
+			isinCurrClause
+					.append("(isin = :isin" + size + " AND currency_config_name = :currency_config_name" + size + ")");
+
+			map.addValue("isin" + size, uniqueVOs.get(size).getIsin());
+			map.addValue("currency_config_name" + size, uniqueVOs.get(size).getCurrencyAppConfigName());
+
+			namedJdbcTemplate = dataSourceManager.refreshCustomNamedJdbc(tenantCode, null);
+
+			StringBuilder getMissingUniverseStock = new StringBuilder(GET_MISSING_UNIVERSE_STOCK)
+					.append(isinCurrClause);
+
+			missingUniverseStockVO = namedJdbcTemplate.query(getMissingUniverseStock.toString(), map,
+					new ResultSetExtractor<List<UniverseStockVO>>() {
+
+						List<UniverseStockVO> missingUniverseStockVO = new ArrayList<UniverseStockVO>();
+
+						@Override
+						public List<UniverseStockVO> extractData(ResultSet rs)
+								throws SQLException, DataAccessException {
+
+							while (rs.next()) {
+								UniverseStockVO universeStockVO = new UniverseStockVO();
+
+								universeStockVO.setIsin(rs.getString("isin"));
+								universeStockVO.setCurrencyId(rs.getBigDecimal("currency_id"));
+								universeStockVO.setCurrencyConfigName(rs.getString("currency_config_name"));
+
+								missingUniverseStockVO.add(universeStockVO);
+							}
+
+							return missingUniverseStockVO;
+						}
+					});
+
+		} catch (Exception ex) {
+			log.fatal("Error in getMissingUniverseStockVOInRequest: ", ex);
+			throw ex;
+		}
+		return missingUniverseStockVO;
+	}
+
+	@Override
+	public HashMap<String, UniverseStockInitialRated> updateUniverseStockBrokerInitialRated(
+			HashMap<String, UniverseStockInitialRated> universeStockInitialRatedMap, String tenantCode)
+			throws Exception {
+		List<UniverseStockInitialRated> updateUniverseStockInitialRatedList = new ArrayList<UniverseStockInitialRated>();
+		for (UniverseStockInitialRated universeStockInitialRatedVo : universeStockInitialRatedMap.values()) {
+			if (universeStockInitialRatedVo.isUpdatedFlag()) {
+				updateUniverseStockInitialRatedList.add(universeStockInitialRatedVo);
+			}
+
+		}
+		jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+		jdbcTemplate.batchUpdate(UPDATE_UNIVERSE_STOCK_BROKER_INITIAL_RATED, new BatchPreparedStatementSetter() {
+
+			@Override
+			public void setValues(PreparedStatement ps, int i) throws SQLException {
+				try {
+					ps.setTimestamp(1, AssetUtil
+							.stringToTimestamp(updateUniverseStockInitialRatedList.get(i).getLast_rating_date()));
+				} catch (SQLException e) {
+					e.printStackTrace();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				ps.setInt(2, updateUniverseStockInitialRatedList.get(i).getId());
+			}
+
+			@Override
+			public int getBatchSize() {
+				return updateUniverseStockInitialRatedList.size();
+			}
+		});
+		return null;
+	}
+
+}

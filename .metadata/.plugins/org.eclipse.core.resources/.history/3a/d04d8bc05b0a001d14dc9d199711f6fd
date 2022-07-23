@@ -1,0 +1,125 @@
+package com.klayx.asset.rowmapper;
+
+import com.klayx.asset.model.ConsolidationDetails;
+import com.klayx.asset.model.ConsolidationVO;
+import com.klayx.asset.model.PreferredAssetGroupVO;
+import com.klayx.asset.model.PreferredAssetVO;
+import org.springframework.jdbc.core.RowMapper;
+
+import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Date;
+
+public class PrefeerredAssetInfoRowMapper implements RowMapper<PreferredAssetGroupVO>
+{
+    @Override
+    public PreferredAssetGroupVO mapRow(ResultSet rs, int rowNum) throws SQLException
+    {
+
+        //--------- for debugging---------------
+        /*
+
+        List<JSONObject> data=new ArrayList<>();
+        ResultSet holder=rs;
+
+        ResultSetMetaData metadata = rs.getMetaData();
+        int columnCount = metadata.getColumnCount();
+        List<String> columnList=new ArrayList<>();
+
+        String outputCol="";
+        for(int j=1;j<=columnCount;j++)
+        {
+            columnList.add(metadata.getColumnName(j));
+            outputCol=outputCol+" , "+columnList.get(j-1);
+
+        }
+         */
+        Date eff_to_date=rs.getDate("eff_to_date");
+       
+        
+       
+
+        //----------------------------for_debugging------------------------------------
+
+        // String instrument_type=rs.getString("instrument_type");
+        //-----------------
+
+        // child fillups
+        PreferredAssetVO preferredAssetVO=new PreferredAssetVO();
+        preferredAssetVO.setId(rs.getBigDecimal("id"));
+        preferredAssetVO.setPreferredAssetsGroupId(rs.getBigDecimal("preferred_assets_group_id"));
+        preferredAssetVO.setIsin(rs.getString("isin"));
+        preferredAssetVO.setCurrencyAppId(rs.getBigDecimal("currency_id"));
+        preferredAssetVO.setCurrencyAppConfigName(rs.getString("currency_config_name"));
+        preferredAssetVO.setMin(rs.getBigDecimal("min_perc"));
+        preferredAssetVO.setMinimumFlatAmt(rs.getBigDecimal("min_flat_amt"));
+        preferredAssetVO.setRecommendedPerc(rs.getBigDecimal("recommended_perc"));
+        preferredAssetVO.setMaxPerc(rs.getBigDecimal("max_perc"));
+        preferredAssetVO.setMaximumFlatAmount(rs.getBigDecimal("max_flat_amt"));
+        preferredAssetVO.setAllocationOrder(rs.getInt("allocation_order"));
+        preferredAssetVO.setInstrumentType(null);// since it was dropped down so yeah for debugging we are taking null and yeah for later on it gonna removed
+        preferredAssetVO.setAllocationPriority(rs.getInt("allocation_priority"));
+        preferredAssetVO.setSecurityRating(rs.getString("Security_Rating"));
+
+        //#addons
+        preferredAssetVO.setInstrumentTypeId(rs.getBigDecimal("instrument_type_id"));
+        preferredAssetVO.setInstrumentTypeAppConfigName(rs.getString("instrument_type_config_name"));
+        preferredAssetVO.setPreferredAssetsTypeId(rs.getBigDecimal("preferred_assets_type_id"));
+        preferredAssetVO.setPreferredAssetsTypeConfigName(rs.getString("preferred_assets_type_config_name"));
+        preferredAssetVO.setConsolidationCode(rs.getString("asset_consolidation_code"));
+
+
+  
+        // Since child is an parent now so yeah only one child has 1 child since
+        // data nature is like that such an way that data extraction is  1-> 1-> 1 based on recurring
+        //  data dedup so yeah on formatting we gonna remove it ----------
+        ArrayList<ConsolidationDetails> consolidationDetailsLi =new ArrayList<>();
+        ConsolidationDetails consolidationDetails =new ConsolidationDetails();
+        consolidationDetails.setCategoryId(rs.getBigDecimal("category_id"));
+        consolidationDetails.setCategoryConfigName(rs.getString("category_config_name"));
+        consolidationDetails.setSubcategory1Id(rs.getBigDecimal("subcategory_1_id"));
+        consolidationDetails.setSubcategory1ConfigName(rs.getString("subcategory_1_config_name"));
+        consolidationDetails.setSubcategory2Id(rs.getBigDecimal("subcategory_2_id"));
+        consolidationDetails.setSubcategory2ConfigName(rs.getString("subcategory_2_config_name"));
+        consolidationDetails.setSubcategory3Id(rs.getBigDecimal("subcategory_3_id"));
+        consolidationDetails.setSubcategory3ConfigName(rs.getString("subcategory_3_config_name"));
+        consolidationDetails.setId(rs.getBigDecimal("id_asset_consolidation"));
+
+        consolidationDetailsLi.add(consolidationDetails);
+
+
+        ConsolidationVO consolidationVO=new ConsolidationVO();
+        consolidationVO.setId(rs.getBigDecimal("asset_consolidation_master_id_1"));
+        consolidationVO.setConsolidationCode(rs.getString("consolidation_code"));
+        consolidationVO.setExpetedReturnPerc(rs.getBigDecimal("expeted_return_perc"));
+        consolidationVO.setExpectedIncomePerc(rs.getBigDecimal("expected_income_perc"));
+        consolidationVO.setLtvPerc(rs.getBigDecimal("ltv_perc"));
+        consolidationVO.setConsolidationName(rs.getString("consolidation_name"));
+        
+        consolidationVO.setConsolidationDetails(consolidationDetailsLi);
+       
+        preferredAssetVO.setConsolidationVO(consolidationVO);
+      
+
+
+        // child.setConsolidationDetails(details);
+        // -----------
+
+        // parent fillups with child
+        PreferredAssetGroupVO preferredAssetGroupVO=new PreferredAssetGroupVO();
+        preferredAssetGroupVO.setId(rs.getBigDecimal("id_Preferred_Assets_Group"));
+        preferredAssetGroupVO.setGroupCode(rs.getString("pa_group_code"));
+        preferredAssetGroupVO.setGroupTypeId(rs.getBigDecimal("pa_group_type_id"));
+        preferredAssetGroupVO.setGroupTypeConfigName(rs.getString("pa_group_type_config_name"));
+        preferredAssetGroupVO.setIsActive(rs.getInt("is_active"));
+        preferredAssetGroupVO.setPreferredAssets(new ArrayList<>());
+        preferredAssetGroupVO.setReferenceDate(rs.getDate("eff_from_date"));
+        preferredAssetGroupVO.getPreferredAssets().add(preferredAssetVO);
+       
+        
+        // for temp
+        return preferredAssetGroupVO;
+    }
+}

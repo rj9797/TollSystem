@@ -1,0 +1,1271 @@
+package com.klayx.asset.common;
+
+import java.io.InputStream;
+import java.lang.reflect.Type;
+import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.sql.Timestamp;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.methods.PostMethod;
+import org.apache.commons.httpclient.methods.StringRequestEntity;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.everit.json.schema.Schema;
+import org.everit.json.schema.ValidationException;
+import org.everit.json.schema.loader.SchemaLoader;
+import org.json.JSONObject;
+import org.json.JSONTokener;
+import org.springframework.context.support.ResourceBundleMessageSource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.reflect.TypeToken;
+import com.klayx.asset.model.AccessDetailVO;
+import com.klayx.asset.model.AssetAddRequestVO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.ExchangeRateVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.ResponseVO;
+
+public class AssetUtil {
+
+	private static final Logger log = LogManager.getLogger(AssetUtil.class);
+
+	public static String generateUuid() {
+		return UUID.randomUUID().toString();
+	}
+
+	private static String dateFormatteryyyymmdd = "yyyy-MM-dd HH:mm:ss";
+
+	/*
+	 * This method used to get Response
+	 * 
+	 * @param successVOs, failedVOs
+	 * 
+	 * @return responseString
+	 * 
+	 */
+	public static <S, F> String getResponse(List<S> successVOs, List<FailedVO<F>> failedVOs) throws Exception {
+
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		String response = null;
+		try {
+			ResponseVO<S, F> responseVO = new ResponseVO<>();
+
+			responseVO.setSuccess(successVOs == null ? null : successVOs.size() > 0 ? successVOs : null);
+
+			responseVO.setFailed(failedVOs == null ? null : failedVOs.size() > 0 ? failedVOs : null);
+			responseVO.setTotalRecords(
+					(successVOs == null ? 0 : successVOs.size()) + (failedVOs == null ? 0 : failedVOs.size()));
+			responseVO.setTotalPaginationRecords(successVOs == null ? 0 : successVOs.size());
+			responseVO.setTotalfailedRecords(failedVOs == null ? 0 : failedVOs.size());
+			response = AssetUtil.fromObjectToJSON(responseVO);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.fatal("Error while getResponse" + e.getMessage());
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return response;
+
+	}
+
+	/*
+	 * This method used to convert jsonString to Specified VO
+	 * 
+	 * @param String jsonString, Class<T> classType
+	 * 
+	 * @return T
+	 * 
+	 */
+	public static <T> T fromJSonToObject(String jsonString, Class<T> classType) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			if (null != jsonString) {
+				try {
+					Gson gson = new GsonBuilder().setDateFormat(AssetConstants.DATE_FORMAT).create();
+					return gson.fromJson(jsonString, classType);
+				} catch (NoSuchMethodError e) {
+					e.printStackTrace();
+					log.fatal("Error while converting to Object" + e);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.fatal("Error while converting to List" + e.getMessage());
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return null;
+
+	}
+
+	public static Object convertToObject(final Object jsonStr, final Class<?> classObject) {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		Object object = null;
+		try {
+			if (null != jsonStr) {
+				try {
+
+					Gson gson = new GsonBuilder().setDateFormat(AssetConstants.DATE_FORMAT).create();
+					object = gson.fromJson((String) jsonStr, classObject);
+				} catch (NoSuchMethodError e) {
+
+					log.fatal("Error while converting to object");
+				}
+			}
+		} catch (Exception e) {
+			log.fatal("Error while converting to object");
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		return object;
+	}
+
+	/*
+	 * This method used to convert object to jsonString
+	 * 
+	 * @param object
+	 * 
+	 * @return String
+	 * 
+	 */
+	public static String fromObjectToJSON(Object object) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			if (object != null) {
+				try {
+					Gson gson = new GsonBuilder().setDateFormat(AssetConstants.DATE_FORMAT).setPrettyPrinting()
+							.serializeNulls().create();
+					return gson.toJson(object);
+				} catch (NoSuchMethodError e) {
+					e.printStackTrace();
+					log.fatal("Error while converting to JSON String" + e);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.fatal("Error while fromObjectToJSON" + e.getMessage());
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return null;
+
+	}
+
+	public static List<AssetVO> convertToListObjects(final Object jsonStr, final Class<?> classObject) {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		Object object = null;
+		List<AssetVO> assetVOs = null;
+
+		try {
+			if (null != jsonStr) {
+				try {
+					Gson gson = new GsonBuilder().setDateFormat("yyyy-MM-dd'T'HH:mm:ss").create();
+					Type listType = new TypeToken<List<AssetVO>>() {
+					}.getType();
+
+					assetVOs = gson.fromJson((String) jsonStr, listType);
+
+				} catch (NoSuchMethodError e) {
+
+					log.fatal("Error while converting to object");
+				}
+			}
+		} catch (Exception e) {
+			log.fatal("Error while converting to object");
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		return assetVOs;
+	}
+
+	public static <T> List<T> fromJSonList(String jsonString, Class<T> classType) {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			if (null != jsonString) {
+				try {
+					Gson gson = new GsonBuilder().setDateFormat(AssetConstants.DATE_FORMAT).create();
+					Type collectionType = TypeToken.getParameterized(List.class, classType).getType();
+					return gson.fromJson(jsonString, collectionType);
+				} catch (NoSuchMethodError e) {
+					e.printStackTrace();
+					log.fatal("Error while converting to List" + e);
+				} catch (Exception ex) {
+					ex.printStackTrace();
+				}
+				return null;
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.fatal("Error while converting to List" + e.getMessage());
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return null;
+
+	}
+
+	public static java.sql.Date DateFormater(java.util.Date date) {
+		try {
+			if (date != null) {
+				return new java.sql.Date(date.getTime());// yyyy-MM-dd
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return null;
+	}
+
+	public static int DateComparision(Date date1, Date date2) {
+		int intValue=-99;
+		try {
+			// Create SimpleDateFormat object
+			SimpleDateFormat sdfo = new SimpleDateFormat("yyyy-MM-dd");
+
+			// Get the two dates to be compared
+			Date d1 = sdfo.parse(date1.toString());
+			Date d2 = sdfo.parse(date2.toString());
+
+			// Print the dates
+			intValue=d1.compareTo(d2);
+			// Compare the dates using compareTo()
+			if (d1.compareTo(d2) > 0) {
+				// When Date d1 > Date d2
+			}
+
+			else if (d1.compareTo(d2) < 0) {
+				// When Date d1 < Date d2
+			}
+
+			else if (d1.compareTo(d2) == 0) {
+				// When Date d1 = Date d2
+			}
+			
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return intValue;
+	}
+
+	public static Timestamp stringToTimestamp(Date date) throws Exception {
+		try {
+			Timestamp timestamp = null;
+			try {
+				if(date!=null) {
+					SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss.SSS");
+					Date parsedDate = dateFormat.parse(dateFormat.format(date));
+					timestamp = new java.sql.Timestamp(parsedDate.getTime());
+				}
+
+			} catch (ParseException e) {
+				log.fatal("Error in stringToTimestamp: ", e);
+				// throw e;
+			}
+			return timestamp;
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			throw e;
+		}
+	}
+
+	public static Timestamp stringToTimestamp(String dateStr) throws Exception {
+		try {
+			SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss.SSS");
+			Date parsedDate = dateFormat.parse(dateStr);
+			Timestamp timestamp = new java.sql.Timestamp(parsedDate.getTime());
+			return timestamp;
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			throw e;
+		}
+	}
+
+	public static String getConstructedQuery(String columnName, String comparatorOperator, String logicalOperator,
+			String dataType) {
+
+		StringBuilder constructedQuery = new StringBuilder();
+
+		HashMap<String, String> columnHashMap = new HashMap<String, String>();
+
+		// CommonSearch
+		columnHashMap.put("ISIN", "ISIN");
+		columnHashMap.put("NAME", "NAME");
+		columnHashMap.put("ASSET_ID_1", "ASSET_ID_1");
+		columnHashMap.put("ASSET_ID_2", "ASSET_ID_2");
+		columnHashMap.put("ASSET_ID_3", "ASSET_ID_3");
+		columnHashMap.put("ASSET_ID_4", "ASSET_ID_4");
+		columnHashMap.put("ASSET_ID_5", "ASSET_ID_5");
+
+		// AssetMoreCriteria
+		columnHashMap.put("CATEGORY", "CATEGORY_CONFIG_NAME");
+		columnHashMap.put("SUBCATEGORY_1", "SUBCATEGORY_1_CONFIG_NAME");
+		columnHashMap.put("SUBCATEGORY_2", "SUBCATEGORY_2_CONFIG_NAME");
+		columnHashMap.put("SUBCATEGORY_3", "SUBCATEGORY_3_CONFIG_NAME");
+		columnHashMap.put("COUNTRY", "COUNTRY_CONFIG_NAME");
+		
+		//Fields related to searchUniverseStock
+		columnHashMap.put("ASOFDATE", "usdbb.eff_from_date");
+		columnHashMap.put("COMPARERATINGFILTER", "usdbb.eff_from_date");
+		columnHashMap.put("COUNTRYCONFIGNAME", "country_config_name");
+		columnHashMap.put("REGIONGROUPCONFIGNAME", "regionGroupConfigName");
+		columnHashMap.put("REGIONCONFIGNAME", "region_config_name");
+		columnHashMap.put("GICSSECTORCONFIGNAME", "gics_sector_config_name");
+		columnHashMap.put("CURRENCYCONFIGNAME", "currency");
+
+		columnHashMap.put("TECHNICALOVERSOLD", "over_sold");
+		columnHashMap.put("KLAYRECOMMENDED", "klay_offering_model_attribute_config_name");
+
+		columnHashMap.put("SUPERSELECTMODELSCONFIGNAME", "super_select_model_attribute_config_name");
+		columnHashMap.put("SIGNALMODELSCONFIGNAME", "signal_model_attribute_config_name");
+		
+		columnHashMap.put("MARKETCAPRANGE", "market_cap_syscurr_amt");
+		columnHashMap.put("MINIMUMUPSIDEPOTENTIAL", "upside_to_price_target");
+		columnHashMap.put("NUMBEROFANALYSTS", "analyst_cnt");
+		columnHashMap.put("PERCENTAGEBUYS", "buy_ratings");
+		columnHashMap.put("PERCENTAGESELLS", "sell_ratings");
+		
+		columnHashMap.put("ONEDAY", "price_change_1d_perc");
+		columnHashMap.put("ONEWEEK", "price_change_1w_perc");
+		columnHashMap.put("ONEMONTH", "price_change_1m_perc");
+		columnHashMap.put("THREEMONTH", "price_change_3m_perc");
+		columnHashMap.put("ONEYEAR", "price_change_1y_perc");
+		columnHashMap.put("TWOYEAR", "price_change_2y_perc");
+		columnHashMap.put("THREEYEAR", "price_change_3y_perc");
+		
+		columnHashMap.put("SIXMONTH", "price_change_6m_perc");
+		columnHashMap.put("FIVEYEAR", "price_change_5y_perc");
+		
+		
+		columnHashMap.put("TRAILPB", "trailing_price_to_book_nbr");
+		columnHashMap.put("TMFWDPE", "forward_price_to_earning_12m_nbr");
+		
+		columnHashMap.put("FDAYRSI", "relative_strength_index_14d_nbr");
+		columnHashMap.put("BOLL", "boll_bands_20d_nbr");
+		
+		columnHashMap.put("TMFWDROE", "forward_roe_12m_perc");
+		columnHashMap.put("TMFWDEVEBITDA", "forward_ev_to_ebitda_12m_nbr");
+		columnHashMap.put("TMFWDDIVYLD", "forward_dividend_yield_12m_perc");
+		columnHashMap.put("OYVOL", "volatility_1y_perc");
+		
+//		columnHashMap.put("BUYRECOMBYBROKERS", "gicsSectorConfigName");
+//		columnHashMap.put("NEURECOMBYBROKERS", "gicsSectorConfigName");
+//		columnHashMap.put("SELLRECOMBYBROKERS", "regionConfigName");
+//		
+//		columnHashMap.put("NEWCOVERAGEBYXBROKERS", "gicsSectorConfigName");
+//		columnHashMap.put("NEWCOVERAGEBUYWITHXBROKERS", "gicsSectorConfigName");
+//		columnHashMap.put("NEWCOVERAGESELLWITHXBROKERS", "regionConfigName");
+//		columnHashMap.put("NEWCOVERAGENEUTRALWITHXBROKERS", "gicsSectorConfigName");
+//		
+//		columnHashMap.put("CHANGEDRATINGBYXBROKERS", "gicsSectorConfigName");
+//		columnHashMap.put("CHANGEDTOBUYWITHXBROKERS", "regionConfigName");
+//		columnHashMap.put("CHANGEDTOSELLWITHXBROKERS", "gicsSectorConfigName");
+//		columnHashMap.put("CHANGEDTONEUTRALWITHXBROKERS", "gicsSectorConfigName");
+//		columnHashMap.put("CHANGEDTOSUSPENDEDWITHXBROKERS", "regionConfigName");
+//		
+//		columnHashMap.put("SAMERATINGBYXBROKERS", "gicsSectorConfigName");
+//		columnHashMap.put("SAMERATINGBUYWITHXBROKERS", "gicsSectorConfigName");
+//		columnHashMap.put("SAMERATINGSELLWITHXBROKERS", "regionConfigName");
+//		columnHashMap.put("SAMERATINGNEUTRALWITHXBROKERS", "gicsSectorConfigName");
+//		columnHashMap.put("SAMERATINGSUSPENDEDWITHXBROKERS", "gicsSectorConfigName");
+//		columnHashMap.put("SAMERATINGNEVERRATEDWITHXBROKERS", "regionConfigName");
+		
+
+		// TextSearch options
+		HashMap<String, String> textComparatorHashMap = new HashMap<String, String>();
+		textComparatorHashMap.put("StartsWith", " like ");
+		textComparatorHashMap.put("Contains", " like ");
+		textComparatorHashMap.put("Not Contains", " Not like ");
+		textComparatorHashMap.put("EndsWith", " like ");
+		textComparatorHashMap.put("Equals", " = ");
+		textComparatorHashMap.put("Not Equals", " != ");
+
+		// DateSearch
+		HashMap<String, String> dateComparatorHashMap = new HashMap<String, String>();
+		dateComparatorHashMap.put("Equals", " ::date = ");
+		dateComparatorHashMap.put("Date is not", " ::date != ");
+		dateComparatorHashMap.put("Date is before", " ::date < ");
+		dateComparatorHashMap.put("Date is after", " ::date > ");
+		dateComparatorHashMap.put("Less than Or Equals", " ::date <= ");
+		dateComparatorHashMap.put("Greater than Or Equals", " ::date >= ");
+		
+		//NumberSearch
+		HashMap<String, String> numberComparatorHashMap = new HashMap<String, String>();
+		numberComparatorHashMap.put("Equals", " = ");
+		numberComparatorHashMap.put("Not equals", " != ");
+		numberComparatorHashMap.put("Less than", " < ");
+		numberComparatorHashMap.put("Less than Or Equals", " <= ");
+		numberComparatorHashMap.put("Greater than", " > ");
+		numberComparatorHashMap.put("Greater than Or Equals", " >= ");
+		
+		
+		HashMap<String, String> logicalOperatorHashMap = new HashMap<String, String>();
+		logicalOperatorHashMap.put("Match All", " AND ");
+		logicalOperatorHashMap.put("Match Any", " OR ");
+		
+		//constructedQuery.append("am.");
+		 
+		if (dataType != null && dataType.equalsIgnoreCase("String")) {
+			constructedQuery.append(columnHashMap.get(columnName.toUpperCase()))
+					.append(textComparatorHashMap.get(comparatorOperator)).append("?")
+					.append(logicalOperatorHashMap.get(logicalOperator));
+		} else if (dataType != null && dataType.equalsIgnoreCase("Date")) {
+			constructedQuery.append(columnHashMap.get(columnName.toUpperCase()))
+					.append(dateComparatorHashMap.get(comparatorOperator)).append("?")
+					.append(logicalOperatorHashMap.get(logicalOperator));
+		} else if (dataType != null && dataType.equalsIgnoreCase("List")) {
+			constructedQuery.append(columnHashMap.get(columnName.toUpperCase())).append(" = ").append("?")
+					.append(logicalOperatorHashMap.get(logicalOperator));
+		} else if (dataType != null && dataType.equalsIgnoreCase("TokenizeFields")) {
+			constructedQuery.append(columnHashMap.get(columnName.toUpperCase())).append(" ilike ? ").append(" OR ");
+		} else if (dataType != null && dataType.equalsIgnoreCase("Number")) {
+			constructedQuery.append(columnHashMap.get(columnName.toUpperCase())).append(numberComparatorHashMap.get(comparatorOperator)).append(" ? ")
+					.append(logicalOperatorHashMap.get(logicalOperator));
+		}
+		return constructedQuery.toString();
+	}
+
+	public static String createQueryParam(String comparatorOperator, String columnValue, String dataType) {
+
+		HashMap<String, String> textComparatorHashMap = new HashMap<String, String>();
+
+		// TextSearch options
+		textComparatorHashMap.put("StartsWith", " ?% ");
+		textComparatorHashMap.put("Contains", " %?% ");
+		textComparatorHashMap.put("Not Contains", " %?% ");
+		textComparatorHashMap.put("EndsWith", " %? ");
+		textComparatorHashMap.put("Equals", " ? ");
+		textComparatorHashMap.put("Not Equals", " ? ");
+
+		String queryParameter = "";
+
+		if (dataType != null && dataType.equalsIgnoreCase("String")) {
+			queryParameter = textComparatorHashMap.get(comparatorOperator);
+			queryParameter = queryParameter.replace("?", columnValue);
+		} else if (dataType != null && dataType.equalsIgnoreCase("Date")) {
+			queryParameter = columnValue;
+		} else if (dataType != null && dataType.equalsIgnoreCase("TokenizeFields")) {
+			queryParameter = columnValue;
+		} else if (dataType != null && dataType.equalsIgnoreCase("Number")) {
+			queryParameter = columnValue;
+		}
+		return queryParameter;
+	}
+	/*
+	 * CompositeVO Request Filteration
+	 */
+
+	public static HashMap<String, String> filterRequests(AssetRequestVO compositeRequestVO, String jsonString) {
+		List<AssetAddRequestVO> allAddRequestVO = compositeRequestVO.getAssetAddRequest();
+		HashMap<String, String> allRequestVOs = new HashMap<String, String>();
+		JsonArray assetAddRequest = new JsonArray();
+		JsonArray assetReturnAddRequest = new JsonArray();
+		JsonArray assetPriceAddRequest = new JsonArray();
+
+		try {
+			/******************************************************************************************/
+			Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+					.create();
+			JsonElement jsonElement = gson.fromJson(jsonString, JsonElement.class);
+			JsonArray compositeArray = jsonElement.getAsJsonObject().get("assetAddRequest").getAsJsonArray();
+
+			Iterator<JsonElement> iterator1 = compositeArray.iterator();
+
+			while (iterator1.hasNext()) {
+
+				JsonElement assetVO = iterator1.next();
+
+				if (assetVO.getAsJsonObject().get("asset") != null) {
+					JsonObject asset = new JsonObject();
+					asset.add("asset", assetVO.getAsJsonObject().get("asset").getAsJsonObject());
+					assetAddRequest.add(asset);
+				}
+				if (assetVO.getAsJsonObject().get("assetReturns") != null) {
+					JsonObject asset = new JsonObject();
+					asset.add("assetReturns", assetVO.getAsJsonObject().get("assetReturns").getAsJsonObject());
+					assetReturnAddRequest.add(asset);
+
+				}
+				if (assetVO.getAsJsonObject().get("assetPrice") != null) {
+					JsonObject asset = new JsonObject();
+					asset.add("assetPrice", assetVO.getAsJsonObject().get("assetPrice").getAsJsonObject());
+					assetPriceAddRequest.add(asset);
+				}
+			}
+			/******************************************************************************************/
+
+			JsonObject assetRequestObject = new JsonObject();
+			JsonObject assetReturnRequestObject = new JsonObject();
+			JsonObject assetPriceRequestObject = new JsonObject();
+
+			assetRequestObject.addProperty("_tenantId", compositeRequestVO.get_tenantId());
+			assetRequestObject.addProperty("tenantCode", compositeRequestVO.getTenantCode());
+			assetRequestObject.add("assetAddRequest", assetAddRequest);
+
+			assetReturnRequestObject.addProperty("_tenantId", compositeRequestVO.get_tenantId());
+			assetReturnRequestObject.addProperty("tenantCode", compositeRequestVO.getTenantCode());
+			assetReturnRequestObject.add("assetAddRequest", assetReturnAddRequest);
+
+			assetPriceRequestObject.addProperty("_tenantId", compositeRequestVO.get_tenantId());
+			assetPriceRequestObject.addProperty("tenantCode", compositeRequestVO.getTenantCode());
+			assetPriceRequestObject.add("assetAddRequest", assetPriceAddRequest);
+
+			allRequestVOs.put("asset", fromObjectToJSON(assetRequestObject));
+			allRequestVOs.put("assetReturn", fromObjectToJSON(assetReturnRequestObject));
+			allRequestVOs.put("assetPrice", fromObjectToJSON(assetPriceRequestObject));
+
+//		System.out.println("asset "+fromObjectToJSON(assetRequestObject));
+//		System.out.println("assetReturn "+fromObjectToJSON(assetReturnRequestObject));
+//		System.out.println("assetPrice "+fromObjectToJSON(assetPriceRequestObject));
+//
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return allRequestVOs;
+	}
+
+	public static ErrorVO getError(String errorCode) {
+
+		ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
+		messageSource.setBasenames("validation/validation_messages");
+		String errorMessage = null;
+		try {
+			Locale locale = new Locale("en_US");
+			errorMessage = messageSource.getMessage(errorCode, null, locale);
+		} catch (Exception e) {
+			errorMessage = "error message not present for this errorCode " + errorCode;
+			log.fatal("Error occurred in getError: ", e);
+			throw e;
+		}
+
+		ErrorVO errorVO = new ErrorVO();
+		errorVO.setErrorCode(errorCode);
+		errorVO.setErrorMessage(errorMessage);
+		return errorVO;
+	}
+
+	public static List<String> jsonSchemaValidator(String jsonStr, String filename) throws Exception {// 580
+		log.debug("Entering");
+		List<String> errors = null;
+		Schema schema;
+		InputStream inputStream = null;
+		log.debug("jsonStr: " + jsonStr);
+		log.debug("filename: " + filename);
+
+		try {
+
+			PathMatchingResourcePatternResolver resourcePatternResolver2 = new PathMatchingResourcePatternResolver();
+			Resource[] resources2 = resourcePatternResolver2.getResources("classpath:" + filename);
+			for (Resource resource : resources2) {
+				inputStream = resource.getInputStream();
+			}
+			JSONObject rawSchema = new JSONObject(new JSONTokener(inputStream));
+
+			schema = SchemaLoader.load(rawSchema);
+			schema.validate(new JSONObject(jsonStr));
+
+		} catch (ValidationException ex) {
+			errors = readValidationException(ex);
+		}
+		log.debug("Leaving");
+		return errors;
+	}
+
+	public static List<String> readValidationException(final ValidationException e) throws Exception {
+		List<String> error = new ArrayList<String>();
+		log.debug("Entering");
+		try {
+			for (String err : e.getAllMessages()) {
+				error.add(err);
+			}
+		} catch (Exception ex) {
+			log.fatal("Error occurred in readValidationException: ", ex);
+		}
+		log.debug("Leaving");
+		return error;
+	}
+
+	public static Boolean jsonNullCheck(JsonElement jsonElement, String jsonkey) {
+
+//		if (log.isDebugEnabled())
+//			log.debug("Entering");
+		Boolean isJsonNull = false;
+		try {
+			JsonObject jsonObject = (JsonObject) jsonElement;
+			if (jsonObject.has(jsonkey)) {
+
+				if (jsonElement.isJsonNull() || jsonElement == null) {
+
+					isJsonNull = true;
+
+				} else if (jsonkey == null || jsonkey.equalsIgnoreCase("")) {
+					isJsonNull = true;
+				} else {
+					isJsonNull = jsonElement.getAsJsonObject().get(jsonkey).isJsonNull();
+				}
+			} else {
+				if (log.isDebugEnabled())
+					log.debug("JsonElement: " + jsonElement + " does not have jsonKey: " + jsonkey);
+				isJsonNull = true;
+			}
+		} catch (Exception ex) {
+//			if (log.isFatalEnabled())
+//				log.fatal("JsonElement: " + jsonElement + " does not have jsonKey: " + jsonkey);
+			if (log.isFatalEnabled())
+				log.fatal("Error occurred in jsonNullCheck : ", ex);
+			throw ex;
+		}
+//		if (log.isDebugEnabled())
+//			log.debug("Leaving");
+		return isJsonNull;
+	}
+
+	public static Date stringToDate(String dateStr) {
+		DateFormat sdf = new SimpleDateFormat(dateFormatteryyyymmdd);
+		Date d = new Date();
+		sdf.setLenient(false);
+		try {
+			d = sdf.parse(dateStr);
+		} catch (ParseException e) {
+		}
+		return d;
+	}
+
+	public static String getOuterStructureResponse(String reqParam, List<String> response, String vo) throws Exception {
+		String responseString = null;
+		try {
+			List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+			List<ErrorVO> errorVOs = new ArrayList<>();
+			FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+
+			// failedVO.set_tenantId(assetRequestVO.get_tenantId());
+			// failedVO.setTenantCode(assetRequestVO.getTenantCode());
+			for (String error : response) {
+				ErrorVO e1 = new ErrorVO();
+				e1.setErrorCode("JSAST999");
+				e1.setErrorMessage((AssetUtil.formatErrorMessage(error)));
+				errorVOs.add(e1);
+			}
+			Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+					.create();
+			JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+
+			JsonArray exchangeRateAddRequestList = null;
+			JsonElement exchangeRateAddRequest = null;
+			List<JsonObject> jsonArray = new ArrayList();
+			exchangeRateAddRequestList = jsonObject.get("assetAddRequest").getAsJsonArray();
+			if (exchangeRateAddRequestList.size() > 0) {
+				JsonObject exchangeRateObj = exchangeRateAddRequestList.get(0).getAsJsonObject().get(vo)
+						.getAsJsonObject();
+				if (exchangeRateObj.has("_thirdPartyProcessorId1")
+						&& !AssetUtil.jsonNullCheck(exchangeRateObj, "_thirdPartyProcessorId1")) {
+					Iterator<JsonElement> iterator = exchangeRateAddRequestList.iterator();
+					while (iterator.hasNext()) {
+
+						exchangeRateAddRequest = iterator.next();
+						JsonObject exchangeRate = exchangeRateAddRequest.getAsJsonObject().get(vo).getAsJsonObject();
+						exchangeRate.addProperty("hasError", 1);
+						exchangeRate.addProperty("errors", objectToJsonString(fromObjectToJSON(errorVOs)));
+						jsonArray.add(exchangeRate);
+					}
+
+					responseString = AssetUtil.fromObjectToJSON(jsonArray);
+				} else {
+					failedVO.setErrors(errorVOs);
+					failedVO.setIdentityDetailsAsString(jsonObject);
+					failedVOs.add(failedVO);
+					responseString = AssetUtil.getResponse(null, failedVOs);
+				}
+
+			}
+		} catch (JsonSyntaxException e) {
+			// TODO Auto-generated catch block
+			throw e;
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			throw e;
+		}
+		return responseString;
+	}
+
+	public static String getOuterStructureResponseForAddAsset(String reqParam, List<String> response) throws Exception {
+		List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+		List<ErrorVO> errorVOs = new ArrayList<>();
+		FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+		String responseString;
+		// failedVO.set_tenantId(assetRequestVO.get_tenantId());
+		// failedVO.setTenantCode(assetRequestVO.getTenantCode());
+		for (String error : response) {
+			ErrorVO e1 = new ErrorVO();
+			e1.setErrorCode("JSAST999");
+			e1.setErrorMessage(AssetUtil.formatErrorMessage(error));
+			errorVOs.add(e1);
+			log.fatal(e1);
+		}
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+
+		JsonArray assetAddRequestList = null;
+		JsonElement assetAddRequest = null;
+		List<JsonObject> jsonArray = new ArrayList<JsonObject>();
+		assetAddRequestList = jsonObject.get("assetAddRequest").getAsJsonArray();
+		JsonObject assetObj = assetAddRequestList.get(0).getAsJsonObject().get("asset").getAsJsonObject();
+		if (assetObj.has("_thirdPartyProcessorId1") && !AssetUtil.jsonNullCheck(assetObj, "_thirdPartyProcessorId1")) {
+			Iterator<JsonElement> iterator = assetAddRequestList.iterator();
+			while (iterator.hasNext()) {
+
+				assetAddRequest = iterator.next();
+				JsonObject asset = assetAddRequest.getAsJsonObject().get("asset").getAsJsonObject();
+				asset.addProperty("hasError", 1);
+				asset.addProperty("errors", gson.toJson(errorVOs));
+
+				// Adding errors in child object 1
+				JsonArray underlyingAssetList = null;
+				JsonObject underlyingAsset = null;
+
+				if (!AssetUtil.jsonNullCheck(asset, "underlyingAssets")) {
+					underlyingAssetList = asset.getAsJsonArray("underlyingAssets");
+				}
+				if (underlyingAssetList != null && underlyingAssetList.size() > 0) {
+					Iterator<JsonElement> iterator1 = underlyingAssetList.iterator();
+					while (iterator1.hasNext()) {
+						underlyingAsset = iterator1.next().getAsJsonObject();
+						underlyingAsset.addProperty("hasError", 1);
+						underlyingAsset.addProperty("errors", gson.toJson(errorVOs));
+					}
+				}
+
+				// Adding errors in child object 2
+				JsonArray assetValuationScheduleList = null;
+				JsonObject assetValuationSchedule = null;
+
+				if (!AssetUtil.jsonNullCheck(asset, "assetValuationSchedule")) {
+					assetValuationScheduleList = asset.getAsJsonArray("assetValuationSchedule");
+				}
+				if (assetValuationScheduleList != null && assetValuationScheduleList.size() > 0) {
+					Iterator<JsonElement> iterator1 = assetValuationScheduleList.iterator();
+					while (iterator1.hasNext()) {
+						assetValuationSchedule = iterator1.next().getAsJsonObject();
+						assetValuationSchedule.addProperty("hasError", 1);
+						assetValuationSchedule.addProperty("errors", gson.toJson(errorVOs));
+					}
+				}
+
+				jsonArray.add(asset);
+			}
+
+			responseString = AssetUtil.fromObjectToJSON(jsonArray);
+		} else {
+			failedVO.setErrors(errorVOs);
+			failedVO.setIdentityDetailsAsString(jsonObject);
+			failedVOs.add(failedVO);
+			responseString = AssetUtil.getResponse(null, failedVOs);
+		}
+		return responseString;
+	}
+
+	public static String getOuterStructureResponseForGet(String request, List<String> response) throws Exception {
+
+		try {
+			String responseString = null;
+			List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+			List<ErrorVO> errorVOs = new ArrayList<>();
+			FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+			AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+
+			failedVO.set_tenantId(assetRequestVO.get_tenantId());
+			failedVO.setTenantCode(assetRequestVO.getTenantCode());
+			for (String error : response) {
+				ErrorVO e1 = new ErrorVO();
+				e1.setErrorCode("JSAST999");
+				e1.setErrorMessage(AssetUtil.formatErrorMessage(error));
+				errorVOs.add(e1);
+				log.fatal(e1);
+			}
+
+			failedVO.setErrors(errorVOs);
+			failedVO.setIdentityDetails(assetRequestVO);
+			failedVOs.add(failedVO);
+			responseString = AssetUtil.getResponse(null, failedVOs);
+
+			return responseString;
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			throw e;
+		}
+	}
+
+	public static String objectToJsonString(String json) {
+		JsonArray jsonObject = new Gson().fromJson(json, JsonArray.class);
+		String s = jsonObject.toString();
+		Gson gson = new GsonBuilder().create();
+		s = gson.toJson(jsonObject);
+		return s;
+	}
+
+	public static String formatErrorMessage(String errorMessage) {
+		try {
+			if (errorMessage != null && !errorMessage.equalsIgnoreCase("")) {
+				errorMessage = errorMessage.replace("/", "").replace("#", "").replace("enum", "").replace("  ", " ");
+			}
+		} catch (Exception ex) {
+		}
+		return errorMessage;
+	}
+
+	public static <S, T> String getResponseMap(HashMap<S, ?> successVOMap, List<FailedVO<T>> failedVOs)
+			throws Exception {
+
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		String response = null;
+		try {
+			ResponseVO<S, T> responseVO = new ResponseVO<>();
+
+			responseVO.setSuccessMap(successVOMap == null ? null : successVOMap.size() > 0 ? successVOMap : null);
+
+			responseVO.setFailed(failedVOs == null ? null : failedVOs.size() > 0 ? failedVOs : null);
+			responseVO.setTotalRecords(
+					(successVOMap == null ? 0 : successVOMap.size()) + (failedVOs == null ? 0 : failedVOs.size()));
+			responseVO.setTotalfailedRecords(failedVOs == null ? 0 : failedVOs.size());
+			response = AssetUtil.fromObjectToJSON(responseVO);
+		} catch (Exception e) {
+			e.printStackTrace();
+			log.fatal("Error while getResponse" + e.getMessage());
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return response;
+
+	}
+
+//	
+//	public static Timestamp stringToTimestamp(Date date) throws Exception {
+//		try {
+//			SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy hh:mm:ss.SSSSSS");
+//			Date parsedDate = dateFormat.parse(dateFormat.format(date));
+//			Timestamp timestamp = new java.sql.Timestamp(parsedDate.getTime());
+//			return timestamp;
+//		} catch (ParseException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//			throw e;
+//		}
+//	}
+//	public static Timestamp stringToTimestamp(String dateStr) throws Exception {
+//		try {
+//			SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy hh:mm:ss");
+//			Date parsedDate = dateFormat.parse(dateStr);
+//			Timestamp timestamp = new java.sql.Timestamp(parsedDate.getTime());
+//			return timestamp;
+//		} catch (ParseException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//			throw e;
+//		}
+	public static void logWritter(String reqType, String url, String content) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			Files.write(Paths.get("./Asset_Run_Output.txt"),
+					"\n********************************************".getBytes(), StandardOpenOption.CREATE,
+					StandardOpenOption.APPEND);
+			Files.write(Paths.get("./Asset_Run_Output.txt"), ("\nTime=>" + new Date()).getBytes(),
+					StandardOpenOption.APPEND);
+			Files.write(Paths.get("./Asset_Run_Output.txt"), ("\n" + reqType + "=> " + url).getBytes(),
+					StandardOpenOption.APPEND);
+			Files.write(Paths.get("./Asset_Run_Output.txt"), ("\n" + content).getBytes(), StandardOpenOption.APPEND);
+		} catch (Exception e) {
+
+			log.fatal("Error while logWritter ", e);
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+	}
+	
+	public static boolean isAssetAvailable(Map<String,AssetVO> availableAssets, String ISIN, String currency) {
+		
+		Boolean isAssetPriceAvailable = false;
+		try {
+			if(availableAssets!=null && availableAssets.size()>0) {
+				if(availableAssets.containsKey(ISIN+"|"+currency)) {
+					isAssetPriceAvailable = true;
+				}
+			}	
+		}catch(Exception ex) {
+			log.fatal("Error in isAssetAvailable: ",ex);
+			throw ex;
+		}
+		return isAssetPriceAvailable;
+	}
+	
+	public static ExchangeRateVO constructExchangeRateVO(AssetGetRequestVO assetGetRequest, BigDecimal priceAmt) {
+		
+		ExchangeRateVO exchangeRate = new ExchangeRateVO();
+		try {
+
+			exchangeRate.set_fromCurrencyAppId(assetGetRequest.get_fromCurrencyAppId());
+			exchangeRate.set_fromCurrencyAppConfigName(assetGetRequest.getFromCurrencyConfigName());
+			exchangeRate.set_toCurrencyAppId(assetGetRequest.get_toCurrencyAppId());
+			exchangeRate.set_toCurrencyAppConfigName(assetGetRequest.getToCurrencyConfigName());
+			exchangeRate.set_custodianAppId(assetGetRequest.get_custodianAppId());
+			exchangeRate.set_custodianAppConfigName(assetGetRequest.getCustodianConfigName());
+			exchangeRate.setPriceAmt(priceAmt);
+	
+		}catch(Exception ex) {
+			log.fatal("Error in constructExchangeRateVO: ",ex);
+			throw ex;
+		}
+		
+		return exchangeRate;
+		
+	}
+
+	public static AccessDetailVO getAccessTokenDetails(String accessToken) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		AccessDetailVO accessDetailVO = null;
+		try {
+			
+			String[] split=accessToken.split(" ");
+			accessToken=split[1];
+			String[] chunks = accessToken.split("\\.");
+			Base64.Decoder decoder = Base64.getDecoder();
+			String payLoad = new String(decoder.decode(chunks[1]));
+			
+			JsonObject payLoadJson = AssetUtil.fromJSonToObject(payLoad, JsonObject.class);
+			
+			
+			accessDetailVO = new AccessDetailVO();
+
+			accessDetailVO.setEntityCode(AssetUtil.jsonNullCheck(payLoadJson, "entityCode") ? null : payLoadJson.get("entityCode").getAsString());
+			accessDetailVO.setEntityId(AssetUtil.jsonNullCheck(payLoadJson, "entityId") ? null : payLoadJson.get("entityId").getAsBigDecimal());
+			accessDetailVO.setLocale(AssetUtil.jsonNullCheck(payLoadJson, "locale") ? null : payLoadJson.get("locale").getAsString());
+			accessDetailVO.setTimezone(AssetUtil.jsonNullCheck(payLoadJson, "timezone") ? null : payLoadJson.get("timezone").getAsString());
+			accessDetailVO.setTenantCode(AssetUtil.jsonNullCheck(payLoadJson, "tenant_code") ? null : payLoadJson.get("tenant_code").getAsString());
+			accessDetailVO.setTenantId(AssetUtil.jsonNullCheck(payLoadJson, "tenantId") ? null : payLoadJson.get("tenantId").getAsBigDecimal());
+			accessDetailVO.setUsername(AssetUtil.jsonNullCheck(payLoadJson, "user_name") ? null : payLoadJson.get("user_name").getAsString());
+			
+			if(!AssetUtil.jsonNullCheck(payLoadJson, "UserGroupInfo")) {
+				JsonArray userGroupInfo = payLoadJson.get("UserGroupInfo").getAsJsonArray();
+				
+				Type listType = new TypeToken<List<String>>() {}.getType();
+				List<String> userGroupPath = new Gson().fromJson(userGroupInfo, listType);
+				accessDetailVO.setUserGroupPath(userGroupPath);
+
+			}
+	
+		}catch(Exception ex) {
+			log.fatal("Error in getAccessTokenDetails: ",ex);
+			throw ex;
+			
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		
+		return accessDetailVO;
+	}
+	
+	public static FailedVO tenantCodeError() {
+		FailedVO<AssetRequestVO> failedVO = new FailedVO<AssetRequestVO>();
+		ErrorVO errorVO = new ErrorVO();
+		errorVO.setErrorCode("400");
+		errorVO.setErrorMessage("tenant code not found");
+		failedVO.setErrors(new ArrayList<>(Arrays.asList(errorVO)));
+		return failedVO;
+	}
+	
+	public static String syncHttpCall(final String JSON_STRING, final String URL, HttpServletRequest httpServletRequest)
+			throws Exception {
+			HttpClient httpClient = new HttpClient();
+			String jsonResponse;
+			try {
+			if (log.isDebugEnabled())
+			log.debug("URL: " + URL);
+			if (log.isDebugEnabled())
+			log.debug("JSON_STRING: " + JSON_STRING);
+			final String authorization = httpServletRequest.getHeader("Authorization");
+
+			StringRequestEntity requestEntity = new StringRequestEntity(JSON_STRING, "application/json", "UTF-8");
+			PostMethod postMethod = new PostMethod(URL);
+			postMethod.setRequestEntity(requestEntity);
+			postMethod.addRequestHeader("Authorization", authorization);
+			int statusCode = httpClient.executeMethod(postMethod);
+			jsonResponse = postMethod.getResponseBodyAsString();
+			} catch (Exception ex) {
+			log.fatal("Exception occurred in syncHttpCall: ", ex);
+			throw ex;
+			}
+			return jsonResponse;
+			}
+
+	public static String syncHttpCall(final String JSON_STRING, final String URL,String accessToken )
+			throws Exception {
+		HttpClient httpClient = new HttpClient();
+		String jsonResponse;
+		try {
+			if (log.isDebugEnabled())
+				log.debug("URL: " + URL);
+			if (log.isDebugEnabled())
+				log.debug("JSON_STRING: " + JSON_STRING);
+
+			
+			StringRequestEntity requestEntity = new StringRequestEntity(JSON_STRING, "application/json", "UTF-8");
+			PostMethod postMethod = new PostMethod(URL);
+			postMethod.setRequestEntity(requestEntity);
+			postMethod.addRequestHeader("Authorization", accessToken);
+			int statusCode = httpClient.executeMethod(postMethod);
+			jsonResponse = postMethod.getResponseBodyAsString();
+		} catch (Exception ex) {
+			log.fatal("Exception occurred in syncHttpCall: ", ex);
+			throw ex;
+		}
+		return jsonResponse;
+	}
+	
+	public static String getOuterStructureResponseForAddUniverseStock(String reqParam, List<String> response) throws Exception {
+		List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+		List<ErrorVO> errorVOs = new ArrayList<>();
+		FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+		String responseString;
+
+		for (String error : response) {
+			ErrorVO e1 = new ErrorVO();
+			e1.setErrorCode("JSAST999");
+			e1.setErrorMessage(AssetUtil.formatErrorMessage(error));
+			errorVOs.add(e1);
+			log.fatal(e1);
+		}
+		Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+				.create();
+		JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+
+		JsonArray assetAddRequestList = null;
+		JsonElement assetAddRequest = null;
+		List<JsonObject> jsonArray = new ArrayList<JsonObject>();
+		assetAddRequestList = jsonObject.get("assetAddRequest").getAsJsonArray();
+		JsonObject assetObj = assetAddRequestList.get(0).getAsJsonObject().get("universeStock").getAsJsonObject();
+		if (assetObj.has("_thirdPartyProcessorId1") && !AssetUtil.jsonNullCheck(assetObj, "_thirdPartyProcessorId1")) {
+			Iterator<JsonElement> iterator = assetAddRequestList.iterator();
+			while (iterator.hasNext()) {
+				assetAddRequest = iterator.next();
+				JsonObject universeStock = assetAddRequest.getAsJsonObject().get("universeStock").getAsJsonObject();
+				universeStock.addProperty("hasError", 1);
+				universeStock.addProperty("errors", gson.toJson(errorVOs));
+				jsonArray.add(universeStock);
+			}
+			responseString = AssetUtil.fromObjectToJSON(jsonArray);
+		} else {
+			failedVO.setErrors(errorVOs);
+			failedVO.setIdentityDetailsAsString(jsonObject);
+			failedVOs.add(failedVO);
+			responseString = AssetUtil.getResponse(null, failedVOs);
+		}
+		return responseString;
+	}
+	
+	public static HashMap<String, String> filterCompositeUniverseRequests(AssetRequestVO assetRequestVO, String jsonString) throws Exception {
+
+		HashMap<String, String> allRequestVOs = new HashMap<String, String>();
+		JsonArray addUniverseStockRequest = new JsonArray();
+		JsonArray addUniverseStockDetailsByBrokerRequest = new JsonArray();
+
+		try {
+			/******************************************************************************************/
+			Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+					.create();
+			JsonElement jsonElement = gson.fromJson(jsonString, JsonElement.class);
+			JsonArray assetAddRequest = jsonElement.getAsJsonObject().get("assetAddRequest").getAsJsonArray();
+
+			Iterator<JsonElement> iterator1 = assetAddRequest.iterator();
+
+			while (iterator1.hasNext()) {
+
+				JsonObject assetVO = (JsonObject)iterator1.next();
+
+				if (assetVO.get("universeStock") != null) {
+					JsonObject universeStock = new JsonObject();
+					JsonObject universeStockObj = assetVO.get("universeStock").getAsJsonObject().deepCopy();
+					universeStockObj.remove("universeStockDetailsByBroker");
+					
+					universeStock.add("universeStock", universeStockObj);
+					addUniverseStockRequest.add(universeStock);
+				}
+
+				JsonArray universeStockDetailsByBrokerList = assetVO.get("universeStock").getAsJsonObject().get("universeStockDetailsByBroker").getAsJsonArray();
+				
+				Iterator<JsonElement> iterator2 = universeStockDetailsByBrokerList.iterator();
+				
+				while (iterator2.hasNext()) {
+					JsonElement universeStockDetailsByBroker = iterator2.next();
+					if (universeStockDetailsByBroker != null) {
+						JsonObject universeStockDetailsByBrokerObj = new JsonObject();
+						universeStockDetailsByBrokerObj.add("universeStockDetailsByBroker", universeStockDetailsByBroker);
+						addUniverseStockDetailsByBrokerRequest.add(universeStockDetailsByBrokerObj);
+					}					
+				}
+			}
+			/******************************************************************************************/
+
+			JsonObject universeStockRequestObject = new JsonObject();
+			JsonObject universeStockDetailsByBrokerRequestObject = new JsonObject();
+
+			universeStockRequestObject.addProperty("_tenantId", assetRequestVO.get_tenantId());
+			universeStockRequestObject.addProperty("tenantCode", assetRequestVO.getTenantCode());
+			universeStockRequestObject.add("assetAddRequest", addUniverseStockRequest);
+
+			universeStockDetailsByBrokerRequestObject.addProperty("_tenantId", assetRequestVO.get_tenantId());
+			universeStockDetailsByBrokerRequestObject.addProperty("tenantCode", assetRequestVO.getTenantCode());
+			universeStockDetailsByBrokerRequestObject.add("assetAddRequest", addUniverseStockDetailsByBrokerRequest);
+
+			allRequestVOs.put("universeStock", fromObjectToJSON(universeStockRequestObject));
+			allRequestVOs.put("universeStockDetailsByBroker", fromObjectToJSON(universeStockDetailsByBrokerRequestObject));
+
+		} catch (Exception e) {
+			log.fatal("Error in filterCompositeUniverseRequests: ",e);
+			throw e;
+		}
+		return allRequestVOs;
+	}
+	
+	
+	
+	public static String getUsmSortingFieldsMap(String aliasName) throws Exception{
+		String sortField = null;
+		try {
+			
+			Map<String,String> usmSortingFieldsMap = new HashMap<String, String>();
+			
+			usmSortingFieldsMap.put("ACM2038","ISIN");
+			usmSortingFieldsMap.put("ACM2039","Name");
+			usmSortingFieldsMap.put("ACM2040","Currency");
+			usmSortingFieldsMap.put("ACM2041","market_cap_syscurr_amt");
+			usmSortingFieldsMap.put("ACM2042","price_amt");
+			usmSortingFieldsMap.put("ACM2043","region_config_name");
+			usmSortingFieldsMap.put("ACM2044","country_config_name");
+			usmSortingFieldsMap.put("ACM2045","gics_sector_config_name");
+			usmSortingFieldsMap.put("ACM2046","klay_offering_model_attribute_config_name");
+			usmSortingFieldsMap.put("ACM2047","super_select_model_attribute_config_name");
+			usmSortingFieldsMap.put("ACM2048","signal_model_attribute_config_name");
+			usmSortingFieldsMap.put("ACM2049","over_sold");
+			usmSortingFieldsMap.put("ACM2050","analyst_cnt");
+			usmSortingFieldsMap.put("ACM2051","buy_ratings");
+			usmSortingFieldsMap.put("ACM2052","sell_ratings");
+			usmSortingFieldsMap.put("ACM2053","Average Price Target");
+			usmSortingFieldsMap.put("ACM2054","upside_to_price_target");
+			usmSortingFieldsMap.put("ACM2055","price_change_1d_perc");
+			usmSortingFieldsMap.put("ACM2056","price_change_1w_perc");
+			usmSortingFieldsMap.put("ACM2057","price_change_1m_perc");
+			usmSortingFieldsMap.put("ACM2058","price_change_3m_perc");
+			usmSortingFieldsMap.put("ACM2059","price_change_6m_perc");
+			usmSortingFieldsMap.put("ACM2060","price_change_1y_perc");
+			usmSortingFieldsMap.put("ACM2061","price_change_2y_perc");
+			usmSortingFieldsMap.put("ACM2062","price_change_3y_perc");
+			usmSortingFieldsMap.put("ACM2063","price_change_5y_perc");
+			usmSortingFieldsMap.put("ACM2064","trailing_price_to_book_nbr");
+			usmSortingFieldsMap.put("ACM2065","forward_price_to_earning_12m_nbr");
+			usmSortingFieldsMap.put("ACM2066","forward_roe_12m_perc");
+			usmSortingFieldsMap.put("ACM2067","forward_ev_to_ebitda_12m_nbr");
+			usmSortingFieldsMap.put("ACM2068","forward_dividend_yield_12m_perc");
+			usmSortingFieldsMap.put("ACM2069","forward_dividend_yield_12m_perc");
+			usmSortingFieldsMap.put("ACM2070","relative_strength_index_14d_nbr");
+			usmSortingFieldsMap.put("ACM2071","boll_bands_20d_nbr");
+
+			sortField = usmSortingFieldsMap.get(aliasName);
+			
+			
+		}catch(Exception ex) {
+			log.fatal("Error in getUsmSortingFieldsMap: ",ex);
+			throw ex;
+		}
+		
+		return sortField;
+	}
+	
+	public static Timestamp convertstringToTimestamp(String dateStr) throws Exception {
+
+		Timestamp timestamp = null;
+		try {
+			if (dateStr != null) {
+				SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+				Date parsedDate = dateFormat.parse(dateStr);
+				timestamp = new java.sql.Timestamp(parsedDate.getTime());
+			}
+		} catch (ParseException e) {
+			log.fatal("Error in stringToTimestamp: ", e);
+			// throw e;
+		}
+		return timestamp;
+	}
+	
+	
+	public static java.sql.Date spMetricsDateFormater(java.util.Date date)throws Exception {
+			try {
+				if (date != null) {
+
+				  	Calendar cal = Calendar.getInstance();
+				  	cal.setTime(date);
+				  	cal.add(Calendar.DATE, -1); 
+				  	Date modifiedDate = cal.getTime();
+					return new java.sql.Date(modifiedDate.getTime());// yyyy-MM-dd
+				}
+			} catch (Exception ex) {
+				throw ex;
+			}
+			return null;
+		}
+	
+
+			  
+
+}

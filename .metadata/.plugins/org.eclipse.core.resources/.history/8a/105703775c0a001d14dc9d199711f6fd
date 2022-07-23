@@ -1,0 +1,39 @@
+FROM alpine:3.13
+
+USER root
+
+RUN apk update && apk upgrade
+
+RUN apk --no-cache add openjdk11-jdk
+
+RUN apk --no-cache add curl 
+
+RUN apk --no-cache add msttcorefonts-installer fontconfig && \
+    update-ms-fonts
+
+RUN addgroup -S produser && adduser -S produser -G produser
+
+RUN chown -R produser:produser /home/produser
+
+RUN echo 'produser ALL=(ALL)'
+
+COPY ./cert.pem /home/produser/
+
+RUN  keytool -noprompt -import -file "/home/produser/cert.pem" -keystore "/usr/lib/jvm/java-11-openjdk/jre/lib/security/cacerts" -storepass "changeit"
+ 
+USER produser
+
+WORKDIR /home/produser
+
+ARG JAR_FILE=target/*.jar
+#ARG EXT_PROP=target/*.properties
+
+#COPY ${EXT_PROP} ./
+COPY ${JAR_FILE} ./
+
+#COPY ${JAR_FILE} AssetMaster-0.0.1-SNAPSHOT.jar
+# THis is comment
+EXPOSE 8073
+
+#ENTRYPOINT ["java","-jar","AssetMaster-0.0.1-SNAPSHOT.jar"]
+

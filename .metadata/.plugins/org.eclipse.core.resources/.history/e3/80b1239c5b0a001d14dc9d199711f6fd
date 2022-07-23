@@ -1,0 +1,471 @@
+package com.klayx.asset.service.impl;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.dao.IAssetKeyFigureDAO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.ResponseVO;
+import com.klayx.asset.service.IAssetKeyFigureService;
+import com.klayx.asset.validator.IAssetBusinessValidator;
+
+@Service(AssetConstants.ASSETKEYFIGURESERVICE)
+public class AssetKeyFigureServiceImpl implements IAssetKeyFigureService {
+
+	private static final Logger log = LogManager.getLogger(AssetKeyFigureServiceImpl.class);
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETKEYFIGUREDAO)
+	IAssetKeyFigureDAO assetKeyFigDao;
+
+	@Autowired
+	@Qualifier(AssetConstants.BUSINESSVALIDATORSERVICE)
+	private IAssetBusinessValidator assetBusinessValidator;
+
+	@Override
+	// @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor =
+	// Exception.class)
+	public void addAssetKeyFigures(List<AssetKeyFigureVO> successVOs, List<FailedVO<AssetKeyFigureVO>> failedVOs,
+			List<JsonObject> totalVOs, boolean isInterfaceRequest, AssetRequestVO reqParam) throws Exception {
+
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			if (successVOs.size() > 0)
+				assetKeyFigDao.addAssetKeyFigures(reqParam.getTenantCode(), successVOs, totalVOs,reqParam.getAccessToken());
+
+		} catch (Exception exp) {
+			log.fatal("Error in addAssetKeyFigures: ", exp);
+			throw exp;
+
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+	}
+
+	@Override
+	public Map<String, Object> getAssetsKeyFiguresById(String tenantCode, List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO reqParam) throws Exception {
+		Map<String, Object> responseMap = new HashMap<>();
+		List<AssetKeyFigureVO> result = new ArrayList<AssetKeyFigureVO>();
+		int successCnt = 0;
+		int failedCnt = 0;
+		List<AssetRequestVO> failedList = null;
+		ResponseVO<AssetKeyFigureVO, AssetGetRequestVO> response = new ResponseVO<AssetKeyFigureVO, AssetGetRequestVO>();
+		try {
+			response.setSuccess(result);
+			result = assetKeyFigDao.getAssetKeyFigures(tenantCode, reqParam);
+			assetBusinessValidator.validateAssetKeyFigByIdRateResult(successVOs, failedVOs, reqParam, result);
+			boolean[] requestParams = new boolean[successVOs.size()];
+
+			HashMap<String, Integer> requestMap = new HashMap<String, Integer>();
+
+			/* Iterating request and convert to hashmap for easy access */
+			for (int i = 0; i < successVOs.size(); i++) {
+
+				BigDecimal assetId = successVOs.get(i).get_id();
+				BigDecimal custodian = successVOs.get(i).get_custodianAppId();
+				String key = assetId + " " + custodian;
+				requestMap.put(key, i);
+			}
+
+			/* Iterating and checking result with request */
+			for (int i = 0; i < result.size(); i++) {
+				AssetKeyFigureVO vo = result.get(i);
+
+				BigDecimal assetId = vo.getAssetID();
+				BigDecimal custodian = vo.get_custodianAppId();
+				String key = assetId + " " + custodian;
+
+				if (requestMap.containsKey(key)) {
+					int index = requestMap.get(key);
+
+					requestParams[index] = true;
+				}
+			}
+			/* Populating failed list */
+			ArrayList<FailedVO<AssetGetRequestVO>> failed = new ArrayList<>();
+
+			for (int i = 0; i < requestParams.length; i++) {
+				if (requestParams[i] == false) {
+					if (requestParams[i] == false) {
+
+						failedCnt++;
+						/* Setting failed Details */
+						AssetGetRequestVO failedRequestVO = successVOs.get(i);
+
+						// failedRequestVO.set(reqParam.getReferenceDate());
+
+						FailedVO<AssetGetRequestVO> failedVO = new FailedVO<AssetGetRequestVO>();
+						failedVO.setReferenceDate(reqParam.getReferenceDate());
+						List<ErrorVO> errorList = new ArrayList<>();
+						ErrorVO errorVO = new ErrorVO();
+						errorVO.setErrorCode("206");
+						errorVO.setErrorMessage("Data Not Found");
+						errorList.add(errorVO);
+						failedVO.setIdentityDetails(failedRequestVO);
+						failedVO.setErrors(errorList);
+						failed.add(failedVO);
+					} else
+						successCnt++;
+				}
+				/* Setting response */
+				response.setFailed(failed);
+				response.setSuccess(result);
+				response.setTotalfailedRecords(failedCnt);
+				response.setTotalRecords(successVOs.size());
+
+			}
+			responseMap.put("successVOs", successVOs);
+			responseMap.put("failedVOs", failedVOs);
+		} catch (Exception e) {
+
+			throw e;
+		}
+
+		return responseMap;
+	}
+
+//	@Override
+//	public List<AssetKeyFigureVO> getAssetKeyFiguresList(List<AssetGetRequestVO> reqParam, Date referenceDate,
+//			String tenantCode) throws Exception {
+//		try {
+//			List<AssetKeyFigureVO> result = new ArrayList<AssetKeyFigureVO>();
+//			System.out.printf("reqParam, referenceDate, tenantCode=>" + reqParam, referenceDate, tenantCode);
+//			result = assetKeyFigDao.getAssetKeyFiguresList(reqParam, referenceDate, tenantCode);
+//			System.out.println("AssetKeyFigureVO=" + result);
+//			return result;
+//		} catch (Exception e) {
+//			throw e;
+//		}
+//	}
+
+	@Override
+	public Map<String, Object> getAssetsKeyFigures(String tenantCode, List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO reqParam) throws Exception {
+		List<AssetKeyFigureVO> result = new ArrayList<AssetKeyFigureVO>();
+		Map<String, Object> responseMap = new HashMap<>();
+		ResponseVO<AssetKeyFigureVO, AssetGetRequestVO> responseVO = new ResponseVO<AssetKeyFigureVO, AssetGetRequestVO>();
+		int successCnt = 0;
+		int failedCnt = 0;
+		List<AssetRequestVO> failedList = null;
+		try {
+
+			ArrayList<String> config = new ArrayList<String>();
+			config.add("Currency");
+			List<AssetKeyFigureVO> defaultVOs = new ArrayList<AssetKeyFigureVO>();
+			List<AssetGetRequestVO> normalVOs = new ArrayList<AssetGetRequestVO>();
+			Map<String, String> map = new HashMap<String, String>();
+			Map<String, AssetGetRequestVO> resultCompareMap = new HashMap<String, AssetGetRequestVO>();
+			
+			
+
+			List<Map<String, Object>> mapObject = assetKeyFigDao.getCategoryList(tenantCode, successVOs);
+			
+			List<AssetKeyFigureVO> assetKeyFigureVOList = assetKeyFigDao.getAssetKeyFiguresList(tenantCode, successVOs, reqParam.getReferenceDate(),
+					reqParam.getTenantCode());
+			
+			Map<String, AssetKeyFigureVO> assetKeyFigureMap = new HashMap<String, AssetKeyFigureVO>();
+			
+//			Map<String, AssetKeyFigureVO> assetKeyFigureMap = assetKeyFigureVOList.stream().collect( Collectors.toMap((e->e.getIsin()+"|"+e.get_currencyAppConfigName()), 
+//	                Function.identity()));
+			
+			for(AssetKeyFigureVO assetKeyFigureVO :assetKeyFigureVOList) {
+				if(!assetKeyFigureMap.containsKey(assetKeyFigureVO.getIsin()+"|"+assetKeyFigureVO.get_currencyAppConfigName())) {
+					assetKeyFigureMap.put(assetKeyFigureVO.getIsin()+"|"+assetKeyFigureVO.get_currencyAppConfigName(), assetKeyFigureVO);
+				}	
+			}
+			
+			int flag;
+			for (int i = 0; i < successVOs.size(); i++) {
+				flag = 0;
+				String isin = successVOs.get(i).getIsin();
+				String currency = successVOs.get(i).getCurrencyConfigName();
+				for (int j = 0; j < mapObject.size(); j++) {
+					String mapIsin = (String) mapObject.get(j).get("isin");
+					String mapCurrency = (String) mapObject.get(j).get("currency_config_name");
+					if (isin.equals(mapIsin) && currency.equals(mapCurrency)) {
+						flag = 1;
+						Map<String, Object> custMap = new HashMap<String, Object>();
+						mapObject.get(j).put("custodian_config_name", successVOs.get(i).getCustodianConfigName());
+					}
+				}
+				if (flag == 0) {
+					FailedVO<AssetGetRequestVO> failedVO = new FailedVO<AssetGetRequestVO>();
+					failedVO.setReferenceDate(reqParam.getReferenceDate());
+					List<ErrorVO> errorList = new ArrayList<>();
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorCode("206");
+					errorVO.setErrorMessage("ISIN AND CURRENCY NOT PRESENT IN MASTER");
+					errorList.add(errorVO);
+					failedVO.setIdentityDetails(successVOs.get(i));
+					failedVO.setErrors(errorList);
+					failedVOs.add(failedVO);
+				}
+			}
+
+			for (int i = 0; i < mapObject.size(); i++) {
+
+				flag = 0;
+				String catagoryName = (String) mapObject.get(i).get("category_config_name");
+				// LIQUIDITY
+				if (catagoryName != null && "ACM232".equals(catagoryName)) {
+					AssetKeyFigureVO assetKeyFigureVO = new AssetKeyFigureVO();
+					assetKeyFigureVO.setEarning(0.0);
+					assetKeyFigureVO.setEstimatedDividend(0.0);
+					// LOGIC1
+					String currencyConfigName = (String) mapObject.get(i).get("currency_config_name");
+					// System.out.println("LIQUIDITY ---currencyConfigName=" + currencyConfigName);
+					if (currencyConfigName != null && ("USD").equals(currencyConfigName)
+							|| currencyConfigName.equals("EUR") || currencyConfigName.equals("CHF")
+							|| currencyConfigName.equals("JPY") || currencyConfigName.equals("HKD")) {
+						assetKeyFigureVO.setLtvPercentage(95.0);
+					}
+
+					else if (currencyConfigName != null && currencyConfigName.equals("GBP")
+							|| currencyConfigName.equals("AED") || currencyConfigName.equals("CAD")
+							|| currencyConfigName.equals("AUD")) {
+						assetKeyFigureVO.setLtvPercentage(85.0);
+					} else {
+						assetKeyFigureVO.setLtvPercentage(0.0);
+					}
+					assetKeyFigureVO.setIsin((String) mapObject.get(i).get("isin"));
+					assetKeyFigureVO.set_currencyAppConfigName((String) mapObject.get(i).get("currency_config_name"));
+					assetKeyFigureVO.set_custodianAppConfigName((String) mapObject.get(i).get("custodian_config_name"));
+					assetKeyFigureVO.setEffectiveFromDate(reqParam.getReferenceDate());
+					defaultVOs.add(assetKeyFigureVO);
+					flag = 1;
+				} else if (catagoryName != null && "ACM231".equals(catagoryName)) {
+					AssetKeyFigureVO assetKeyFigureVO = new AssetKeyFigureVO();
+					assetKeyFigureVO.setEarning(0.0);
+					assetKeyFigureVO.setEstimatedDividend(0.0);
+					assetKeyFigureVO.setLtvPercentage(100.0);
+
+					assetKeyFigureVO.setIsin((String) mapObject.get(i).get("isin"));
+					assetKeyFigureVO.set_currencyAppConfigName((String) mapObject.get(i).get("currency_config_name"));
+					assetKeyFigureVO.set_custodianAppConfigName((String) mapObject.get(i).get("custodian_config_name"));
+					assetKeyFigureVO.setEffectiveFromDate(reqParam.getReferenceDate());
+					defaultVOs.add(assetKeyFigureVO);
+					flag = 1;
+				}
+
+				String subCatagory1 = (String) mapObject.get(i).get("subcategory_1_config_name");
+				String subCatagory2 = (String) mapObject.get(i).get("subcategory_2_config_name");
+				String firstLegCurrency = (String) mapObject.get(i).get("first_leg_currency_config_name");
+				String secondLegCurrency = (String) mapObject.get(i).get("second_leg_currency_config_name");
+				// warrants
+				if (subCatagory1 != null && subCatagory1.equals("ACM243")) {
+					AssetKeyFigureVO assetKeyFigureVO = new AssetKeyFigureVO();
+					assetKeyFigureVO.setEarning(0.0);
+					assetKeyFigureVO.setEstimatedDividend(0.0);
+					assetKeyFigureVO.setLtvPercentage(0.0);
+
+					assetKeyFigureVO.setIsin((String) mapObject.get(i).get("isin"));
+					assetKeyFigureVO.set_currencyAppConfigName((String) mapObject.get(i).get("currency_config_name"));
+					assetKeyFigureVO.set_custodianAppConfigName((String) mapObject.get(i).get("custodian_config_name"));
+					assetKeyFigureVO.setEffectiveFromDate(reqParam.getReferenceDate());
+					defaultVOs.add(assetKeyFigureVO);
+					flag = 1;
+				}
+				// (Option, Future, Forward) and SC2 = FX Derivative
+
+				else if ((subCatagory1 != null && (subCatagory1.equals("ACM238") || subCatagory1.equals("ACM239")
+						|| subCatagory1.equals("ACM240"))) && (subCatagory2 != null && subCatagory2.equals("ACM263"))) {
+					
+					AssetKeyFigureVO assetKeyFigureVO = null;
+					
+					if ((firstLegCurrency != null && firstLegCurrency.equals("INR"))
+							|| (secondLegCurrency != null && secondLegCurrency.equals("INR"))) {
+						assetKeyFigureVO = new AssetKeyFigureVO();
+						assetKeyFigureVO.setEarning(0.0);
+						assetKeyFigureVO.setEstimatedDividend(0.0);
+						assetKeyFigureVO.setLtvPercentage(12.0);
+
+						assetKeyFigureVO.setIsin((String) mapObject.get(i).get("isin"));
+						assetKeyFigureVO
+								.set_currencyAppConfigName((String) mapObject.get(i).get("currency_config_name"));
+						assetKeyFigureVO
+								.set_custodianAppConfigName((String) mapObject.get(i).get("custodian_config_name"));
+						assetKeyFigureVO.setEffectiveFromDate(reqParam.getReferenceDate());
+	
+						//defaultVOs.add(assetKeyFigureVO);
+					} else {
+						assetKeyFigureVO = new AssetKeyFigureVO();
+						assetKeyFigureVO.setEarning(0.0);
+						assetKeyFigureVO.setEstimatedDividend(0.0);
+						assetKeyFigureVO.setLtvPercentage(9.0);
+
+						assetKeyFigureVO.setIsin((String) mapObject.get(i).get("isin"));
+						assetKeyFigureVO
+								.set_currencyAppConfigName((String) mapObject.get(i).get("currency_config_name"));
+						assetKeyFigureVO
+								.set_custodianAppConfigName((String) mapObject.get(i).get("custodian_config_name"));
+						assetKeyFigureVO.setEffectiveFromDate(reqParam.getReferenceDate());
+						
+						//defaultVOs.add(assetKeyFigureVO);
+					}
+
+					//Setting DiscountPnl value.
+					if(assetKeyFigureVO!=null && assetKeyFigureMap.get(assetKeyFigureVO.getIsin()+"|"+assetKeyFigureVO.get_currencyAppConfigName())!=null ) {
+						
+						if(assetKeyFigureMap.get(assetKeyFigureVO.getIsin()+"|"+assetKeyFigureVO.get_currencyAppConfigName()).getDiscountedPnL()!=null) {
+							assetKeyFigureVO.setDiscountedPnL(assetKeyFigureMap.get(assetKeyFigureVO.getIsin()+"|"+assetKeyFigureVO.get_currencyAppConfigName()).getDiscountedPnL());
+						}
+						else {
+							assetKeyFigureVO.setDiscountedPnL(BigDecimal.ZERO);
+						}
+					}
+					
+					
+					defaultVOs.add(assetKeyFigureVO);
+					
+					flag = 1;
+
+				}
+				// (Future, Forward) and SC2 = Equity Derivative
+				else if (subCatagory1 != null && (subCatagory1.equals("ACM239") || subCatagory1.equals("ACM240"))
+						&& subCatagory2.equals("ACM259")) {
+					AssetKeyFigureVO assetKeyFigureVO = new AssetKeyFigureVO();
+					assetKeyFigureVO.setEarning(0.0);
+					assetKeyFigureVO.setEstimatedDividend(0.0);
+					assetKeyFigureVO.setLtvPercentage(20.0);
+
+					assetKeyFigureVO.setIsin((String) mapObject.get(i).get("isin"));
+					assetKeyFigureVO.set_currencyAppConfigName((String) mapObject.get(i).get("currency_config_name"));
+					assetKeyFigureVO.set_custodianAppConfigName((String) mapObject.get(i).get("custodian_config_name"));
+					assetKeyFigureVO.setEffectiveFromDate(reqParam.getReferenceDate());
+					defaultVOs.add(assetKeyFigureVO);
+					flag = 1;
+				} else if (subCatagory1 != null && subCatagory1.equals("ACM238") && subCatagory2.equals("ACM259")) {
+					AssetKeyFigureVO assetKeyFigureVO = new AssetKeyFigureVO();
+					assetKeyFigureVO.setEarning(0.0);
+					assetKeyFigureVO.setEstimatedDividend(0.0);
+					assetKeyFigureVO.setLtvPercentage(25.0);
+
+					assetKeyFigureVO.setIsin((String) mapObject.get(i).get("isin"));
+					assetKeyFigureVO.set_currencyAppConfigName((String) mapObject.get(i).get("currency_config_name"));
+					assetKeyFigureVO.set_custodianAppConfigName((String) mapObject.get(i).get("custodian_config_name"));
+					assetKeyFigureVO.setEffectiveFromDate(reqParam.getReferenceDate());
+					defaultVOs.add(assetKeyFigureVO);
+					flag = 1;
+				} else if (catagoryName != null && catagoryName.equals("ACM228")) {
+					AssetKeyFigureVO assetKeyFigureVO = new AssetKeyFigureVO();
+					assetKeyFigureVO.setEarning(0.0);
+					assetKeyFigureVO.setEstimatedDividend(0.0);
+					assetKeyFigureVO.setLtvPercentage(0.0);
+
+					assetKeyFigureVO.setIsin((String) mapObject.get(i).get("isin"));
+					assetKeyFigureVO.set_currencyAppConfigName((String) mapObject.get(i).get("currency_config_name"));
+					assetKeyFigureVO.set_custodianAppConfigName((String) mapObject.get(i).get("custodian_config_name"));
+					assetKeyFigureVO.setEffectiveFromDate(reqParam.getReferenceDate());
+					defaultVOs.add(assetKeyFigureVO);
+					flag = 1;
+				}
+
+				if (flag == 0) {
+					map.put((String) mapObject.get(i).get("isin")
+							+ (String) mapObject.get(i).get("currency_config_name"), "Check ISIN & CURRENCY");
+				}
+
+			}
+
+			for (int i = 0; i < successVOs.size(); i++) {
+
+				if (map.containsKey(successVOs.get(i).getIsin() + successVOs.get(i).getCurrencyConfigName())) {
+					normalVOs.add(successVOs.get(i));
+				}
+			}
+
+			if (normalVOs != null && normalVOs.size() != 0) {
+				result = assetKeyFigDao.getAssetKeyFiguresList(tenantCode, normalVOs, reqParam.getReferenceDate(),
+						reqParam.getTenantCode());
+			} else {
+				log.fatal("normalVOs size is zero");
+			}
+
+			assetBusinessValidator.validateAssetKeyFigureResult(normalVOs, failedVOs, reqParam, result,
+					reqParam.getReferenceDate(), tenantCode);
+
+			if (defaultVOs.size() > 0) {
+				for (int i = 0; i < defaultVOs.size(); i++) {
+					result.add(defaultVOs.get(i));
+				}
+			}
+			responseMap.put("successVOs", result);
+			responseMap.put("failedVOs", failedVOs);
+			responseVO.setFailed(failedVOs);
+			responseVO.setSuccess(result);
+			failedCnt = failedVOs.size();
+			responseVO.setTotalfailedRecords(failedCnt);
+			responseVO.setTotalRecords(reqParam.getAssetGetRequest().size());
+
+		} catch (Exception e) {
+			// TODO: handle exception
+			log.fatal("Error in getAssetsKeyFigures: ", e);
+			throw e;
+		}
+
+		return responseMap;
+	}
+
+	@Override
+	public String getSubCatagory1(String tenantCode, String isin, String currency) throws Exception {
+		try {
+			return assetKeyFigDao.getSubCatagory1(tenantCode, isin, currency);
+		} catch (Exception e) {
+			throw e;
+		}
+	}
+
+	@Override
+	public String getSubCatagory2(String tenantCode, String isin, String currency) throws Exception {
+		try {
+			return assetKeyFigDao.getSubCatagory2(tenantCode, isin, currency);
+		} catch (Exception e) {
+			throw e;
+		}
+	}
+
+	@Override
+	public String getFirstLegCurrency(String tenantCode, String isin, String currency) throws Exception {
+
+		try {
+			return assetKeyFigDao.getFirstLegCurrency(tenantCode, isin, currency);
+		} catch (Exception e) {
+			log.fatal("Error in getFirstLegCurrency: ", e);
+			throw e;
+		}
+	}
+
+	@Override
+	public String getSecondLegCurrency(String tenantCode, String isin, String currency) throws Exception {
+		try {
+			return assetKeyFigDao.getSecondLegCurrency(tenantCode, isin, currency);
+		} catch (Exception e) {
+			log.fatal("Error in getSecondLegCurrency: ", e);
+			throw e;
+		}
+	}
+
+}

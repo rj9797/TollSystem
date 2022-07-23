@@ -1,0 +1,53 @@
+package com.klayx.asset.dao;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+
+import com.google.gson.JsonObject;
+import com.klayx.asset.model.AssetCompositeRequestByInfoByIdVO;
+import com.klayx.asset.model.AssetCompositeRequestByInfoVO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetVO;
+
+public interface IAssetKeyFigureDAO {
+
+	public void addAssetKeyFigures(String tenantCode, List<AssetKeyFigureVO> reqParam, List<JsonObject> totalVOs,
+			String accessToken) throws Exception;
+
+	public void addAssetKeyFigure(String tenantCode, List<AssetKeyFigureVO> reqParam,
+			Map<String, AssetKeyFigureVO> DbMap) throws Exception;
+
+	public Map<String, AssetKeyFigureVO> getAssetKeyFigure(String tenantCode, List<AssetKeyFigureVO> reqParam)
+			throws Exception;
+
+	public List<AssetVO> getAssets(String tenantCode, List<AssetKeyFigureVO> reqParam) throws Exception;
+
+	public void updateAssetKeyFigure(String teantCode, List<AssetKeyFigureVO> reqParam,
+			Map<String, AssetKeyFigureVO> DbMap) throws Exception;
+
+	public List<AssetKeyFigureVO> getAssetKeyFigures(String tenantCode, AssetRequestVO request) throws Exception;
+
+	public List<AssetKeyFigureVO> getAssetKeyFiguresInfo(String tenantCode, AssetRequestVO reqParam) throws Exception;
+
+	public List<AssetKeyFigureVO> getAssetKeyFiguresList(String tenantcode, List<AssetGetRequestVO> reqParam,
+			Date referenceDate, String tenantCode) throws Exception;
+
+	public String getCatagory(String tenantCode, AssetGetRequestVO assetPriceVO) throws Exception;
+
+	public String getAssetCurrency(String tenantCode, String isin, String currency) throws Exception;
+
+	public String getSubCatagory1(String tenantCode, String isin, String currency) throws Exception;
+
+	public String getSubCatagory2(String tenantCode, String isin, String currency) throws Exception;
+
+	public String getFirstLegCurrency(String tenantCode, String isin, String currency) throws Exception;
+
+	public String getSecondLegCurrency(String tenantCode, String isin, String currency) throws Exception;
+
+	public List<Map<String, Object>> getCategoryList(String tenantCode, List<AssetGetRequestVO> successVOs)
+			throws Exception;
+}

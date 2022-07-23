@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties":
+  {
+    "preferredAssetGroupVO":
+    {
+      "type": "object",
+      "properties":
+      {
+        "groupTypeConfigName":
+        {
+          "type": "string"
+        },
+        "groupTypeId":
+        {
+          "type": "integer"
+        }
+      },
+      "required":
+      [
+        "groupTypeConfigName",
+        "groupTypeId"
+      ]
+    }
+  },
+  "required":
+  [
+    "preferredAssetGroupVO"
+  ]
+}

@@ -1,0 +1,297 @@
+{
+	"$schema": "http://json-schema.org/draft-04/schema#",
+	"type": "object",
+	"properties": {
+		"_thirdPartyProcessorId1": {
+			"anyOf": [
+				{
+					"type": "integer"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"_thirdPartyProcessorId2": {
+			"anyOf": [
+				{
+					"type": "integer"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"isin": {
+			"type": "string"
+		},
+		"currencyAppId": {
+			"type": "integer"
+		},
+		"currencyAppConfigName": {
+			"type": "string"
+		},
+		"FactSetTicker": {
+			"type": "string"
+		},
+		"analystCount": {
+			"type": "integer"
+		},
+		"buyCount": {
+			"type": "integer"
+		},
+		"holdCount": {
+			"type": "integer"
+		},
+		"sellCount": {
+			"type": "integer"
+		},
+		"volatility1YPer": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"priceAmt": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"targetPriceMeanAmt": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"targetPriceMedianAmt": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"priceSysCurrencyAmt": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"targetPriceSysCurrencyAmt": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"marketCapSysCurrencyAmt": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"forwardDivYield12MPerc": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"trailingPriceToBookNbr": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"forwardPE12MNbr": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"forwardROE12MPerc": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"forwardEVToEbitda12MNbr": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"priceChange1DPerc": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"priceChange1WPerc": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"priceChange1MPerc": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"priceChange3MPerc": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"priceChange6MPerc": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"priceChange1YPerc": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"priceChange2YPerc": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"priceChange3YPerc": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"priceChange5YPerc": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"relativeStrengthIndex14DNbr": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"BollBonds20DNbr": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"effectiveFromDate": {
+			"type": "string"
+		},
+		"uniqueKey": {
+			"type": "string"
+		},
+		"username": {
+			"type": "string"
+		}
+	},
+	"required": [
+		"ISIN",
+		"currencyAppId",
+		"currencyAppConfigName",
+		"effectiveFromDate",
+		"FactSetTicker"
+	],
+	"additionalProperties": true
+}

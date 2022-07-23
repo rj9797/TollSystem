@@ -1,0 +1,315 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+public class UniverseStockDetailsByBrokerVO {
+
+	private BigDecimal id;
+	private String isin;
+	private BigDecimal currencyAppId;
+	private String currencyAppConfigName;
+	private BigDecimal universeStockId;
+	private Date ratingDate;
+	private BigDecimal ratingCoverageTypeId;
+	private String ratingCoverageTypeConfigName;
+	private BigDecimal brokerAppId;
+	private String brokerAppConfigName;
+	private BigDecimal brokerCurrencyAppId;
+	private String brokerCurrencyAppConfigName;
+	private BigDecimal targetPriceAmt;
+	private BigDecimal brokerRatingId;
+	private String brokerRatingConfigName;
+	private BigDecimal ratingAppId;
+	private String ratingAppConfigName;
+	private BigDecimal klayRatingAppId;
+	private String klayRatingAppConfigName;
+	private String remarks;
+	private int analysisYear;
+	private int analysisMonth;
+	private Date effFromDate;
+	private Date effToDate;
+	private String createdBy;
+	private Date createdDate;
+	private String updatedBy;
+	private Date updatedDate;
+	private String uniqueKey;
+	private int hasError;
+	private List<ErrorVO> errors;
+	private BigDecimal _thirdPartyProcessorId1;
+	private BigDecimal _thirdPartyProcessorId2;
+	private String username;
+	private String asRatedOrNot;
+	private Date last_rating_date;
+	private String last_rating_config_name;
+	private Date maxBrokerRatingDate;
+	private Date minBrokerRatingDate;
+	private int missingIsin;
+	
+	
+	
+	public int getMissingIsin() {
+		return missingIsin;
+	}
+	public void setMissingIsin(int missingIsin) {
+		this.missingIsin = missingIsin;
+	}
+	public Date getMaxBrokerRatingDate() {
+		return maxBrokerRatingDate;
+	}
+	public void setMaxBrokerRatingDate(Date maxBrokerRatingDate) {
+		this.maxBrokerRatingDate = maxBrokerRatingDate;
+	}
+	public Date getMinBrokerRatingDate() {
+		return minBrokerRatingDate;
+	}
+	public void setMinBrokerRatingDate(Date minBrokerRatingDate) {
+		this.minBrokerRatingDate = minBrokerRatingDate;
+	}
+	public String getLast_rating_config_name() {
+		return last_rating_config_name;
+	}
+	public void setLast_rating_config_name(String last_rating_config_name) {
+		this.last_rating_config_name = last_rating_config_name;
+	}
+	public Date getLast_rating_date() {
+		return last_rating_date;
+	}
+	public void setLast_rating_date(Date last_rating_date) {
+		this.last_rating_date = last_rating_date;
+	}
+	public BigDecimal getId() {
+		return id;
+	}
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+	public String getIsin() {
+		return isin;
+	}
+	public void setIsin(String isin) {
+		this.isin = isin;
+	}
+	public BigDecimal getCurrencyAppId() {
+		return currencyAppId;
+	}
+	public void setCurrencyAppId(BigDecimal currencyAppId) {
+		this.currencyAppId = currencyAppId;
+	}
+	public String getCurrencyAppConfigName() {
+		return currencyAppConfigName;
+	}
+	public void setCurrencyAppConfigName(String currencyAppConfigName) {
+		this.currencyAppConfigName = currencyAppConfigName;
+	}
+	public BigDecimal getUniverseStockId() {
+		return universeStockId;
+	}
+	public void setUniverseStockId(BigDecimal universeStockId) {
+		this.universeStockId = universeStockId;
+	}
+	public Date getRatingDate() {
+		return ratingDate;
+	}
+	public void setRatingDate(Date ratingDate) {
+		this.ratingDate = ratingDate;
+	}
+	public BigDecimal getRatingCoverageTypeId() {
+		return ratingCoverageTypeId;
+	}
+	public void setRatingCoverageTypeId(BigDecimal ratingCoverageTypeId) {
+		this.ratingCoverageTypeId = ratingCoverageTypeId;
+	}
+	public String getRatingCoverageTypeConfigName() {
+		return ratingCoverageTypeConfigName;
+	}
+	public void setRatingCoverageTypeConfigName(String ratingCoverageTypeConfigName) {
+		this.ratingCoverageTypeConfigName = ratingCoverageTypeConfigName;
+	}
+	public BigDecimal getBrokerAppId() {
+		return brokerAppId;
+	}
+	public void setBrokerAppId(BigDecimal brokerAppId) {
+		this.brokerAppId = brokerAppId;
+	}
+	public String getBrokerAppConfigName() {
+		return brokerAppConfigName;
+	}
+	public void setBrokerAppConfigName(String brokerAppConfigName) {
+		this.brokerAppConfigName = brokerAppConfigName;
+	}
+	public BigDecimal getBrokerCurrencyAppId() {
+		return brokerCurrencyAppId;
+	}
+	public void setBrokerCurrencyAppId(BigDecimal brokerCurrencyAppId) {
+		this.brokerCurrencyAppId = brokerCurrencyAppId;
+	}
+	public String getBrokerCurrencyAppConfigName() {
+		return brokerCurrencyAppConfigName;
+	}
+	public void setBrokerCurrencyAppConfigName(String brokerCurrencyAppConfigName) {
+		this.brokerCurrencyAppConfigName = brokerCurrencyAppConfigName;
+	}
+	public BigDecimal getTargetPriceAmt() {
+		return targetPriceAmt;
+	}
+	public void setTargetPriceAmt(BigDecimal targetPriceAmt) {
+		this.targetPriceAmt = targetPriceAmt;
+	}
+	public BigDecimal getRatingAppId() {
+		return ratingAppId;
+	}
+	public void setRatingAppId(BigDecimal ratingAppId) {
+		this.ratingAppId = ratingAppId;
+	}
+	public String getRatingAppConfigName() {
+		return ratingAppConfigName;
+	}
+	public void setRatingAppConfigName(String ratingAppConfigName) {
+		this.ratingAppConfigName = ratingAppConfigName;
+	}
+	public String getRemarks() {
+		return remarks;
+	}
+	public void setRemarks(String remarks) {
+		this.remarks = remarks;
+	}
+	public int getAnalysisYear() {
+		return analysisYear;
+	}
+	public void setAnalysisYear(int analysisYear) {
+		this.analysisYear = analysisYear;
+	}
+	public int getAnalysisMonth() {
+		return analysisMonth;
+	}
+	public void setAnalysisMonth(int analysisMonth) {
+		this.analysisMonth = analysisMonth;
+	}
+	public Date getEffFromDate() {
+		return effFromDate;
+	}
+	public void setEffFromDate(Date effFromDate) {
+		this.effFromDate = effFromDate;
+	}
+	public Date getEffToDate() {
+		return effToDate;
+	}
+	public void setEffToDate(Date effToDate) {
+		this.effToDate = effToDate;
+	}
+	public String getCreatedBy() {
+		return createdBy;
+	}
+	public void setCreatedBy(String createdBy) {
+		this.createdBy = createdBy;
+	}
+	public Date getCreatedDate() {
+		return createdDate;
+	}
+	public void setCreatedDate(Date createdDate) {
+		this.createdDate = createdDate;
+	}
+	public String getUpdatedBy() {
+		return updatedBy;
+	}
+	public void setUpdatedBy(String updatedBy) {
+		this.updatedBy = updatedBy;
+	}
+	public Date getUpdatedDate() {
+		return updatedDate;
+	}
+	public void setUpdatedDate(Date updatedDate) {
+		this.updatedDate = updatedDate;
+	}
+	public String getUniqueKey() {
+		return uniqueKey;
+	}
+	public void setUniqueKey(String uniqueKey) {
+		this.uniqueKey = uniqueKey;
+	}
+	public int getHasError() {
+		return hasError;
+	}
+	public void setHasError(int hasError) {
+		this.hasError = hasError;
+	}
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+	public BigDecimal get_thirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+	public void set_thirdPartyProcessorId1(BigDecimal _thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = _thirdPartyProcessorId1;
+	}
+	public BigDecimal get_thirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+	public void set_thirdPartyProcessorId2(BigDecimal _thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = _thirdPartyProcessorId2;
+	}
+	public String getUsername() {
+		return username;
+	}
+	public void setUsername(String username) {
+		this.username = username;
+	}
+	public BigDecimal getKlayRatingAppId() {
+		return klayRatingAppId;
+	}
+	public void setKlayRatingAppId(BigDecimal klayRatingAppId) {
+		this.klayRatingAppId = klayRatingAppId;
+	}
+	public String getKlayRatingAppConfigName() {
+		return klayRatingAppConfigName;
+	}
+	public void setKlayRatingAppConfigName(String klayRatingAppConfigName) {
+		this.klayRatingAppConfigName = klayRatingAppConfigName;
+	}
+	public BigDecimal getBrokerRatingId() {
+		return brokerRatingId;
+	}
+	public void setBrokerRatingId(BigDecimal brokerRatingId) {
+		this.brokerRatingId = brokerRatingId;
+	}
+	public String getBrokerRatingConfigName() {
+		return brokerRatingConfigName;
+	}
+	public void setBrokerRatingConfigName(String brokerRatingConfigName) {
+		this.brokerRatingConfigName = brokerRatingConfigName;
+	}
+	public String getAsRatedOrNot() {
+		return asRatedOrNot;
+	}
+	public void setAsRatedOrNot(String asRatedOrNot) {
+		this.asRatedOrNot = asRatedOrNot;
+	}
+	@Override
+	public String toString() {
+		return "UniverseStockDetailsByBrokerVO [id=" + id + ", isin=" + isin + ", currencyAppId=" + currencyAppId
+				+ ", currencyAppConfigName=" + currencyAppConfigName + ", universeStockId=" + universeStockId
+				+ ", ratingDate=" + ratingDate + ", ratingCoverageTypeId=" + ratingCoverageTypeId
+				+ ", ratingCoverageTypeConfigName=" + ratingCoverageTypeConfigName + ", brokerAppId=" + brokerAppId
+				+ ", brokerAppConfigName=" + brokerAppConfigName + ", brokerCurrencyAppId=" + brokerCurrencyAppId
+				+ ", brokerCurrencyAppConfigName=" + brokerCurrencyAppConfigName + ", targetPriceAmt=" + targetPriceAmt
+				+ ", brokerRatingId=" + brokerRatingId + ", brokerRatingConfigName=" + brokerRatingConfigName
+				+ ", ratingAppId=" + ratingAppId + ", ratingAppConfigName=" + ratingAppConfigName + ", klayRatingAppId="
+				+ klayRatingAppId + ", klayRatingAppConfigName=" + klayRatingAppConfigName + ", remarks=" + remarks
+				+ ", analysisYear=" + analysisYear + ", analysisMonth=" + analysisMonth + ", effFromDate=" + effFromDate
+				+ ", effToDate=" + effToDate + ", createdBy=" + createdBy + ", createdDate=" + createdDate
+				+ ", updatedBy=" + updatedBy + ", updatedDate=" + updatedDate + ", uniqueKey=" + uniqueKey
+				+ ", hasError=" + hasError + ", errors=" + errors + ", _thirdPartyProcessorId1="
+				+ _thirdPartyProcessorId1 + ", _thirdPartyProcessorId2=" + _thirdPartyProcessorId2 + ", username="
+				+ username + ", asRatedOrNot=" + asRatedOrNot + ", last_rating_date=" + last_rating_date
+				+ ", last_rating_config_name=" + last_rating_config_name + ", maxBrokerRatingDate="
+				+ maxBrokerRatingDate + ", minBrokerRatingDate=" + minBrokerRatingDate + ", missingIsin=" + missingIsin
+				+ "]";
+	}
+	
+	
+}

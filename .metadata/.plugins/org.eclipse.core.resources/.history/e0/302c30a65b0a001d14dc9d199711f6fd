@@ -1,0 +1,3416 @@
+package com.klayx.asset.service.impl;
+
+import static com.klayx.asset.common.AssetConstants.AMOUNT_PRECISION;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IUniverseStockDAO;
+import com.klayx.asset.model.AccessDetailVO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.DocumentVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.ResponseVO;
+import com.klayx.asset.model.SearchDateFieldValuesVO;
+import com.klayx.asset.model.SearchDateVO;
+import com.klayx.asset.model.SearchNumberFieldValuesVO;
+import com.klayx.asset.model.SearchNumberVO;
+import com.klayx.asset.model.SearchRequestVO;
+import com.klayx.asset.model.SearchResultDataVO;
+import com.klayx.asset.model.SearchTextFieldValuesVO;
+import com.klayx.asset.model.SearchTextVO;
+import com.klayx.asset.model.SortFieldVO;
+import com.klayx.asset.model.SortRequestVO;
+import com.klayx.asset.model.SqlExtractVO;
+import com.klayx.asset.model.UniverseStockDetailsByBrokerVO;
+import com.klayx.asset.model.UniverseStockDetailsByTerminalVO;
+import com.klayx.asset.model.UniverseStockInitialRated;
+import com.klayx.asset.model.UniverseStockVO;
+import com.klayx.asset.service.IUniverseStockService;
+
+@Service(AssetConstants.UNIVERSESTOCKSERVICE)
+public class UniverseStockServiceImpl implements IUniverseStockService {
+
+	private static final Logger log = LogManager.getLogger(UniverseStockServiceImpl.class);
+
+	Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+			.create();
+
+	@Autowired
+	@Qualifier(AssetConstants.UNIVERSESTOCKDAO)
+	private IUniverseStockDAO universeStockDao;
+
+	@Value("${FETCH_MAXDATE_LIST_FOR_TERMINAL}")
+	private String getmaxdateforterminal;
+
+	@Value("${APPLICATION_CONFIG_MAP_INFO}")
+	private String applicationConfigMapInfoUrl;
+
+	@Value("${ADD_DOCUMENT_URL}")
+	private String addDocumentURL;
+
+	@Value("${GET_UUID_URL}")
+	private String getUUIDsURL;
+
+	@Value("${pagination.offset}")
+	private int paginationOffset;
+
+	@Value("${CACHE_INFO_URL}")
+	private String CACHE_INFO_URL;
+
+	@Override
+	public void addUniverseStocks(String tenantCode, List<UniverseStockVO> successVOs,
+			List<FailedVO<UniverseStockVO>> failedVOs, List<JsonObject> totalVOs, boolean isInterfaceRequest,
+			AssetRequestVO assetRequestVO, HttpServletRequest httpServletRequest, AccessDetailVO accessDetailVO)
+			throws Exception {
+		List<Object> uuidList;
+		int cnt = 0;
+		String docResponse;
+		Map<String, String> referenceNumberMap = null;
+		List<DocumentVO> universeStockVOsContaingDocs = null;
+		BigDecimal primaryKey;
+		try {
+			universeStockVOsContaingDocs = new ArrayList<DocumentVO>();
+
+			// Code to override regionId and regionConfigName started
+			JsonArray configMapDetails = getRegionBasedOnCountry(httpServletRequest);
+
+			for (UniverseStockVO universeStockVO : successVOs) {
+
+				universeStockVO.getCountryConfigName();
+				Iterator<JsonElement> iterator = configMapDetails.iterator();
+				while (iterator.hasNext()) {
+					JsonObject configMapDetail = (JsonObject) iterator.next();
+
+					if (!AssetUtil.jsonNullCheck(configMapDetail, "sourceConfigName")
+							&& universeStockVO.getCountryConfigName()
+									.equalsIgnoreCase(configMapDetail.get("sourceConfigName").getAsString())) {
+
+						JsonArray linkedConfigs = configMapDetail.get("linkedConfigs").getAsJsonArray();
+
+						Iterator<JsonElement> iterator1 = linkedConfigs.iterator();
+
+						while (iterator1.hasNext()) {
+							JsonObject linkedConfig = (JsonObject) iterator1.next();
+
+							if (!AssetUtil.jsonNullCheck(linkedConfig, "configname")
+									&& !AssetUtil.jsonNullCheck(linkedConfig, "configId")) {
+								universeStockVO.setRegionConfigName(linkedConfig.get("configname").getAsString());
+								universeStockVO.setRegionId(linkedConfig.get("configId").getAsBigDecimal());
+							}
+						}
+						break;
+					}
+				}
+			}
+
+			// Code to override regionId and regionConfigName ended
+
+			universeStockDao.addUniverseStocks(tenantCode, successVOs, assetRequestVO);
+			JsonArray docArray = new JsonArray();
+			JsonArray documentAddReqArray = new JsonArray();
+			JsonObject addDocumentRequest = new JsonObject();
+
+			uuidList = getUUIDS("USM", successVOs.size(), httpServletRequest);
+			Map<String, String> documentMap = new HashMap<>();
+
+			for (UniverseStockVO universeStockVO : successVOs) {
+//				System.out.println("universeStockVO.getDocuments()====>>"+universeStockVO.getDocuments());
+				if (universeStockVO.getDocuments() != null) {
+//					universeStockVO.setInternalReferenceNumber((String)uuidList.get(cnt));
+//					JsonObject doc=new JsonObject();
+//					doc.addProperty("documentSourceAppConfigName", "USM");
+//					doc.addProperty("documentIssueDate", new SimpleDateFormat("yyyy-MM-dd").format(new Date()));
+//					doc.addProperty("internalReferenceNumber", (String)uuidList.get(cnt));
+//					doc.addProperty("documentTempStorageId", universeStockVO.getFileTempStorageId());
+//					doc.addProperty("isDelete", "0");
+//					JsonArray tagArray = new JsonArray();
+//					JsonObject tag= new JsonObject();
+//					tag.addProperty("tagName", "USM");
+//					tag.addProperty("systemTag", 1);
+//					tagArray.add(tag);
+//					doc.add("tags", tagArray);
+//					
+//					JsonArray docMetadataTypeArray = new JsonArray();
+//					JsonObject docMetadata= new JsonObject();
+//					docMetadata.addProperty("businessDefinitionAppId", "2541");
+//					docMetadata.addProperty("businessDefinitionAppConfigName", "ACM1837");
+//					docMetadataTypeArray.add(docMetadata);
+//					doc.add("documentTypes", docMetadataTypeArray);
+
+					for (DocumentVO documentVO : universeStockVO.getDocuments()) {
+						documentMap = universeStockDao.getAssetDocumentMapInternalExternalRefNbr(tenantCode, documentVO,
+								universeStockVO);
+						documentVO.setIsin(universeStockVO.getIsin());
+						documentVO.setCurrencyId(universeStockVO.getCurrencyId());
+						documentVO.setCurrencyConfigName(universeStockVO.getCurrencyConfigName());
+						documentVO.setId(universeStockVO.getId());
+						if (documentMap.isEmpty()) {
+							documentVO.setInternalReferenceNumber((String) uuidList.get(cnt));
+						} else {
+							documentVO.setInternalReferenceNumber(documentMap.get("document_internal_reference_nbr"));
+							documentVO.setExternalReferenceNumber(documentMap.get("document_external_reference_nbr"));
+						}
+						docArray.add(gson.toJsonTree(documentVO));
+					}
+					cnt++;
+				}
+			}
+			for (UniverseStockVO universeStockVO : successVOs) {
+				if (universeStockVO.getDocuments() != null) {
+					for (DocumentVO documentVO : universeStockVO.getDocuments()) {
+						primaryKey = universeStockDao.addAssetDocumentsForUSM(tenantCode, documentVO);
+						universeStockDao.addAssetDocumentsForUSMBusinessDefination(tenantCode, documentVO, primaryKey,
+								accessDetailVO);
+					}
+				}
+			}
+			if (docArray.size() > 0) {
+				JsonObject docAddRequest = new JsonObject();
+				docAddRequest.addProperty("sourceSystem", "USM");
+				docAddRequest.add("documents", docArray);
+				documentAddReqArray.add(docAddRequest);
+				addDocumentRequest.add("documentAddRequest", documentAddReqArray);
+				docResponse = AssetUtil.syncHttpCall(addDocumentRequest.toString(), addDocumentURL, httpServletRequest);
+				JsonArray response = new Gson().fromJson(docResponse, JsonObject.class).get("success").getAsJsonArray()
+						.get(0).getAsJsonObject().get("documents").getAsJsonArray();
+				referenceNumberMap = new HashMap<String, String>();
+				for (int count = 0; count < response.size(); count++) {
+					referenceNumberMap.put(
+							response.get(count).getAsJsonObject().get("externalReferenceNumber").getAsString(),
+							response.get(count).getAsJsonObject().get("internalReferenceNumber").getAsString());
+				}
+
+				if (referenceNumberMap != null) {
+					for (UniverseStockVO universeStockVO : successVOs) {
+						if (universeStockVO.getDocuments() != null) {
+							for (DocumentVO documentVO : universeStockVO.getDocuments()) {
+								if (documentVO.getExternalReferenceNumber() == null) {
+									documentVO.setExternalReferenceNumber(
+											referenceNumberMap.get(documentVO.getInternalReferenceNumber()));
+									universeStockVOsContaingDocs.add(documentVO);
+								}
+							}
+						}
+					}
+				}
+				if (universeStockVOsContaingDocs != null && universeStockVOsContaingDocs.size() > 0) {
+					updateDocumentsExternalReferenceNumber(tenantCode, universeStockVOsContaingDocs);
+				}
+
+			}
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			log.fatal("Error in UniverseStockServiceImpl : ", ex);
+			throw ex;
+		}
+
+	}
+
+	@Override
+	public void updateDocumentsExternalReferenceNumber(String tenantCode, List<DocumentVO> documentVOs) {
+		try {
+			universeStockDao.updateDocumentsExternalReferenceNumber(tenantCode, documentVOs);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	public JsonArray getRegionBasedOnCountry(HttpServletRequest httpServletRequest) throws Exception {
+
+		JsonArray configMapDetails = null;
+		try {
+
+			JsonObject maintenanceRequest = new JsonObject();
+			JsonObject maintenanceGetRequest = new JsonObject();
+
+			maintenanceGetRequest.addProperty("linkedConfigTypeSource", "KlayX");
+
+			JsonArray sourceLinkedList = new JsonArray();
+
+			JsonObject sourceLinkedObj = null;
+
+			sourceLinkedObj = new JsonObject();
+			sourceLinkedObj.addProperty("sourceConfigType", "COUNTRY");
+			sourceLinkedObj.addProperty("linkedConfigType", "REGION");
+			sourceLinkedObj.addProperty("typeConfigName", "ACM1996");
+			sourceLinkedList.add(sourceLinkedObj);
+
+			sourceLinkedObj = new JsonObject();
+			sourceLinkedObj.addProperty("sourceConfigType", "KLAY_ASSET_RATING");
+			sourceLinkedObj.addProperty("linkedConfigType", "MS_RATING");
+			sourceLinkedObj.addProperty("typeConfigName", "ACM1998");
+			sourceLinkedList.add(sourceLinkedObj);
+
+			sourceLinkedObj = new JsonObject();
+			sourceLinkedObj.addProperty("sourceConfigType", "KLAY_ASSET_RATING");
+			sourceLinkedObj.addProperty("linkedConfigType", "GS_RATING");
+			sourceLinkedObj.addProperty("typeConfigName", "ACM1998");
+			sourceLinkedList.add(sourceLinkedObj);
+
+			sourceLinkedObj = new JsonObject();
+			sourceLinkedObj.addProperty("sourceConfigType", "KLAY_ASSET_RATING");
+			sourceLinkedObj.addProperty("linkedConfigType", "UBS_RATING");
+			sourceLinkedObj.addProperty("typeConfigName", "ACM1998");
+			sourceLinkedList.add(sourceLinkedObj);
+
+			sourceLinkedObj = new JsonObject();
+			sourceLinkedObj.addProperty("sourceConfigType", "KLAY_ASSET_RATING");
+			sourceLinkedObj.addProperty("linkedConfigType", "UBS_CIO_RATING");
+			sourceLinkedObj.addProperty("typeConfigName", "ACM1998");
+			sourceLinkedList.add(sourceLinkedObj);
+
+			sourceLinkedObj = new JsonObject();
+			sourceLinkedObj.addProperty("sourceConfigType", "KLAY_ASSET_RATING");
+			sourceLinkedObj.addProperty("linkedConfigType", "SG_RATING");
+			sourceLinkedObj.addProperty("typeConfigName", "ACM1998");
+			sourceLinkedList.add(sourceLinkedObj);
+
+			sourceLinkedObj = new JsonObject();
+			sourceLinkedObj.addProperty("sourceConfigType", "KLAY_ASSET_RATING");
+			sourceLinkedObj.addProperty("linkedConfigType", "JB_RATING");
+			sourceLinkedObj.addProperty("typeConfigName", "ACM1998");
+			sourceLinkedList.add(sourceLinkedObj);
+
+			maintenanceGetRequest.add("sourceLinkedList", sourceLinkedList);
+			maintenanceRequest.add("maintenanceGetRequest", maintenanceGetRequest);
+
+
+			String applicationConfigMapInfoResponse = AssetUtil.syncHttpCall(maintenanceRequest.toString(),
+					applicationConfigMapInfoUrl, httpServletRequest);
+
+
+			JsonObject applicationConfigMapInfoJsonResponse = AssetUtil
+					.fromJSonToObject(applicationConfigMapInfoResponse, JsonObject.class);
+
+			if (!AssetUtil.jsonNullCheck(applicationConfigMapInfoJsonResponse, "success")) {
+
+				JsonArray successList = new JsonArray();
+				successList = applicationConfigMapInfoJsonResponse.get("success").getAsJsonArray();
+
+				Iterator<JsonElement> iterator1 = successList.iterator();
+				while (iterator1.hasNext()) {
+
+					JsonObject success = (JsonObject) iterator1.next();
+
+					if (!AssetUtil.jsonNullCheck(success, "sourceConfigType")
+							&& !AssetUtil.jsonNullCheck(success, "linkedConfigType")) {
+
+						if ("COUNTRY".equalsIgnoreCase(success.get("sourceConfigType").getAsString())
+								&& "REGION".equalsIgnoreCase(success.get("linkedConfigType").getAsString())) {
+
+							configMapDetails = success.get("configMapDetails").getAsJsonArray();
+							break;
+						}
+					}
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in getRegionBasedOnCountry: ", ex);
+			throw ex;
+		}
+
+		return configMapDetails;
+	}
+
+	@Override
+	public void addUniverseStockDetailByTerminal(List<UniverseStockDetailsByTerminalVO> successVOs,
+			List<FailedVO<UniverseStockDetailsByTerminalVO>> failedVOs, List<JsonObject> totalVOs,
+			boolean isInterfaceRequest, AssetRequestVO assetRequestVO) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			StringBuilder query = new StringBuilder();
+			List<JsonObject> objectsToBeRemoved = new ArrayList<>();
+
+			// List will contain objects to be added from totalVOs
+			List<JsonObject> objectsToBeAdded = new ArrayList<>();
+			List<FailedVO<UniverseStockDetailsByTerminalVO>> failed = new ArrayList<FailedVO<UniverseStockDetailsByTerminalVO>>();
+			List<UniverseStockDetailsByTerminalVO> updateListForMaxDate = new ArrayList<UniverseStockDetailsByTerminalVO>();
+			List<UniverseStockDetailsByTerminalVO> insertListForMaxDate = new ArrayList<UniverseStockDetailsByTerminalVO>();
+
+			List<UniverseStockDetailsByTerminalVO> updateListForUniverseStockTerminal = new ArrayList<UniverseStockDetailsByTerminalVO>();
+			List<UniverseStockDetailsByTerminalVO> updateDeactivateListForUniverseStockTerminal = new ArrayList<UniverseStockDetailsByTerminalVO>();
+			List<UniverseStockDetailsByTerminalVO> successVOsToBeRemoved = new ArrayList<UniverseStockDetailsByTerminalVO>();
+			List<UniverseStockDetailsByTerminalVO> insertListForUniverseStockTerminal = new ArrayList<UniverseStockDetailsByTerminalVO>();
+			Map<String, SqlExtractVO> sqlExtractedMaxDateMap = new HashMap<String, SqlExtractVO>();
+			Map<String, UniverseStockDetailsByTerminalVO> uniqueSuccessMap = new HashMap<String, UniverseStockDetailsByTerminalVO>();
+			List<UniverseStockDetailsByTerminalVO> uniqueVOs = new ArrayList<UniverseStockDetailsByTerminalVO>();
+
+			query.append(getmaxdateforterminal);
+
+			// Duplicate check
+			for (UniverseStockDetailsByTerminalVO Vos : successVOs) {
+				if (!uniqueSuccessMap.containsKey(Vos.getISIN() + Vos.getCurrencyAppId())) {
+					uniqueSuccessMap.put(Vos.getISIN() + Vos.getCurrencyAppId(), Vos);
+					uniqueVOs.add(Vos);
+				}
+			}
+
+			// Computing Values
+			uniqueVOs = computeStockDetailByTerminal(uniqueVOs);
+
+			// Fetching Max Date Map
+			for (UniverseStockDetailsByTerminalVO vo : uniqueVOs) {
+				query.append("(isin='").append(vo.getISIN()).append("' AND CURRENCY_ID=").append(vo.getCurrencyAppId())
+						.append(") OR ");
+			}
+			query.replace(query.length() - 3, query.length(),
+					") AND (TERMINAL_ID=2659) AND (max_eff_from_date_for_id=2737)");
+			log.fatal("query=" + query);
+			sqlExtractedMaxDateMap = universeStockDao.getListForMaxDate(assetRequestVO.getTenantCode(),
+					query.toString());
+
+			log.fatal("sqlExtractedMaxDateMap=" + sqlExtractedMaxDateMap);
+			// Iterating in map for insert and update List
+			for (UniverseStockDetailsByTerminalVO vo : uniqueVOs) {
+
+				if (sqlExtractedMaxDateMap.containsKey(vo.getISIN() + vo.getCurrencyAppId())) {
+					SqlExtractVO extractVO = sqlExtractedMaxDateMap.get(vo.getISIN() + vo.getCurrencyAppId());
+					Date date = vo.getEffectiveFromDate();
+
+					if (date.after(extractVO.getEff_from_date())) {
+						updateDeactivateListForUniverseStockTerminal.add(vo);
+						updateListForMaxDate.add(vo);
+						insertListForUniverseStockTerminal.add(vo);
+					} else if (date.equals(extractVO.getEff_from_date())) {
+						updateListForUniverseStockTerminal.add(vo);
+					} else {
+
+						FailedVO<UniverseStockDetailsByTerminalVO> failedVO = new FailedVO<UniverseStockDetailsByTerminalVO>();
+						failedVO.setIdentityDetails(vo);
+
+						failed.add(failedVO);
+						List<ErrorVO> errorList = new ArrayList<ErrorVO>();
+						errorList.add(AssetUtil.getError("BUSAST41"));
+						failedVO.setErrors(errorList);
+						if (null != vo.get_thirdPartyProcessorId1()) {
+							vo.setHasError(1);
+							vo.setErrors(errorList);
+						}
+						if (failedVOs != null)
+							failedVOs.add(failedVO);
+
+						successVOsToBeRemoved.add(vo);
+
+						for (JsonObject universeStock : totalVOs) {
+							if ((!AssetUtil.jsonNullCheck(universeStock, "uniqueKey")) && vo.getUniqueKey() != null
+									&& universeStock.get("uniqueKey").getAsString()
+											.equalsIgnoreCase(vo.getUniqueKey())) {
+
+								objectsToBeRemoved.add(universeStock);
+
+								String universeStock1 = AssetUtil.fromObjectToJSON(vo);
+								JsonObject jsonObject = AssetUtil.fromJSonToObject(universeStock1, JsonObject.class);
+
+								objectsToBeAdded.add(jsonObject);
+								break;
+							}
+						}
+
+					}
+
+//					updateListForUniverseStockTerminal
+				} else {
+					insertListForMaxDate.add(vo);
+					insertListForUniverseStockTerminal.add(vo);
+				}
+			}
+
+			successVOs.removeAll(successVOsToBeRemoved);
+			successVOsToBeRemoved.clear();
+
+			totalVOs.removeAll(objectsToBeRemoved);
+			objectsToBeRemoved.clear();
+
+			totalVOs.addAll(objectsToBeAdded);
+			objectsToBeAdded.clear();
+
+			// Calling for insert and update of max delete
+			universeStockDao.freshInsertForMaxDate(assetRequestVO.getTenantCode(), insertListForMaxDate);
+			universeStockDao.updateForMaxDate(assetRequestVO.getTenantCode(), updateListForMaxDate);
+
+			log.fatal("insertListForMaxDate=" + insertListForMaxDate.size());
+			log.fatal("updateListForMaxDate=" + updateListForMaxDate.size());
+			// Calling for insert and update of universe Stock by detail table
+			universeStockDao.updateUniverseStockDetailByTerminal(assetRequestVO.getTenantCode(),
+					updateListForUniverseStockTerminal, updateDeactivateListForUniverseStockTerminal);
+
+			log.fatal("insertListForUniverseStockTerminal=" + insertListForUniverseStockTerminal.size());
+			log.fatal("updateListForUniverseStockTerminal=" + updateListForUniverseStockTerminal.size());
+			universeStockDao.addUniverseStockDetailByTerminal(assetRequestVO.getTenantCode(),
+					insertListForUniverseStockTerminal, totalVOs);
+		} catch (Exception e) {
+			log.fatal("Exception in universe stock by terminal service: ", e);
+			throw e;
+		}
+
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+	}
+
+	/**
+	 *
+	 * @param req
+	 * @param tenantCode
+	 * @return
+	 * @throws Exception
+	 */
+	@Override
+	public String getBrokerRatingHistory(List<AssetGetRequestVO> req, String tenantCode, Date date) throws Exception {
+		return universeStockDao.getBrokerRatingHistory(req, tenantCode, date);
+	}
+
+	private List<UniverseStockDetailsByTerminalVO> computeStockDetailByTerminal(
+			List<UniverseStockDetailsByTerminalVO> universeStockDetailByTerminalList) throws Exception {
+		try {
+			for (UniverseStockDetailsByTerminalVO universeStockDetailsByTerminalVOs : universeStockDetailByTerminalList) {
+				// Over Sold
+				if (null != universeStockDetailsByTerminalVOs.getBollBonds20DNbr()
+						&& null != universeStockDetailsByTerminalVOs.getRelativeStrengthIndex14DNbr())
+					universeStockDetailsByTerminalVOs.setOverSold((BigDecimal.valueOf(30)
+							.compareTo(universeStockDetailsByTerminalVOs.getRelativeStrengthIndex14DNbr()) == 1
+							|| BigDecimal.valueOf(2)
+									.compareTo(universeStockDetailsByTerminalVOs.getBollBonds20DNbr()) == 1)
+											? BigDecimal.ONE
+											: BigDecimal.ZERO);
+
+				// Upside to target price
+//				log.fatal("universeStockDetailsByTerminalVOs.getTargetPriceSysCurrencyAmt()="
+//						+ universeStockDetailsByTerminalVOs.getTargetPriceSysCurrencyAmt());
+//				log.fatal("universeStockDetailsByTerminalVOs.getPriceSysCurrencyAmt()="
+//						+ universeStockDetailsByTerminalVOs.getPriceSysCurrencyAmt());
+				if (null != universeStockDetailsByTerminalVOs.getTargetPriceSysCurrencyAmt()
+						&& null != universeStockDetailsByTerminalVOs.getPriceSysCurrencyAmt()) {
+					universeStockDetailsByTerminalVOs.setUpsideToPriceTarget(new BigDecimal(2)
+							.compareTo(((universeStockDetailsByTerminalVOs.getTargetPriceSysCurrencyAmt().divide(
+									universeStockDetailsByTerminalVOs.getPriceSysCurrencyAmt(), AMOUNT_PRECISION,
+									RoundingMode.HALF_UP)).subtract(BigDecimal.ONE))) == 1
+											? ((universeStockDetailsByTerminalVOs.getTargetPriceSysCurrencyAmt().divide(
+													universeStockDetailsByTerminalVOs.getPriceSysCurrencyAmt(),
+													AMOUNT_PRECISION, RoundingMode.HALF_UP)).subtract(BigDecimal.ONE)).multiply(new BigDecimal(100))
+											: BigDecimal.ZERO);
+				}
+				// Buy Rating
+				if (universeStockDetailsByTerminalVOs.getBuyCount() == 0) {
+					universeStockDetailsByTerminalVOs.setBuyRatings(BigDecimal.ZERO);
+				} else {
+					universeStockDetailsByTerminalVOs
+							.setBuyRatings(BigDecimal.valueOf(universeStockDetailsByTerminalVOs.getBuyCount())
+									.divide(BigDecimal.valueOf(universeStockDetailsByTerminalVOs.getBuyCount()
+											+ universeStockDetailsByTerminalVOs.getSellCount()
+											+ universeStockDetailsByTerminalVOs.getHoldCount()), AMOUNT_PRECISION,
+											RoundingMode.HALF_UP)
+									.multiply(BigDecimal.valueOf(100)));
+				}
+				// Sell Rating
+				if (universeStockDetailsByTerminalVOs.getSellCount() == 0) {
+					universeStockDetailsByTerminalVOs.setSellRatings(BigDecimal.ZERO);
+				} else {
+					universeStockDetailsByTerminalVOs
+							.setSellRatings(BigDecimal.valueOf(universeStockDetailsByTerminalVOs.getSellCount())
+									.divide(BigDecimal.valueOf(universeStockDetailsByTerminalVOs.getBuyCount()
+											+ universeStockDetailsByTerminalVOs.getSellCount()
+											+ universeStockDetailsByTerminalVOs.getHoldCount()), AMOUNT_PRECISION,
+											RoundingMode.HALF_UP)
+									.multiply(BigDecimal.valueOf(100)));
+				}
+			}
+
+		} catch (Exception e) {
+			log.fatal("Error in computation of stock detail by terminal: ", e);
+			e.printStackTrace();
+			throw e;
+		}
+
+		return universeStockDetailByTerminalList;
+	}
+
+	@Override
+	public void addUniverseStockDetailsByBroker(String tenantCode, List<UniverseStockDetailsByBrokerVO> successVOs,
+			List<FailedVO<UniverseStockDetailsByBrokerVO>> failedVOs, List<JsonObject> totalVOs,
+			boolean isInterfaceRequest, AssetRequestVO assetRequestVO, HttpServletRequest httpServletRequest)
+			throws Exception {
+		try {
+
+			List<FailedVO<UniverseStockDetailsByBrokerVO>> failed = new ArrayList<FailedVO<UniverseStockDetailsByBrokerVO>>();
+			List<UniverseStockDetailsByBrokerVO> updateListForMaxDate = new ArrayList<UniverseStockDetailsByBrokerVO>();
+			List<UniverseStockDetailsByBrokerVO> insertListForMaxDate = new ArrayList<UniverseStockDetailsByBrokerVO>();
+
+			List<UniverseStockDetailsByBrokerVO> updateListForUniverseStockDetailsByBroker = new ArrayList<UniverseStockDetailsByBrokerVO>();
+			List<UniverseStockDetailsByBrokerVO> updateDeactivateListForUniverseStockDetailsByBroker = new ArrayList<UniverseStockDetailsByBrokerVO>();
+			List<UniverseStockDetailsByBrokerVO> successVOsToBeRemoved = new ArrayList<UniverseStockDetailsByBrokerVO>();
+			List<UniverseStockDetailsByBrokerVO> insertListForUniverseStockDetailsByBroker = new ArrayList<UniverseStockDetailsByBrokerVO>();
+			Map<String, UniverseStockDetailsByBrokerVO> uniqueSuccessMap = new HashMap<String, UniverseStockDetailsByBrokerVO>();
+			List<UniverseStockDetailsByBrokerVO> uniqueVOs = new ArrayList<UniverseStockDetailsByBrokerVO>();
+			List<UniverseStockDetailsByBrokerVO> uniqueBrokerVOs = new ArrayList<UniverseStockDetailsByBrokerVO>();
+			Map<String, UniverseStockDetailsByBrokerVO> uniqueSuccessMapForBroker = new HashMap<String, UniverseStockDetailsByBrokerVO>();
+
+			Date brokerRatingDate = null;
+			
+			// Duplicate check
+			for (UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO : successVOs) {
+				// String uniqueKey =
+				// universeStockDetailsByBrokerVO.getIsin()+"~"+universeStockDetailsByBrokerVO.getCurrencyAppConfigName()+"~"+universeStockDetailsByBrokerVO.getBrokerAppConfigName();
+
+				String uniqueKey = universeStockDetailsByBrokerVO.getIsin() + "~"
+						+ universeStockDetailsByBrokerVO.getCurrencyAppConfigName();
+				String uniqueBrokerKey = universeStockDetailsByBrokerVO.getIsin() + "~"
+						+ universeStockDetailsByBrokerVO.getCurrencyAppConfigName() + "~"
+						+ universeStockDetailsByBrokerVO.getBrokerAppId();
+
+				if (brokerRatingDate == null) {
+					brokerRatingDate = universeStockDetailsByBrokerVO.getEffFromDate();
+				}
+
+				if (!uniqueSuccessMap.containsKey(uniqueKey)) {
+					uniqueSuccessMap.put(uniqueKey, universeStockDetailsByBrokerVO);
+					uniqueVOs.add(universeStockDetailsByBrokerVO);
+				}
+
+				if (!uniqueSuccessMapForBroker.containsKey(uniqueBrokerKey)) {
+					uniqueSuccessMapForBroker.put(uniqueBrokerKey, universeStockDetailsByBrokerVO);
+					uniqueBrokerVOs.add(universeStockDetailsByBrokerVO);
+				}
+			}
+			
+			List<UniverseStockVO> missingUniverseStockVOs = null;
+			List<UniverseStockDetailsByBrokerVO> missingUniverseStockDetailsByBroker = null;
+
+			missingUniverseStockVOs = universeStockDao
+					.getMissingUniverseStockVOInRequest(assetRequestVO.getTenantCode(), uniqueVOs);
+
+			if (missingUniverseStockVOs != null && missingUniverseStockVOs.size() > 0) {
+				missingUniverseStockDetailsByBroker = getMissingUniverseStockDetailsByBroker(missingUniverseStockVOs,
+						brokerRatingDate, assetRequestVO);
+			}
+			// Adding missing UniverseStockDetailsByBrokerVO in successVOs
+//			log.fatal("BEFORE successVOs="+(successVOs));
+//			log.fatal("missingUniverseStockDetailsByBroker="+gson.toJson(missingUniverseStockDetailsByBroker));
+//			System.out.println("missingUniverseStockDetailsByBroker="+gson.toJson(missingUniverseStockDetailsByBroker));
+			if (missingUniverseStockDetailsByBroker != null && missingUniverseStockDetailsByBroker.size() > 0) {
+				successVOs.addAll(missingUniverseStockDetailsByBroker);
+			}
+			
+//			log.fatal("AFTER successVOs="+gson.toJson(successVOs));
+			// Duplicate check in missing isin
+			if(missingUniverseStockDetailsByBroker!=null && missingUniverseStockDetailsByBroker.size()>0) {
+				for (UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO : missingUniverseStockDetailsByBroker) {
+					// String uniqueKey =
+					// universeStockDetailsByBrokerVO.getIsin()+"~"+universeStockDetailsByBrokerVO.getCurrencyAppConfigName()+"~"+universeStockDetailsByBrokerVO.getBrokerAppConfigName();
+
+					String uniqueKey = universeStockDetailsByBrokerVO.getIsin() + "~"
+							+ universeStockDetailsByBrokerVO.getCurrencyAppConfigName();
+					String uniqueBrokerKey = universeStockDetailsByBrokerVO.getIsin() + "~"
+							+ universeStockDetailsByBrokerVO.getCurrencyAppConfigName() + "~"
+							+ universeStockDetailsByBrokerVO.getBrokerAppId();
+
+					if (brokerRatingDate == null) {
+						brokerRatingDate = universeStockDetailsByBrokerVO.getEffFromDate();
+					}
+
+					if (!uniqueSuccessMap.containsKey(uniqueKey)) {
+						uniqueSuccessMap.put(uniqueKey, universeStockDetailsByBrokerVO);
+						uniqueVOs.add(universeStockDetailsByBrokerVO);
+					}
+
+					if (!uniqueSuccessMapForBroker.containsKey(uniqueBrokerKey)) {
+						uniqueSuccessMapForBroker.put(uniqueBrokerKey, universeStockDetailsByBrokerVO);
+						uniqueBrokerVOs.add(universeStockDetailsByBrokerVO);
+					}
+				}
+			}
+
+			// populating klay asset rating
+			HashMap<String, JsonArray> brokerToKlayRatingMap = getKlayAssetRatingBasedOnBrokerRating(
+					httpServletRequest);
+
+			for (UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO : successVOs) {
+
+				if (universeStockDetailsByBrokerVO.getBrokerRatingId() == null
+						&& universeStockDetailsByBrokerVO.getBrokerRatingConfigName() == null) {
+
+					// To be corrected once app config is ready.
+					universeStockDetailsByBrokerVO.setRatingAppId(new BigDecimal("2816"));
+					universeStockDetailsByBrokerVO.setRatingAppConfigName(AssetConstants.KLAY_ASSET_RATING_NOT_COVERED);
+				} else {
+					if (brokerToKlayRatingMap != null && brokerToKlayRatingMap.size() > 0) {
+
+						JsonArray configMapDetails = brokerToKlayRatingMap
+								.get(universeStockDetailsByBrokerVO.getBrokerAppConfigName());
+						if (configMapDetails != null) {
+
+							Iterator<JsonElement> iterator1 = configMapDetails.iterator();
+							while (iterator1.hasNext()) {
+								JsonObject configMapDetail = (JsonObject) iterator1.next();
+
+								if (configMapDetail != null
+										&& !AssetUtil.jsonNullCheck(configMapDetail, "linkedConfigs")) {
+									JsonObject linkedConfig = configMapDetail.get("linkedConfigs").getAsJsonArray()
+											.get(0).getAsJsonObject();
+
+									if (!AssetUtil.jsonNullCheck(linkedConfig, "configname")
+											&& universeStockDetailsByBrokerVO.getBrokerRatingConfigName()
+													.equalsIgnoreCase(linkedConfig.get("configname").getAsString())) {
+										universeStockDetailsByBrokerVO.setRatingAppId(
+												configMapDetail.get("sourceConfigId").getAsBigDecimal());
+										universeStockDetailsByBrokerVO.setRatingAppConfigName(
+												configMapDetail.get("sourceConfigName").getAsString());
+										break;
+									}
+								}
+
+							}
+						}
+					}
+				}
+			}
+
+			// Coverting totalVOs into map for faster access.
+			Map<String, JsonObject> universalStockDetailsByBrokerMap = new HashMap<>();
+			universalStockDetailsByBrokerMap = totalVOs.parallelStream()
+					.collect(Collectors.toMap(e -> e.get("uniqueKey").getAsString(), Function.identity()));
+
+			// Fetching existing VOs from asset_custodianwise_last_date.
+			Map<String, UniverseStockDetailsByBrokerVO> assetCustodianwiseLastDateForUniverseStockDetailsByBrokerMap = universeStockDao
+					.getAssetCustodianwiseLastDateForUniverseStockDetailsByBroker(tenantCode, uniqueVOs);
+
+
+			// Iterating in map for insert and update List
+			for (UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO : successVOs) {
+
+				String uniqueKey = universeStockDetailsByBrokerVO.getIsin() + "~"
+						+ universeStockDetailsByBrokerVO.getCurrencyAppId() + "~"
+						+ universeStockDetailsByBrokerVO.getBrokerAppId();
+
+				if (assetCustodianwiseLastDateForUniverseStockDetailsByBrokerMap != null
+						&& assetCustodianwiseLastDateForUniverseStockDetailsByBrokerMap.containsKey(uniqueKey) && uniqueKey!=null) {
+					UniverseStockDetailsByBrokerVO dbUniverseStockDetailsByBrokerVO = assetCustodianwiseLastDateForUniverseStockDetailsByBrokerMap
+							.get(uniqueKey);
+					Date requestDate = universeStockDetailsByBrokerVO.getEffFromDate();
+					Date DBDate = dbUniverseStockDetailsByBrokerVO.getEffFromDate();
+//					log.fatal("requestDate="+requestDate);
+//					log.fatal("DBDate="+DBDate);
+					if (requestDate.after(DBDate)) {
+						updateDeactivateListForUniverseStockDetailsByBroker.add(universeStockDetailsByBrokerVO);
+						updateListForMaxDate.add(universeStockDetailsByBrokerVO);
+						insertListForUniverseStockDetailsByBroker.add(universeStockDetailsByBrokerVO);
+					} else if (requestDate.equals(DBDate)) {
+						updateListForUniverseStockDetailsByBroker.add(universeStockDetailsByBrokerVO);
+					} else {
+
+						FailedVO<UniverseStockDetailsByBrokerVO> failedVO = new FailedVO<UniverseStockDetailsByBrokerVO>();
+						failedVO.setIdentityDetails(universeStockDetailsByBrokerVO);
+
+						failed.add(failedVO);
+						List<ErrorVO> errorList = new ArrayList<ErrorVO>();
+						errorList.add(AssetUtil.getError("BUSAST41"));
+						failedVO.setErrors(errorList);
+						if (null != universeStockDetailsByBrokerVO.get_thirdPartyProcessorId1()) {
+							universeStockDetailsByBrokerVO.setHasError(1);
+							universeStockDetailsByBrokerVO.setErrors(errorList);
+						}
+						if (failedVOs != null)
+							failedVOs.add(failedVO);
+
+						successVOsToBeRemoved.add(universeStockDetailsByBrokerVO);
+
+						universalStockDetailsByBrokerMap.remove(universeStockDetailsByBrokerVO.getUniqueKey());
+
+						String universeStockDetailsByBrokerVO1 = AssetUtil
+								.fromObjectToJSON(universeStockDetailsByBrokerVO);
+						JsonObject jsonObject = AssetUtil.fromJSonToObject(universeStockDetailsByBrokerVO1,
+								JsonObject.class);
+
+						universalStockDetailsByBrokerMap.put(universeStockDetailsByBrokerVO.getUniqueKey(), jsonObject);
+					}
+
+				} else {
+					insertListForMaxDate.add(universeStockDetailsByBrokerVO);
+					insertListForUniverseStockDetailsByBroker.add(universeStockDetailsByBrokerVO);
+				}
+			}
+
+			if (successVOsToBeRemoved != null && successVOsToBeRemoved.size() > 0) {
+				successVOs.removeAll(successVOsToBeRemoved);
+				successVOsToBeRemoved.clear();
+			}
+
+			JsonObject removedObj=universalStockDetailsByBrokerMap.remove(null);
+			List<JsonObject> tempTotalVOs = new ArrayList<JsonObject>(universalStockDetailsByBrokerMap.values());
+//			log.fatal("removedObj="+removedObj);
+//			log.fatal("Keys="+universalStockDetailsByBrokerMap.keySet());
+			totalVOs.clear();
+			totalVOs.addAll(tempTotalVOs);
+
+			HashMap<String, UniverseStockInitialRated> universeStockInitialRatedMap = universeStockDao
+					.addUniverseStockBrokerInitialRated(assetRequestVO.getTenantCode(), successVOs, uniqueVOs,
+							uniqueBrokerVOs);
+
+			// Calling for insert and update of max delete
+			universeStockDao.freshInsertUniverseStockDetailsByBrokerVOsForMaxDate(assetRequestVO.getTenantCode(),
+					insertListForMaxDate);
+//			log.fatal("insertListForMaxDate="+insertListForMaxDate.size());
+			
+			universeStockDao.updateUniverseStockDetailsByBrokerVOsForMaxDate(assetRequestVO.getTenantCode(),
+					updateListForMaxDate);
+//			log.fatal("updateListForMaxDate="+updateListForMaxDate.size());
+			
+			// Calling for insert and update of universe Stock by detail table
+			universeStockDao.updateUniverseStockDetailsByBroker(assetRequestVO.getTenantCode(),
+					updateListForUniverseStockDetailsByBroker, updateDeactivateListForUniverseStockDetailsByBroker);
+//			log.fatal("updateListForUniverseStockDetailsByBroker="+updateListForUniverseStockDetailsByBroker.size());
+//			log.fatal("updateDeactivateListForUniverseStockDetailsByBroker="+updateDeactivateListForUniverseStockDetailsByBroker.size());
+			
+			universeStockDao.addUniverseStockDetailsByBroker(assetRequestVO.getTenantCode(),
+					insertListForUniverseStockDetailsByBroker, totalVOs, universeStockInitialRatedMap);
+//			log.fatal("insertListForUniverseStockDetailsByBroker="+insertListForUniverseStockDetailsByBroker.size());
+			
+			universeStockDao.updateUniverseStockBrokerInitialRated(universeStockInitialRatedMap, tenantCode);
+//			log.fatal("universeStockInitialRatedMap="+universeStockInitialRatedMap.size());
+			// Calling for insert into Universe_Stock_Broker_Initial_Rated
+//			universeStockDao.addUniverseStockBrokerInitialRated(assetRequestVO.getTenantCode(), successVOs, uniqueVOs,
+//					uniqueBrokerVOs);
+
+			if(missingUniverseStockDetailsByBroker!=null && missingUniverseStockDetailsByBroker.size()>0) {
+				boolean rmvd=successVOs.removeAll(missingUniverseStockDetailsByBroker);
+//				System.out.println("rmvd="+rmvd);
+//				log.fatal("rmvd="+rmvd);
+			}
+//			log.fatal("missingUniverseStockDetailsByBroker="+gson.toJson(missingUniverseStockDetailsByBroker));
+//			System.out.println("successVOs="+successVOs);
+//			successVOs.addAll(missingUniverseStockDetailsByBroker);
+		} catch (Exception ex) {
+			log.fatal("Error in addUniverseStockDetailsByBroker: ", ex);
+			throw ex;
+		}
+
+	}
+
+	private List<UniverseStockDetailsByBrokerVO> getMissingUniverseStockDetailsByBroker(
+			List<UniverseStockVO> missingUniverseStockVOs, Date brokerRatingDate, AssetRequestVO assetRequestVO)
+			throws Exception {
+
+		Set<String> brokerAppConfigName = new HashSet<String>(Arrays.asList("2673~ACM1940", "2674~ACM1941",
+				"2675~ACM1942", "2676~ACM1943", "2677~ACM1944", "2678~ACM1945"));
+		List<UniverseStockDetailsByBrokerVO> missingUniverseStockDetailsByBroker = new ArrayList<UniverseStockDetailsByBrokerVO>();
+		try {
+
+			for (UniverseStockVO universeStockVO : missingUniverseStockVOs) {
+				brokerAppConfigName.forEach((broker) -> {
+					UniverseStockDetailsByBrokerVO universeStockDetailsByBroker = new UniverseStockDetailsByBrokerVO();
+
+					universeStockDetailsByBroker.setIsin(universeStockVO.getIsin());
+					universeStockDetailsByBroker.setCurrencyAppId(universeStockVO.getCurrencyId());
+					universeStockDetailsByBroker.setCurrencyAppConfigName(universeStockVO.getCurrencyConfigName());
+
+					String brokerInfo[] = broker.split("~");
+
+					universeStockDetailsByBroker.setBrokerAppId(new BigDecimal(brokerInfo[0]));
+					universeStockDetailsByBroker.setBrokerAppConfigName(brokerInfo[1]);
+					universeStockDetailsByBroker.setRatingAppId(new BigDecimal("2816"));
+					universeStockDetailsByBroker.setRatingAppConfigName(AssetConstants.KLAY_ASSET_RATING_NOT_COVERED);
+					universeStockDetailsByBroker.setEffFromDate(brokerRatingDate);
+					universeStockDetailsByBroker.setUsername(assetRequestVO.getUsername());
+					universeStockDetailsByBroker.setMissingIsin(1);
+					missingUniverseStockDetailsByBroker.add(universeStockDetailsByBroker);
+
+				});
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in getMissingUniverseStockDetailsByBroker: ", ex);
+			throw ex;
+		}
+		return missingUniverseStockDetailsByBroker;
+	}
+
+	@Override
+	public ResponseVO<SearchResultDataVO, SearchRequestVO> getUniverseStockSearchInResponse(
+			AssetRequestVO assetRequestVO, HttpServletRequest httpServletRequest) throws Exception {
+
+		ResponseVO<SearchResultDataVO, SearchRequestVO> response = null;
+		try {
+			SearchRequestVO assetSearchRequest = assetRequestVO.getSearchRequest();
+			StringBuilder queryConditions = new StringBuilder();
+			List<String> searchInTextParams = new ArrayList<String>();
+			List<String> textSearchParams = new ArrayList<String>();
+			List<String> dateSearchParams = new ArrayList<String>();
+			List<String> numberSearchParams = new ArrayList<String>();
+			StringBuilder analysisYear = new StringBuilder();
+			StringBuilder dateSearchQuery = new StringBuilder();
+			StringBuilder sortingFilterQuery = new StringBuilder();
+			List<String> numberSearchBigDecimalParams = new ArrayList<>();
+			boolean isRefrenceDate = false;
+
+			// Date search
+			if (assetSearchRequest.getDateSearch() != null) {
+
+				List<SearchDateVO> dateSearchList = new ArrayList<SearchDateVO>();
+
+				dateSearchList = assetSearchRequest.getDateSearch();
+
+				for (SearchDateVO dateSearch : dateSearchList) {
+					dateSearchQuery.append(" ( ");
+
+					List<SearchDateFieldValuesVO> dateFieldValuesList = new ArrayList<SearchDateFieldValuesVO>();
+
+					dateFieldValuesList = dateSearch.getValues();
+
+					for (SearchDateFieldValuesVO dateFieldValues : dateFieldValuesList) {
+
+						dateSearchQuery.append(AssetUtil.getConstructedQuery(dateSearch.getAliasName(),
+								dateFieldValues.getComparatorOperator(), dateSearch.getLogicalOperator(),
+								dateSearch.getAliasDataType()));
+						if (dateSearch.getAliasName().equalsIgnoreCase("compareRatingFilter")
+								&& dateSearchList.size() > 1) {
+							analysisYear.append("?,");
+						}
+						if (dateSearch.getAliasName().equalsIgnoreCase("asOfDate")) {
+							dateSearchQuery.append(" usdbb.eff_to_date IS NULL ");
+							if (dateSearchList.size() == 1) {
+								analysisYear.append("?");
+							}
+
+						}
+						dateSearchParams.add(AssetUtil.createQueryParam(dateFieldValues.getComparatorOperator(),
+								dateFieldValues.getActualFieldValue(), dateSearch.getAliasDataType()));
+
+					}
+					dateSearchQuery.append(") ").append("OR ");
+				}
+				for (SearchDateVO dateSearch : dateSearchList) {
+					List<SearchDateFieldValuesVO> dateFieldValuesList = new ArrayList<SearchDateFieldValuesVO>();
+					dateFieldValuesList = dateSearch.getValues();
+					if (dateSearch.getAliasName().equalsIgnoreCase("compareRatingFilter")) {
+						for (SearchDateFieldValuesVO dateFieldValues : dateFieldValuesList) {
+							dateSearchParams.add(dateFieldValues.getActualFieldValue().split("-")[0]);
+						}
+					} else if (dateSearch.getAliasName().equalsIgnoreCase("asOfDate") && dateSearchList.size() == 1) {
+						dateSearchParams.add(dateSearchParams.get(0));
+						for (SearchDateFieldValuesVO dateFieldValues : dateFieldValuesList) {
+							dateSearchParams.add(dateFieldValues.getActualFieldValue().split("-")[0]);
+						}
+					}
+				}
+				if (dateSearchList.size() > 1) {
+					dateSearchQuery.delete(dateSearchQuery.length() - 9, dateSearchQuery.length());
+					analysisYear.delete(analysisYear.length() - 1, analysisYear.length());
+					dateSearchQuery.append(") And");
+				}
+				dateSearchQuery.delete(dateSearchQuery.length() - 3, dateSearchQuery.length());
+				
+				if (dateSearchList.size() == 1) {
+					dateSearchQuery
+							.append(" OR ( ? BETWEEN usdbb.eff_from_date ::date AND  usdbb.eff_to_date ))");
+					dateSearchQuery.insert(0, " (");
+				}
+
+				dateSearchQuery.append(" )AND usdbb.analysis_year IN ( ").append(analysisYear).append(" ) ");
+			}
+			if (analysisYear.toString().isEmpty()) {
+				dateSearchQuery.delete(dateSearchQuery.length() - 9, dateSearchQuery.length());
+			}
+			dateSearchQuery.insert(0,"(");
+
+			// TextSearch check
+			if (assetSearchRequest.getTextSearch() != null) {
+
+				StringBuilder textSearchQuery = new StringBuilder();
+				List<SearchTextVO> textSearchList = new ArrayList<SearchTextVO>();
+				textSearchList = assetSearchRequest.getTextSearch();
+
+				for (SearchTextVO textSearch : textSearchList) {
+
+					textSearchQuery.append(" ( ");
+
+					List<SearchTextFieldValuesVO> textFieldValuesList = new ArrayList<SearchTextFieldValuesVO>();
+
+					textFieldValuesList = textSearch.getValues();
+
+					for (SearchTextFieldValuesVO textFieldValues : textFieldValuesList) {
+
+						textSearchQuery.append(AssetUtil.getConstructedQuery(textSearch.getAliasName(),
+								textFieldValues.getComparatorOperator(), textSearch.getLogicalOperator(),
+								textSearch.getAliasDataType()));
+
+						textSearchParams.add(AssetUtil.createQueryParam(textFieldValues.getComparatorOperator(),
+								textFieldValues.getActualFieldValue(), textSearch.getAliasDataType()));
+					}
+
+					textSearchQuery.delete(textSearchQuery.length() - 4, textSearchQuery.length());
+
+					textSearchQuery.append(" ) ").append("AND ");
+				}
+
+				queryConditions.append(textSearchQuery);
+
+			}
+
+			// Set will contain only those aliases whose query formation need to be done.
+			Set<String> queryFilters = new HashSet<>(
+					Arrays.asList("ISIN", "TECHNICALOVERSOLD", "MARKETCAPRANGE", "MINIMUMUPSIDEPOTENTIAL",
+							"NUMBEROFANALYSTS", "PERCENTAGEBUYS", "PERCENTAGESELLS", "ONEDAY", "ONEWEEK", "ONEMONTH",
+							"THREEMONTH", "ONEYEAR", "TWOYEAR", "THREEYEAR", "TRAILPB", "TMFWDPE", "FDAYRSI", "BOLL", "SIXMONTH", "FIVEYEAR",
+							"TMFWDROE", "TMFWDEVEBITDA", "TMFWDDIVYLD","OYVOL"));
+
+			if (assetSearchRequest.getNumberSearch() != null) {
+
+				StringBuilder numberSearchQuery = new StringBuilder();
+
+				List<SearchNumberVO> numberSearchList = new ArrayList<SearchNumberVO>();
+
+				numberSearchList = assetSearchRequest.getNumberSearch();
+
+				for (SearchNumberVO numberSearch : numberSearchList) {
+
+					if (queryFilters.contains(numberSearch.getAliasName().toUpperCase())) {
+						numberSearchQuery.append(" ( ");
+
+						List<SearchNumberFieldValuesVO> numberFieldValuesList = new ArrayList<SearchNumberFieldValuesVO>();
+
+						numberFieldValuesList = numberSearch.getValues();
+
+						for (SearchNumberFieldValuesVO numberFieldValues : numberFieldValuesList) {
+
+							numberSearchQuery.append(AssetUtil.getConstructedQuery(numberSearch.getAliasName(),
+									numberFieldValues.getComparatorOperator(), numberSearch.getLogicalOperator(),
+									numberSearch.getAliasDataType()));
+							if (numberSearch.getAliasName().equalsIgnoreCase("marketCapRange")) {
+								numberSearchBigDecimalParams
+										.add(AssetUtil.createQueryParam(numberFieldValues.getComparatorOperator(),
+												String.valueOf(numberFieldValues.getActualFieldValue()),
+												numberSearch.getAliasDataType()));
+							} else {
+								numberSearchParams
+										.add(AssetUtil.createQueryParam(numberFieldValues.getComparatorOperator(),
+												String.valueOf(numberFieldValues.getActualFieldValue()),
+												numberSearch.getAliasDataType()));
+							}
+
+						}
+						if (numberSearchQuery.length() > 4) {
+							numberSearchQuery.delete(numberSearchQuery.length() - 4, numberSearchQuery.length());
+							numberSearchQuery.append(") ").append("AND ");
+						}
+					}
+
+				}
+
+				queryConditions.append(numberSearchQuery);
+			}
+			
+			if (assetRequestVO.getSortRequest() != null) {
+				
+				String orderBy=null;
+				SortRequestVO sortRequest = assetRequestVO.getSortRequest();
+				if(sortRequest.getSortParameter().equalsIgnoreCase("Ascending")) {
+					orderBy=" ASC";
+				}else {
+					orderBy=" DESC";
+				}
+				List<SortFieldVO> sortFieldList = sortRequest.getSortFieldList().stream()
+						.sorted(Comparator.comparingInt(SortFieldVO::getPriority)).collect(Collectors.toList());
+				int sortFieldSize = sortFieldList.size() - 1;
+				for (int i = 0; i < sortFieldSize; i++) {
+					sortingFilterQuery.append(AssetUtil.getUsmSortingFieldsMap(sortFieldList.get(i).getAliasName()))
+						.append(orderBy)	
+						.append(",");
+				}
+				sortingFilterQuery
+						.append(AssetUtil.getUsmSortingFieldsMap(sortFieldList.get(sortFieldSize).getAliasName()))
+						.append(orderBy);
+			}
+			if (queryConditions.toString().endsWith("AND ")) {
+				queryConditions.delete(queryConditions.length() - 4, queryConditions.length());
+				queryConditions.insert(0, "( ");
+				queryConditions.append(" )");
+			}
+			
+			List<SearchResultDataVO> searchResultDataList = universeStockDao.getUniverseStockSearchInResponse(
+					assetRequestVO.getTenantCode(), queryConditions.toString(), dateSearchQuery, sortingFilterQuery,
+					searchInTextParams, textSearchParams, dateSearchParams, numberSearchParams, assetRequestVO,
+					numberSearchBigDecimalParams);
+
+			// adding asOnDate filter
+//			searchResultDataList = addAsOnDateFilterAttributes(searchResultDataList);
+//			log.fatal("after asOnDate filter " + searchResultDataList.size());
+			Boolean isReferenceDateAvailable = false;
+			String asOnDate = null;
+			String referenceDate = null;
+
+			// Rating filters
+
+			List<SearchDateVO> dateSearchList = new ArrayList<SearchDateVO>();
+
+			dateSearchList = assetSearchRequest.getDateSearch();
+
+			for (SearchDateVO dateSearch : dateSearchList) {
+				if ("COMPARERATINGFILTER".equalsIgnoreCase(dateSearch.getAliasName().toUpperCase())) {
+					isReferenceDateAvailable = true;
+
+					List<SearchDateFieldValuesVO> dateFieldValuesList = dateSearch.getValues();
+
+					for (SearchDateFieldValuesVO dateFieldValues : dateFieldValuesList) {
+
+						if ("Less than Or Equals".equalsIgnoreCase(dateFieldValues.getComparatorOperator())) {
+							asOnDate = dateFieldValues.getActualFieldValue();
+						} else if ("Greater than Or Equals".equalsIgnoreCase(dateFieldValues.getComparatorOperator())) {
+							referenceDate = dateFieldValues.getActualFieldValue();
+						}
+					}
+				}
+			}
+
+			if (isReferenceDateAvailable) {
+				// additing compare rating/ reference date filters.
+				searchResultDataList = addReferenceDateFilterAttributes(searchResultDataList, asOnDate, referenceDate,
+						httpServletRequest);
+
+			} else {
+				// adding asOnDate filter
+				searchResultDataList = addAsOnDateFilterAttributes(searchResultDataList);
+			}
+
+			List<SearchNumberVO> numberSearchList = new ArrayList<SearchNumberVO>();
+			numberSearchList = assetSearchRequest.getNumberSearch();
+
+			for (SearchNumberVO numberSearch : numberSearchList) {
+
+				if (!queryFilters.contains(numberSearch.getAliasName().toUpperCase())) {
+
+					// Normal filters
+					if ("BUYRECOMBYBROKERS".equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterBuyRecommendedByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("NEURECOMBYBROKERS".equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterNeutralRecommendedByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("SELLRECOMBYBROKERS".equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterSellRecommendedByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("NOTRATEDBYBROKERS".equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterNotRatedByXBrokers(searchResultDataList, numberSearch.getValues());
+					} else if ("NOTCOVEREDBYBROKER".equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterNotCoveredByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					}
+
+					// new coverage
+					else if ("NEWCOVERAGEBYXBROKERS".equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterNewCoverageByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("NEWCOVERAGEBUYWITHXBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterNewCoverageBuyByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("NEWCOVERAGESELLWITHXBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterNewCoverageSellByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("NEWCOVERAGENEUTRALWITHXBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterNewCoverageNeutralByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					}
+
+					// Change filters
+					else if ("CHANGEDRATINGBYXBROKERS".equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterChangeRatingByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("CHANGEDTOBUYWITHXBROKERS".equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterChangeRatingBuyByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("CHANGEDTOSELLWITHXBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterChangeRatingSellByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("CHANGEDTONEUTRALWITHXBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterChangeRatingNeutralByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("CHANGEDTOSUSPENDEDWITHXBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterChangeRatingSuspendedByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("CHANGEDTOSTOPPEDWITHBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterChangeRatingStoppedByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("CHANGEDTONOTRATEDWITHBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterChangeRatingNotRatedByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("CHANGEDTONOTCOVEREDWITHBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterChangeRatingNotCoveredByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					}
+
+					// same filters
+					else if ("SAMERATINGBYXBROKERS".equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterSameRatingByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("SAMERATINGBUYWITHXBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterSameRatingBuyByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("SAMERATINGSELLWITHXBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterSameRatingSellByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("SAMERATINGNEUTRALWITHXBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterSameRatingNeutralByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("SAMERATINGSUSPENDEDWITHXBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterSameRatingSuspendedByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					} else if ("SAMERATINGSTOPPEDWITHXBROKERS"
+							.equalsIgnoreCase(numberSearch.getAliasName().toUpperCase())) {
+						searchResultDataList = filterSameRatingStoppedByXBrokers(searchResultDataList,
+								numberSearch.getValues());
+					}
+				}
+//				log.fatal("after number and comparator filters searchResultDataList=" + searchResultDataList.size()
+//						+ " REsult for =" + numberSearch.getAliasName().toUpperCase());
+
+			}
+
+//			Returning last broker details
+			searchResultDataList.forEach(u -> {
+				u.setUniverseStockDetailsByBroker(u.getTempUniverseStockDetailsByBroker());
+			});
+
+			// pagination
+			int pageNumber = assetRequestVO.getPageNumber();
+			int pageOffSet = assetRequestVO.getPaginationOffSet();
+			if (assetRequestVO.getPaginationOffSet() == 0) {
+				pageOffSet = paginationOffset;
+			}
+			int endIndex = pageNumber * pageOffSet;
+			int startIndex = endIndex - (pageOffSet - 1);
+
+			List<SearchResultDataVO> paginationResult = new ArrayList<>();
+			if(assetRequestVO.getIsDownload()==0) {
+			if (searchResultDataList != null && searchResultDataList.size() > 0) {
+
+				if (endIndex > searchResultDataList.size()) {
+					endIndex = searchResultDataList.size();
+				}
+
+				for (int i = startIndex - 1; i < endIndex; i++) {
+					paginationResult.add(searchResultDataList.get(i));
+				}
+			}
+			}
+			else 
+				paginationResult=searchResultDataList;
+			// Response creation
+			response = new ResponseVO<SearchResultDataVO, SearchRequestVO>();
+			List<SearchResultDataVO> successVOs = null;
+			if (searchResultDataList != null && searchResultDataList.size() > 0) {
+				successVOs = new ArrayList<SearchResultDataVO>();
+				successVOs.addAll(paginationResult);
+				response.setTotalPaginationRecords(searchResultDataList.size());
+			}
+
+			response.setSuccess(successVOs);
+			response.setTotalRecords(1);
+			response.setPageNumber(assetRequestVO.getPageNumber());
+			response.setSearchIn(assetRequestVO.getSearchRequest().getSearchIn());
+
+			if (searchResultDataList == null || searchResultDataList.size() <= 0) {
+
+				List<FailedVO<SearchRequestVO>> failedVOs = new ArrayList<FailedVO<SearchRequestVO>>();
+
+				FailedVO<SearchRequestVO> failedVO = new FailedVO<SearchRequestVO>();
+				failedVO.setIdentityDetails(assetRequestVO.getSearchRequest());
+				failedVO.setTenantCode(assetRequestVO.getTenantCode());
+				failedVO.set_tenantId(assetRequestVO.get_tenantId());
+
+				List<ErrorVO> errors = new ArrayList<ErrorVO>();
+				errors.add(AssetUtil.getError("BUSAST31"));
+				failedVO.setErrors(errors);
+				failedVOs.add(failedVO);
+				response.setFailed(failedVOs);
+				response.setTotalfailedRecords(1);
+			}
+
+		} catch (Exception ex) {
+
+			log.fatal("Error occurred in getUniverseStockSearchInResponse: ", ex);
+			throw ex;
+		}
+
+		return response;
+	}
+
+	private List<SearchResultDataVO> addReferenceDateFilterAttributes(List<SearchResultDataVO> searchResultDataList,
+			String asOnDate, String RefDate, HttpServletRequest httpServletRequest) {
+
+		try {
+			List<String> configTypeList = new ArrayList<String>();
+			Map<String, JsonArray> cacheInfoResp = new HashMap<String, JsonArray>();
+			Set<String> changedRatingByXBrokers = null;
+			Set<String> changedToBuyByXBrokers = null;
+			Set<String> changedToSellByXBrokers = null;
+			Set<String> changedToNeutralByXBrokers = null;
+			Set<String> changedToSuspendedByXBrokers = null;
+			Set<String> changedToStoppedByXBrokers = null;
+			Set<String> changedToNotRatedByXBrokers = null;
+			Set<String> changedToNotCoveredByXBrokers = null;
+
+			Set<String> sameRatingByXBrokers = null;
+			Set<String> sameRatingBuyByXBrokers = null;
+			Set<String> sameRatingSellByXBrokers = null;
+			Set<String> sameRatingNeutralByXBrokers = null;
+			Set<String> sameRatingToSuspendedByXBrokers = null;
+			Set<String> sameRatingToStoppedByXBrokers = null;
+			Set<String> sameNotRatedByXBrokers = null;
+			Set<String> sameNotCoveredByXBrokers = null;
+			Date minBrokerRatingDate = null;
+			Date maxBrokerRatingDate = null;
+			String brokerAppconfigName = null;
+			int changeToSell;
+			int changeToNeutral;
+			int changeToSuspended;
+			int changeToStopped;
+			int changeToBuy;
+			int changeToNotCovered;
+			int changeToNotRated;
+
+			int sameToBuy;
+			int sameToSell;
+			int sameToNeutral;
+			int sameSuspended;
+			int sameStopped;
+			int sameNotRatedCount;
+			int sameNotCoveredCount;
+			int newCoverageBuyCount;
+			int newCoverageSellCount;
+			int newCoverageNeutralCount;
+			boolean isComputed;
+			Map<String, UniverseStockDetailsByBrokerVO> brokerWiseMinMaxDate = null;
+			UniverseStockDetailsByBrokerVO minMaxUniverseStockDetailsByBrokerVO = null;
+
+			configTypeList.add("BROKER");
+			cacheInfoResp = this.getCatcheInfo(configTypeList, httpServletRequest);
+
+			for (SearchResultDataVO searchResultDataVO : searchResultDataList) {
+				/* Broker wise and date wise sorting */
+				List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerList = searchResultDataVO
+						.getUniverseStockDetailsByBroker().stream().sorted((o1, o2) -> {
+							return o1.getBrokerAppId().compareTo(o2.getBrokerAppId());
+						}).collect(Collectors.toList());
+//						.stream().sorted((o1, o2) -> {
+//							return o1.getEffFromDate().compareTo(o2.getEffFromDate());
+//						}).collect(Collectors.toList());
+				
+				searchResultDataVO.setTempUniverseStockDetailsByBroker(universeStockDetailsByBrokerList);
+
+				minBrokerRatingDate = null;
+				maxBrokerRatingDate = null;
+				minMaxUniverseStockDetailsByBrokerVO = null;
+				Map<String, UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerMap = new HashMap<String, UniverseStockDetailsByBrokerVO>();
+
+				Map<String, List<UniverseStockDetailsByBrokerVO>> brokerToRatingDatesMap = new HashMap<String, List<UniverseStockDetailsByBrokerVO>>();
+
+//				List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerList = searchResultDataVO
+//						.getUniverseStockDetailsByBroker();
+
+				if (universeStockDetailsByBrokerList != null && universeStockDetailsByBrokerList.size() > 0) {
+					for (UniverseStockDetailsByBrokerVO UniverseStockDetailsByBrokerVO : universeStockDetailsByBrokerList) {
+						if (brokerAppconfigName == null) {
+							brokerAppconfigName = UniverseStockDetailsByBrokerVO.getBrokerAppConfigName();
+						}
+						if (!brokerAppconfigName
+								.equalsIgnoreCase(UniverseStockDetailsByBrokerVO.getBrokerAppConfigName())) {
+							brokerWiseMinMaxDate = searchResultDataVO.getBrokerWiseMinMaxDate();
+							if (brokerWiseMinMaxDate == null) {
+								brokerWiseMinMaxDate = new HashMap<String, UniverseStockDetailsByBrokerVO>();
+							}
+							minMaxUniverseStockDetailsByBrokerVO = new UniverseStockDetailsByBrokerVO();
+							minMaxUniverseStockDetailsByBrokerVO.setBrokerAppConfigName(brokerAppconfigName);
+							minMaxUniverseStockDetailsByBrokerVO.setMinBrokerRatingDate(minBrokerRatingDate);
+							minMaxUniverseStockDetailsByBrokerVO.setMaxBrokerRatingDate(maxBrokerRatingDate);
+							brokerWiseMinMaxDate.put(searchResultDataVO.getIsin() + "~" + brokerAppconfigName,
+									minMaxUniverseStockDetailsByBrokerVO);
+							searchResultDataVO.setBrokerWiseMinMaxDate(brokerWiseMinMaxDate);
+							maxBrokerRatingDate = null;
+							minBrokerRatingDate = null;
+							brokerAppconfigName = UniverseStockDetailsByBrokerVO.getBrokerAppConfigName();
+
+						}
+						if (maxBrokerRatingDate == null) {
+							maxBrokerRatingDate = UniverseStockDetailsByBrokerVO.getEffFromDate();
+						}
+						if (minBrokerRatingDate == null) {
+							minBrokerRatingDate = UniverseStockDetailsByBrokerVO.getEffFromDate();
+						}
+						int result = minBrokerRatingDate.compareTo(UniverseStockDetailsByBrokerVO.getEffFromDate());
+						if (result > 0) {
+							minBrokerRatingDate = UniverseStockDetailsByBrokerVO.getEffFromDate();
+						}
+						result = maxBrokerRatingDate.compareTo(UniverseStockDetailsByBrokerVO.getEffFromDate());
+						if (result < 0) {
+							maxBrokerRatingDate = UniverseStockDetailsByBrokerVO.getEffFromDate();
+						}
+						universeStockDetailsByBrokerMap.put(
+								searchResultDataVO.getIsin() + "~"
+										+ UniverseStockDetailsByBrokerVO.getBrokerAppConfigName() + "~"
+										+ UniverseStockDetailsByBrokerVO.getEffFromDate(),
+								UniverseStockDetailsByBrokerVO);
+
+						// Map to be used for suspended case
+						if (brokerToRatingDatesMap
+								.containsKey(UniverseStockDetailsByBrokerVO.getBrokerAppConfigName())) {
+							brokerToRatingDatesMap.get(UniverseStockDetailsByBrokerVO.getBrokerAppConfigName())
+									.add(UniverseStockDetailsByBrokerVO);
+						} else {
+							List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerVOList = new ArrayList<UniverseStockDetailsByBrokerVO>();
+							universeStockDetailsByBrokerVOList.add(UniverseStockDetailsByBrokerVO);
+							brokerToRatingDatesMap.put(UniverseStockDetailsByBrokerVO.getBrokerAppConfigName(),
+									universeStockDetailsByBrokerVOList);
+						}
+					}
+					brokerWiseMinMaxDate = searchResultDataVO.getBrokerWiseMinMaxDate();
+					if (brokerWiseMinMaxDate == null) {
+						brokerWiseMinMaxDate = new HashMap<String, UniverseStockDetailsByBrokerVO>();
+					}
+					minMaxUniverseStockDetailsByBrokerVO = new UniverseStockDetailsByBrokerVO();
+					minMaxUniverseStockDetailsByBrokerVO.setBrokerAppConfigName(brokerAppconfigName);
+					minMaxUniverseStockDetailsByBrokerVO.setMinBrokerRatingDate(minBrokerRatingDate);
+					minMaxUniverseStockDetailsByBrokerVO.setMaxBrokerRatingDate(maxBrokerRatingDate);
+					brokerWiseMinMaxDate.put(searchResultDataVO.getIsin() + "~" + brokerAppconfigName,
+							minMaxUniverseStockDetailsByBrokerVO);
+				}
+				searchResultDataVO.setBrokerWiseMinMaxDate(brokerWiseMinMaxDate);
+
+//				for(UniverseStockDetailsByBrokerVO UniverseStockDetailsByBrokerVO : universeStockDetailsByBrokerList) {
+				Map<String, Set<String>> changedRatingMap = new HashMap<String, Set<String>>();
+				for (JsonElement broker : cacheInfoResp.get("BROKER")) {
+					isComputed=false;
+					JsonObject individualBroker = broker.getAsJsonObject();
+					String brokerConfigName = individualBroker.get("configName").getAsString();
+					brokerWiseMinMaxDate = searchResultDataVO.getBrokerWiseMinMaxDate();
+					if (brokerWiseMinMaxDate != null) {
+						minBrokerRatingDate = searchResultDataVO.getBrokerWiseMinMaxDate()
+								.get(searchResultDataVO.getIsin() + "~" + brokerConfigName).getMinBrokerRatingDate();
+						maxBrokerRatingDate = searchResultDataVO.getBrokerWiseMinMaxDate()
+								.get(searchResultDataVO.getIsin() + "~" + brokerConfigName).getMaxBrokerRatingDate();
+						UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerRefDate = universeStockDetailsByBrokerMap
+								.get(searchResultDataVO.getIsin() + "~" + brokerConfigName + "~" + minBrokerRatingDate);
+						UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerAsOnDate = universeStockDetailsByBrokerMap
+								.get(searchResultDataVO.getIsin() + "~" + brokerConfigName + "~" + maxBrokerRatingDate);
+						if(universeStockDetailsByBrokerRefDate.getEffFromDate().compareTo(universeStockDetailsByBrokerAsOnDate.getEffFromDate())==0
+								&& universeStockDetailsByBrokerRefDate.getLast_rating_date()==null) {
+							universeStockDetailsByBrokerRefDate=new UniverseStockDetailsByBrokerVO();
+							universeStockDetailsByBrokerRefDate.setBrokerAppConfigName(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							universeStockDetailsByBrokerRefDate.setRatingAppConfigName("ACM2072");
+							universeStockDetailsByBrokerRefDate.setBrokerAppId(universeStockDetailsByBrokerAsOnDate.getBrokerAppId());
+							universeStockDetailsByBrokerRefDate.setRatingAppId(new BigDecimal(2816));
+							universeStockDetailsByBrokerRefDate.setEffFromDate(universeStockDetailsByBrokerAsOnDate.getEffFromDate());
+						}
+						if (universeStockDetailsByBrokerRefDate != null
+								&& universeStockDetailsByBrokerAsOnDate != null) {
+							// changed rating block (BLOCK 1)
+							if ((AssetConstants.KLAY_ASSET_RATING_NOT_RATED
+									.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+									|| AssetConstants.KLAY_ASSET_RATING_NOT_COVERED.equalsIgnoreCase(
+											universeStockDetailsByBrokerRefDate.getRatingAppConfigName()))
+									&& (!AssetConstants.KLAY_ASSET_RATING_NOT_RATED.equalsIgnoreCase(
+											universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())
+											&& !AssetConstants.KLAY_ASSET_RATING_NOT_COVERED.equalsIgnoreCase(
+													universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName()))) {
+								this.getChangeRating(universeStockDetailsByBrokerRefDate,
+										universeStockDetailsByBrokerAsOnDate, brokerToRatingDatesMap, changedRatingMap,
+										true, 3, 1, brokerConfigName);// 3==>change to Buy or sell or neutral count
+							} else if ((AssetConstants.KLAY_ASSET_RATING_NOT_RATED
+									.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+									|| AssetConstants.KLAY_ASSET_RATING_NOT_COVERED.equalsIgnoreCase(
+											universeStockDetailsByBrokerRefDate.getRatingAppConfigName()))
+									&& (AssetConstants.KLAY_ASSET_RATING_NOT_RATED.equalsIgnoreCase(
+											universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())
+											|| AssetConstants.KLAY_ASSET_RATING_NOT_COVERED
+													.equalsIgnoreCase(universeStockDetailsByBrokerAsOnDate
+															.getRatingAppConfigName())))/* BLOCK 2 */
+							{
+								if (AssetConstants.KLAY_ASSET_RATING_NOT_RATED
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_NOT_RATED.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									isComputed=this.getChangeRating(universeStockDetailsByBrokerRefDate,
+											universeStockDetailsByBrokerAsOnDate, brokerToRatingDatesMap,
+											changedRatingMap, false, 4, 1, brokerConfigName);// 4=>same suspended
+									if(!isComputed) {
+										isComputed=this.getChangeRating(universeStockDetailsByBrokerRefDate,
+												universeStockDetailsByBrokerAsOnDate, brokerToRatingDatesMap,
+												changedRatingMap, true, 5, 0, brokerConfigName);// 5=>change to suspended
+									}
+									if(!isComputed) {
+										this.getChangeRating(universeStockDetailsByBrokerRefDate,
+												universeStockDetailsByBrokerAsOnDate, brokerToRatingDatesMap,
+												changedRatingMap, false, 6, 0, brokerConfigName);// 6=>Same Not rated
+									}
+								}
+
+								if (AssetConstants.KLAY_ASSET_RATING_NOT_COVERED
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_NOT_COVERED.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									isComputed=this.getChangeRating(universeStockDetailsByBrokerRefDate,
+											universeStockDetailsByBrokerAsOnDate, brokerToRatingDatesMap,
+											changedRatingMap, false, 7, 1, brokerConfigName);// 7=>Same stoped
+									if(!isComputed) {
+										isComputed=this.getChangeRating(universeStockDetailsByBrokerRefDate,
+												universeStockDetailsByBrokerAsOnDate, brokerToRatingDatesMap,
+												changedRatingMap, true, 8, 0, brokerConfigName);// 8=>change stop count
+									}
+									if(!isComputed) {
+										this.getChangeRating(universeStockDetailsByBrokerRefDate,
+												universeStockDetailsByBrokerAsOnDate, brokerToRatingDatesMap,
+												changedRatingMap, false, 9, 0, brokerConfigName);// 9 Same Not Covered
+									}
+								}
+
+								if (AssetConstants.KLAY_ASSET_RATING_NOT_RATED
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_NOT_COVERED.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									isComputed=this.getChangeRating(universeStockDetailsByBrokerRefDate,
+											universeStockDetailsByBrokerAsOnDate, brokerToRatingDatesMap,
+											changedRatingMap, true, 8, 1, brokerConfigName);// 8=>change stop count
+									if(!isComputed) {
+										this.getChangeRating(universeStockDetailsByBrokerRefDate,
+												universeStockDetailsByBrokerAsOnDate, brokerToRatingDatesMap,
+												changedRatingMap, false, 10, 0, brokerConfigName);// 10=>change not covered
+									}
+																								// count
+								}
+								if (AssetConstants.KLAY_ASSET_RATING_NOT_COVERED
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_NOT_RATED.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									isComputed=this.getChangeRating(universeStockDetailsByBrokerRefDate,
+											universeStockDetailsByBrokerAsOnDate, brokerToRatingDatesMap,
+											changedRatingMap, true, 5, 1, brokerConfigName);// 5=>change to suspended
+									if(!isComputed) {
+										this.getChangeRating(universeStockDetailsByBrokerRefDate,
+												universeStockDetailsByBrokerAsOnDate, brokerToRatingDatesMap,
+												changedRatingMap, false, 11, 0, brokerConfigName);// 11=>change to not rated
+									}
+									
+								}
+
+							} else {
+								if (AssetConstants.KLAY_ASSET_RATING_SELL
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_BUY.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("ChangeToBuy")) {
+										changedToBuyByXBrokers = changedRatingMap.get("ChangeToBuy");
+										changedToBuyByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										changedToBuyByXBrokers = new HashSet<String>();
+										changedToBuyByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("ChangeToBuy", changedToBuyByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_NEUTRAL
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_BUY.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("ChangeToBuy")) {
+										changedToBuyByXBrokers = changedRatingMap.get("ChangeToBuy");
+										changedToBuyByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										changedToBuyByXBrokers = new HashSet<String>();
+										changedToBuyByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("ChangeToBuy", changedToBuyByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_BUY
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_SELL.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("ChangeToSell")) {
+										changedToSellByXBrokers = changedRatingMap.get("ChangeToSell");
+										changedToSellByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										changedToSellByXBrokers = new HashSet<String>();
+										changedToSellByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("ChangeToSell", changedToSellByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_NEUTRAL
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_SELL.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("ChangeToSell")) {
+										changedToSellByXBrokers = changedRatingMap.get("ChangeToSell");
+										changedToSellByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										changedToSellByXBrokers = new HashSet<String>();
+										changedToSellByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("ChangeToSell", changedToSellByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_BUY
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_NEUTRAL.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("ChangeToNeutral")) {
+										changedToNeutralByXBrokers = changedRatingMap.get("ChangeToNeutral");
+										changedToNeutralByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										changedToNeutralByXBrokers = new HashSet<String>();
+										changedToNeutralByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("ChangeToNeutral", changedToNeutralByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_SELL
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_NEUTRAL.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("ChangeToNeutral")) {
+										changedToNeutralByXBrokers = changedRatingMap.get("ChangeToNeutral");
+										changedToNeutralByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										changedToNeutralByXBrokers = new HashSet<String>();
+										changedToNeutralByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("ChangeToNeutral", changedToNeutralByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_BUY
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_NOT_RATED.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("ChangeToSuspended")) {
+										changedToNotRatedByXBrokers = changedRatingMap.get("ChangeToSuspended");
+										changedToNotRatedByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										changedToNotRatedByXBrokers = new HashSet<String>();
+										changedToNotRatedByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("ChangeToSuspended", changedToNotRatedByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_SELL
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_NOT_RATED.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("ChangeToSuspended")) {
+										changedToNotRatedByXBrokers = changedRatingMap.get("ChangeToSuspended");
+										changedToNotRatedByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										changedToNotRatedByXBrokers = new HashSet<String>();
+										changedToNotRatedByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("ChangeToSuspended", changedToNotRatedByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_NEUTRAL
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_NOT_RATED.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("ChangeToSuspended")) {
+										changedToNotRatedByXBrokers = changedRatingMap.get("ChangeToSuspended");
+										changedToNotRatedByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										changedToNotRatedByXBrokers = new HashSet<String>();
+										changedToNotRatedByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("ChangeToSuspended", changedToNotRatedByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_BUY
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_NOT_COVERED.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("ChangeToStopped")) {
+										changedToNotCoveredByXBrokers = changedRatingMap.get("ChangeToStopped");
+										changedToNotCoveredByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										changedToNotCoveredByXBrokers = new HashSet<String>();
+										changedToNotCoveredByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("ChangeToStopped", changedToNotCoveredByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_SELL
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_NOT_COVERED.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("ChangeToStopped")) {
+										changedToNotCoveredByXBrokers = changedRatingMap.get("ChangeToStopped");
+										changedToNotCoveredByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										changedToNotCoveredByXBrokers = new HashSet<String>();
+										changedToNotCoveredByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("ChangeToStopped", changedToNotCoveredByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_NEUTRAL
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_NOT_COVERED.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("ChangeToStopped")) {
+										changedToNotCoveredByXBrokers = changedRatingMap.get("ChangeToStopped");
+										changedToNotCoveredByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										changedToNotCoveredByXBrokers = new HashSet<String>();
+										changedToNotCoveredByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("ChangeToStopped", changedToNotCoveredByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_BUY
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_BUY.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("SameToBuy")) {
+										sameRatingBuyByXBrokers = changedRatingMap.get("SameToBuy");
+										sameRatingBuyByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										sameRatingBuyByXBrokers = new HashSet<String>();
+										sameRatingBuyByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("SameToBuy", sameRatingBuyByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_SELL
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_SELL.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("SameToSell")) {
+										sameRatingSellByXBrokers = changedRatingMap.get("SameToSell");
+										sameRatingSellByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										sameRatingSellByXBrokers = new HashSet<String>();
+										sameRatingSellByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("SameToSell", sameRatingSellByXBrokers);
+									}
+								} else if (AssetConstants.KLAY_ASSET_RATING_NEUTRAL
+										.equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getRatingAppConfigName())
+										&& AssetConstants.KLAY_ASSET_RATING_NEUTRAL.equalsIgnoreCase(
+												universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+									if (changedRatingMap.containsKey("SameToNeutral")) {
+										sameRatingNeutralByXBrokers = changedRatingMap.get("SameToNeutral");
+										sameRatingNeutralByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+									} else {
+										sameRatingNeutralByXBrokers = new HashSet<String>();
+										sameRatingNeutralByXBrokers
+												.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+										changedRatingMap.put("SameToNeutral", sameRatingNeutralByXBrokers);
+									}
+								}
+							}
+						}
+
+					}
+				}
+
+				if (changedRatingMap.get("ChangeToSell") != null) {
+					changeToSell = changedRatingMap.get("ChangeToSell").size();
+				} else {
+					changeToSell = 0;
+				}
+				if (changedRatingMap.get("ChangeToNeutral") != null) {
+					changeToNeutral = changedRatingMap.get("ChangeToNeutral").size();
+				} else {
+					changeToNeutral = 0;
+				}
+				if (changedRatingMap.get("ChangeToSuspended") != null) {
+					changeToSuspended = changedRatingMap.get("ChangeToSuspended").size();
+				} else {
+					changeToSuspended = 0;
+				}
+				if (changedRatingMap.get("ChangeToStopped") != null) {
+					changeToStopped = changedRatingMap.get("ChangeToStopped").size();
+				} else {
+					changeToStopped = 0;
+				}
+				if (changedRatingMap.get("ChangeToBuy") != null) {
+					changeToBuy = changedRatingMap.get("ChangeToBuy").size();
+				} else {
+					changeToBuy = 0;
+				}
+				if (changedRatingMap.get("ChangeToNotCovered") != null) {
+					changeToNotCovered = changedRatingMap.get("ChangeToNotCovered").size();
+				} else {
+					changeToNotCovered = 0;
+				}
+				if (changedRatingMap.get("ChangeToNotRated") != null) {
+					changeToNotRated = changedRatingMap.get("ChangeToNotRated").size();
+				} else {
+					changeToNotRated = 0;
+				}
+
+				if (changedRatingMap.get("SameToBuy") != null) {
+					sameToBuy = changedRatingMap.get("SameToBuy").size();
+				} else {
+					sameToBuy = 0;
+				}
+				if (changedRatingMap.get("SameToSell") != null) {
+					sameToSell = changedRatingMap.get("SameToSell").size();
+				} else {
+					sameToSell = 0;
+				}
+				if (changedRatingMap.get("SameToNeutral") != null) {
+					sameToNeutral = changedRatingMap.get("SameToNeutral").size();
+				} else {
+					sameToNeutral = 0;
+				}
+
+				if (changedRatingMap.get("SameSuspended") != null) {
+					sameSuspended = changedRatingMap.get("SameSuspended").size();
+				} else {
+					sameSuspended = 0;
+				}
+				if (changedRatingMap.get("SameStopped") != null) {
+					sameStopped = changedRatingMap.get("SameStopped").size();
+				} else {
+					sameStopped = 0;
+				}
+				if (changedRatingMap.get("SameNotRatedCount") != null) {
+					sameNotRatedCount = changedRatingMap.get("SameNotRatedCount").size();
+				} else {
+					sameNotRatedCount = 0;
+				}
+				if (changedRatingMap.get("SameNotCoveredCount") != null) {
+					sameNotCoveredCount = changedRatingMap.get("SameNotCoveredCount").size();
+				} else {
+					sameNotCoveredCount = 0;
+				}
+
+				if (changedRatingMap.get("NewCoverageBuyCount") != null) {
+					newCoverageBuyCount = changedRatingMap.get("NewCoverageBuyCount").size();
+				} else {
+					newCoverageBuyCount = 0;
+				}
+				if (changedRatingMap.get("NewCoverageSellCount") != null) {
+					newCoverageSellCount = changedRatingMap.get("NewCoverageSellCount").size();
+				} else {
+					newCoverageSellCount = 0;
+				}
+				if (changedRatingMap.get("NewCoverageNeutralCount") != null) {
+					newCoverageNeutralCount = changedRatingMap.get("NewCoverageNeutralCount").size();
+				} else {
+					newCoverageNeutralCount = 0;
+				}
+
+				searchResultDataVO.setChangedRatingByXBrokers(changeToBuy + changeToSell + changeToNeutral + changeToSuspended + changeToStopped);
+				searchResultDataVO.setChangedToBuyByXBrokers(changeToBuy);
+				searchResultDataVO.setChangedToSellByXBrokers(changeToSell);
+				searchResultDataVO.setChangedToNeutralByXBrokers(changeToNeutral);
+				searchResultDataVO.setChangedToSuspendedByXBrokers(changeToSuspended);
+				searchResultDataVO.setChangedToStoppedByXBrokers(changeToStopped);
+				searchResultDataVO.setChangedToNotRatedByXBrokers(changeToNotRated);
+				searchResultDataVO.setChangedToNotCoveredByXBrokers(changeToNotCovered);
+
+				searchResultDataVO.setSameRatingByXBrokers(
+						sameToBuy + sameToSell + sameToNeutral + sameSuspended + sameStopped + sameNotRatedCount);
+				searchResultDataVO.setSameRatingBuyByXBrokers(sameToBuy);
+				searchResultDataVO.setSameRatingSellByXBrokers(sameToSell);
+				searchResultDataVO.setSameRatingNeutralByXBrokers(sameToNeutral);
+				searchResultDataVO.setSameRatingToSuspendedByXBrokers(sameSuspended);
+				searchResultDataVO.setSameRatingToStoppedByXBrokers(sameStopped);
+				searchResultDataVO.setSameNotRatedByXBrokers(sameNotRatedCount);
+				searchResultDataVO.setSameNotCoveredByXBrokers(sameNotCoveredCount);
+
+//				searchResultDataVO.setNewCoverageNEUTRALByXBrokers(sameToNeutral+changeToNeutral+newCoverageNeutralCount);
+
+				searchResultDataVO.setBuyRecommendationByXBrokers(sameToBuy + changeToBuy + newCoverageBuyCount);
+				searchResultDataVO
+						.setNeutralRecommendationByXBrokers(sameToNeutral + changeToNeutral + newCoverageNeutralCount);
+				searchResultDataVO.setSellRecommendationByXBrokers(sameToSell + changeToSell + newCoverageSellCount);
+
+				searchResultDataVO.setNotRatedByXBrokers(sameNotRatedCount + changeToNotRated);
+				searchResultDataVO.setNotCoveredByXBrokers(sameNotCoveredCount + changeToNotCovered);
+
+				searchResultDataVO.setSuspendedByXBroker(sameSuspended + changeToSuspended);
+				searchResultDataVO.setStopedByXBrokers(sameStopped + changeToStopped);
+
+				searchResultDataVO
+						.setNewCoverageByXBrokers(newCoverageBuyCount + newCoverageNeutralCount + newCoverageSellCount);
+				searchResultDataVO.setNewCoverageBUYByXBrokers(newCoverageBuyCount);
+				searchResultDataVO.setNewCoverageNEUTRALByXBrokers(newCoverageNeutralCount);
+				searchResultDataVO.setNewCoverageSELLByXBrokers(newCoverageSellCount);
+
+//				log.fatal("changedRatingByXBrokers=>" + changeToBuy + changeToSell + changeToNeutral + changeToSuspended
+//						+ changeToStopped);
+//				log.fatal("changedToBuyByXBrokers=>" + changeToBuy);
+//				log.fatal("changedToSellByXBrokers=>" + changeToSell);
+//				log.fatal("changedToNeutralByXBrokers=>" + changeToNeutral);
+//				log.fatal("changedToSuspendedByXBrokers=>" + changeToSuspended);
+//				log.fatal("changedToStoppedByXBrokers=>" + changeToStopped);
+//				log.fatal("changedToNotRatedByXBrokers=>" + changeToNotRated);
+//				log.fatal("changedToNotCoveredByXBrokers=>" + changeToNotCovered);
+//
+//				log.fatal("sameRatingByXBrokers=>" + sameToBuy + sameToSell + sameToNeutral + sameSuspended
+//						+ sameStopped + sameNotRatedCount);
+//				log.fatal("sameRatingBuyByXBrokers=>" + sameToBuy);
+//				log.fatal("sameRatingSellByXBrokers=>" + sameToSell);
+//				log.fatal("sameRatingNeutralByXBrokers=>" + sameToNeutral);
+//
+//				log.fatal("sameRatingToSuspendedByXBrokers=>" + sameSuspended);
+//				log.fatal("sameRatingToStoppedByXBrokers=>" + sameStopped);
+//				log.fatal("sameNotRatedByXBrokers=>" + sameNotRatedCount);
+//				log.fatal("sameNotCoveredByXBrokers=>" + sameNotCoveredCount);
+
+//				changedRatingByXBrokers.clear();
+//				changedToBuyByXBrokers.clear();
+//				changedToSellByXBrokers.clear();
+//				changedToNeutralByXBrokers.clear();
+//				changedToSuspendedByXBrokers.clear();
+//				changedToStoppedByXBrokers.clear();
+//				changedToNotRatedByXBrokers.clear();
+//				changedToNotCoveredByXBrokers.clear();
+//
+//				sameRatingByXBrokers.clear();
+//				sameRatingBuyByXBrokers.clear();
+//				sameRatingSellByXBrokers.clear();
+//				sameRatingNeutralByXBrokers.clear();
+//				sameRatingToSuspendedByXBrokers.clear();
+//				sameRatingToStoppedByXBrokers.clear();
+//				sameNotRatedByXBrokers.clear();
+//				sameNotCoveredByXBrokers.clear();
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in addReferenceDateFilterAttributes: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	public String betweenDatesIsRatingAvailable(
+			Map<String, List<UniverseStockDetailsByBrokerVO>> brokerToRatingDatesMap,
+			UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerRefDate,
+			UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerAsOnDate, String brokerConfigName) {
+		String betweenRatingAvailable = null;
+		try {
+
+			List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerRatingList = brokerToRatingDatesMap
+					.get(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+
+			List<UniverseStockDetailsByBrokerVO> betweenDateRatingVOs = new ArrayList<UniverseStockDetailsByBrokerVO>();
+			for (UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO : universeStockDetailsByBrokerRatingList) {
+				if (brokerConfigName.equalsIgnoreCase(universeStockDetailsByBrokerVO.getBrokerAppConfigName())) {
+					if (universeStockDetailsByBrokerVO.getEffFromDate()
+							.compareTo(universeStockDetailsByBrokerAsOnDate.getEffFromDate()) != 0
+							&& universeStockDetailsByBrokerVO.getEffFromDate()
+									.compareTo(universeStockDetailsByBrokerRefDate.getEffFromDate()) != 0) {
+						betweenDateRatingVOs.add(universeStockDetailsByBrokerVO);
+					}
+				}
+			}
+
+//			Boolean isSellRatingAvailable = false;
+//			Boolean isBuyRatingAvailable = false;
+//			Boolean isNeutralRatingAvailable = false;
+
+			// Iterating betweenDateRatingVOs list to find out is there any entry of
+			// sell/buy/neutral
+			if (betweenDateRatingVOs != null && betweenDateRatingVOs.size() > 0) {
+				for (UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO : betweenDateRatingVOs) {
+
+					if (AssetConstants.KLAY_ASSET_RATING_SELL
+							.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName())) {
+						betweenRatingAvailable = universeStockDetailsByBrokerVO.getRatingAppConfigName();
+
+					} else if (AssetConstants.KLAY_ASSET_RATING_BUY
+							.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName())) {
+						betweenRatingAvailable = universeStockDetailsByBrokerVO.getRatingAppConfigName();
+					} else if (AssetConstants.KLAY_ASSET_RATING_NEUTRAL
+							.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName())) {
+						betweenRatingAvailable = universeStockDetailsByBrokerVO.getRatingAppConfigName();
+					}
+					if (betweenRatingAvailable != null) {
+						break;
+					}
+
+				}
+			}
+
+//			if (isSellRatingAvailable || isBuyRatingAvailable || isNeutralRatingAvailable) {
+//				betweenRatingAvailable = universeStockDetailsByBrokerVO.getRatingAppConfigName();
+//			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in betweenDatesIsRatingAvailable: ", ex);
+			throw ex;
+		}
+
+		return betweenRatingAvailable;
+
+	}
+
+	public List<Object> getUUIDS(String requiredPrefix, int requiredCount, HttpServletRequest httpServletRequest)
+			throws Exception {
+		List<Object> UUIDsList = null;
+		JsonObject obj = new JsonObject();
+		JsonArray utilityGetRequestList = new JsonArray();
+		JsonObject innerRequest = new JsonObject();
+		innerRequest.addProperty("requiredPrefix", requiredPrefix);
+		innerRequest.addProperty("requiredCnt", requiredCount);
+		utilityGetRequestList.add(innerRequest);
+		obj.add("utilityGetRequest", utilityGetRequestList);
+		String response = AssetUtil.syncHttpCall(obj.toString(), getUUIDsURL, httpServletRequest);
+		UUIDsList = (new JSONArray(new JSONObject(response).get("success").toString())).getJSONObject(0)
+				.getJSONArray("UUIDS").toList();
+		return UUIDsList;
+
+	}
+
+	public HashMap<String, JsonArray> getKlayAssetRatingBasedOnBrokerRating(HttpServletRequest httpServletRequest)
+			throws Exception {
+
+		JsonArray configMapDetails = null;
+		HashMap<String, JsonArray> brokerToKlayRatingMap = new HashMap<String, JsonArray>();
+		try {
+
+			JsonObject maintenanceRequest = new JsonObject();
+			JsonObject maintenanceGetRequest = new JsonObject();
+
+			maintenanceGetRequest.addProperty("linkedConfigTypeSource", "KlayX");
+
+			JsonArray sourceLinkedList = new JsonArray();
+
+			JsonObject sourceLinkedObj = null;
+
+			sourceLinkedObj = new JsonObject();
+			sourceLinkedObj.addProperty("sourceConfigType", "KLAY_ASSET_RATING");
+			sourceLinkedObj.addProperty("linkedConfigType", "MS_RATING");
+			sourceLinkedObj.addProperty("typeConfigName", "ACM1998");
+			sourceLinkedList.add(sourceLinkedObj);
+
+			sourceLinkedObj = new JsonObject();
+			sourceLinkedObj.addProperty("sourceConfigType", "KLAY_ASSET_RATING");
+			sourceLinkedObj.addProperty("linkedConfigType", "GS_RATING");
+			sourceLinkedObj.addProperty("typeConfigName", "ACM1998");
+			sourceLinkedList.add(sourceLinkedObj);
+
+			sourceLinkedObj = new JsonObject();
+			sourceLinkedObj.addProperty("sourceConfigType", "KLAY_ASSET_RATING");
+			sourceLinkedObj.addProperty("linkedConfigType", "UBS_RATING");
+			sourceLinkedObj.addProperty("typeConfigName", "ACM1998");
+			sourceLinkedList.add(sourceLinkedObj);
+
+			sourceLinkedObj = new JsonObject();
+			sourceLinkedObj.addProperty("sourceConfigType", "KLAY_ASSET_RATING");
+			sourceLinkedObj.addProperty("linkedConfigType", "UBS_CIO_RATING");
+			sourceLinkedObj.addProperty("typeConfigName", "ACM1998");
+			sourceLinkedList.add(sourceLinkedObj);
+
+			sourceLinkedObj = new JsonObject();
+			sourceLinkedObj.addProperty("sourceConfigType", "KLAY_ASSET_RATING");
+			sourceLinkedObj.addProperty("linkedConfigType", "SG_RATING");
+			sourceLinkedObj.addProperty("typeConfigName", "ACM1998");
+			sourceLinkedList.add(sourceLinkedObj);
+
+			sourceLinkedObj = new JsonObject();
+			sourceLinkedObj.addProperty("sourceConfigType", "KLAY_ASSET_RATING");
+			sourceLinkedObj.addProperty("linkedConfigType", "JB_RATING");
+			sourceLinkedObj.addProperty("typeConfigName", "ACM1998");
+			sourceLinkedList.add(sourceLinkedObj);
+
+			maintenanceGetRequest.add("sourceLinkedList", sourceLinkedList);
+			maintenanceRequest.add("maintenanceGetRequest", maintenanceGetRequest);
+
+
+			String applicationConfigMapInfoResponse = AssetUtil.syncHttpCall(maintenanceRequest.toString(),
+					applicationConfigMapInfoUrl, httpServletRequest);
+
+
+			JsonObject applicationConfigMapInfoJsonResponse = AssetUtil
+					.fromJSonToObject(applicationConfigMapInfoResponse, JsonObject.class);
+
+			if (!AssetUtil.jsonNullCheck(applicationConfigMapInfoJsonResponse, "success")) {
+
+				JsonArray successList = new JsonArray();
+				successList = applicationConfigMapInfoJsonResponse.get("success").getAsJsonArray();
+
+				Iterator<JsonElement> iterator1 = successList.iterator();
+				while (iterator1.hasNext()) {
+
+					JsonObject success = (JsonObject) iterator1.next();
+
+					if (!AssetUtil.jsonNullCheck(success, "linkedConfigType")
+							&& "MS_RATING".equalsIgnoreCase(success.get("linkedConfigType").getAsString())) {
+
+						brokerToKlayRatingMap.put("ACM1940", success.get("configMapDetails").getAsJsonArray());
+					} else if (!AssetUtil.jsonNullCheck(success, "linkedConfigType")
+							&& "GS_RATING".equalsIgnoreCase(success.get("linkedConfigType").getAsString())) {
+
+						brokerToKlayRatingMap.put("ACM1941", success.get("configMapDetails").getAsJsonArray());
+					} else if (!AssetUtil.jsonNullCheck(success, "linkedConfigType")
+							&& "UBS_RATING".equalsIgnoreCase(success.get("linkedConfigType").getAsString())) {
+
+						brokerToKlayRatingMap.put("ACM1942", success.get("configMapDetails").getAsJsonArray());
+					} else if (!AssetUtil.jsonNullCheck(success, "linkedConfigType")
+							&& "UBS_CIO_RATING".equalsIgnoreCase(success.get("linkedConfigType").getAsString())) {
+
+						brokerToKlayRatingMap.put("ACM1943", success.get("configMapDetails").getAsJsonArray());
+					} else if (!AssetUtil.jsonNullCheck(success, "linkedConfigType")
+							&& "JB_RATING".equalsIgnoreCase(success.get("linkedConfigType").getAsString())) {
+
+						brokerToKlayRatingMap.put("ACM1944", success.get("configMapDetails").getAsJsonArray());
+					} else if (!AssetUtil.jsonNullCheck(success, "linkedConfigType")
+							&& "SG_RATING".equalsIgnoreCase(success.get("linkedConfigType").getAsString())) {
+
+						brokerToKlayRatingMap.put("ACM1945", success.get("configMapDetails").getAsJsonArray());
+					}
+
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in getKlayAssetRatingBasedOnBrokerRating: ", ex);
+			throw ex;
+		}
+
+		return brokerToKlayRatingMap;
+	}
+
+	public List<SearchResultDataVO> addAsOnDateFilterAttributes(List<SearchResultDataVO> searchResultDataVOList)
+			throws Exception {
+
+		try {
+
+			for (SearchResultDataVO searchResultDataVO : searchResultDataVOList) {
+				Set<String> buyRecommendationByXBrokers = new HashSet<String>();
+				Set<String> neutralRecommendationByXBrokers = new HashSet<String>();
+				Set<String> sellRecommendationByXBrokers = new HashSet<String>();
+				Set<String> notRatedByXBrokers = new HashSet<String>();
+				Set<String> notCoveredByXBrokers = new HashSet<String>();
+
+				Set<String> newCoverageByXBrokers = new HashSet<String>();
+				Set<String> newCoverageBUYByXBrokers = new HashSet<String>();
+				Set<String> newCoverageSELLByXBrokers = new HashSet<String>();
+				Set<String> newCoverageNEUTRALByXBrokers = new HashSet<String>();
+				List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerTempList = new ArrayList<UniverseStockDetailsByBrokerVO>();
+
+//				Date startDate = null;
+				for (UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO : searchResultDataVO.getUniverseStockDetailsByBroker()) {
+//					if (startDate == null || universeStockDetailsByBrokerVO.getEffFromDate().after(startDate)) {
+//						startDate = universeStockDetailsByBrokerVO.getEffFromDate();
+//						newCoverageByXBrokers.clear();
+//						newCoverageBUYByXBrokers.clear();
+//						newCoverageNEUTRALByXBrokers.clear();
+//						newCoverageSELLByXBrokers.clear();
+//						buyRecommendationByXBrokers.clear();
+//						neutralRecommendationByXBrokers.clear();
+//						sellRecommendationByXBrokers.clear();
+//						notRatedByXBrokers.clear();
+//						notCoveredByXBrokers.clear();
+//						universeStockDetailsByBrokerTempList.clear();
+//					}
+					universeStockDetailsByBrokerTempList.add(universeStockDetailsByBrokerVO);
+					if (AssetConstants.KLAY_ASSET_RATING_BUY
+							.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName())) {
+						buyRecommendationByXBrokers.add(universeStockDetailsByBrokerVO.getBrokerAppConfigName());
+					} else if (AssetConstants.KLAY_ASSET_RATING_NEUTRAL
+							.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName())) {
+						neutralRecommendationByXBrokers.add(universeStockDetailsByBrokerVO.getBrokerAppConfigName());
+					} else if (AssetConstants.KLAY_ASSET_RATING_SELL
+							.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName())) {
+						sellRecommendationByXBrokers.add(universeStockDetailsByBrokerVO.getBrokerAppConfigName());
+					} else if (AssetConstants.KLAY_ASSET_RATING_NOT_RATED
+							.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName())) {
+						notRatedByXBrokers.add(universeStockDetailsByBrokerVO.getBrokerAppConfigName());
+					} else if (AssetConstants.KLAY_ASSET_RATING_NOT_COVERED
+							.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName())) {
+						notCoveredByXBrokers.add(universeStockDetailsByBrokerVO.getBrokerAppConfigName());
+					}
+
+					if ("NOT_RATED".equalsIgnoreCase(universeStockDetailsByBrokerVO.getAsRatedOrNot())
+							&& (!AssetConstants.KLAY_ASSET_RATING_NOT_COVERED
+									.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName()))
+							&& !AssetConstants.KLAY_ASSET_RATING_NOT_RATED
+									.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName())) {
+
+						newCoverageByXBrokers.add(universeStockDetailsByBrokerVO.getBrokerAppConfigName());
+
+						if (AssetConstants.KLAY_ASSET_RATING_BUY
+								.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName())) {
+							newCoverageBUYByXBrokers.add(universeStockDetailsByBrokerVO.getBrokerAppConfigName());
+						} else if (AssetConstants.KLAY_ASSET_RATING_NEUTRAL
+								.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName())) {
+							newCoverageNEUTRALByXBrokers.add(universeStockDetailsByBrokerVO.getBrokerAppConfigName());
+						} else if (AssetConstants.KLAY_ASSET_RATING_SELL
+								.equalsIgnoreCase(universeStockDetailsByBrokerVO.getRatingAppConfigName())) {
+							newCoverageSELLByXBrokers.add(universeStockDetailsByBrokerVO.getBrokerAppConfigName());
+						}
+					}
+				}
+//				searchResultDataVO.setMaxDate(startDate);
+				searchResultDataVO.setBuyRecommendationByXBrokers(buyRecommendationByXBrokers.size());
+				searchResultDataVO.setNeutralRecommendationByXBrokers(neutralRecommendationByXBrokers.size());
+				searchResultDataVO.setSellRecommendationByXBrokers(sellRecommendationByXBrokers.size());
+				searchResultDataVO.setNotRatedByXBrokers(notRatedByXBrokers.size());
+				searchResultDataVO.setNotCoveredByXBrokers(notCoveredByXBrokers.size());
+
+				searchResultDataVO.setNewCoverageByXBrokers(newCoverageByXBrokers.size());
+				searchResultDataVO.setNewCoverageBUYByXBrokers(newCoverageBUYByXBrokers.size());
+				searchResultDataVO.setNewCoverageNEUTRALByXBrokers(newCoverageNEUTRALByXBrokers.size());
+				searchResultDataVO.setNewCoverageSELLByXBrokers(newCoverageSELLByXBrokers.size());
+				searchResultDataVO.setTempUniverseStockDetailsByBroker(universeStockDetailsByBrokerTempList);
+//				log.fatal("ISIN ===================================>" + searchResultDataVO.getIsin());
+//				log.fatal("startDate ===================================>" + startDate);
+//				log.fatal("Total  newCoverageSELLByXBrokers.size() " + newCoverageSELLByXBrokers.size());
+//				log.fatal("Total  newCoverageNEUTRALByXBrokers.size() " + newCoverageNEUTRALByXBrokers.size());
+//				log.fatal("Total  newCoverageBUYByXBrokers.size() " + newCoverageBUYByXBrokers.size());
+//				log.fatal("Total  newCoverageByXBrokers.size() " + newCoverageByXBrokers.size());
+//				log.fatal("Total  notCoveredByXBrokers.size() " + notCoveredByXBrokers.size());
+//				log.fatal("Total  notRatedByXBrokers.size() " + notRatedByXBrokers.size());
+//				log.fatal("Total  notRatedByXBrokers.size() " + sellRecommendationByXBrokers.size());
+//				log.fatal("Total  neutralRecommendationByXBrokers.size() " + neutralRecommendationByXBrokers.size());
+//				log.fatal("Total  buyRecommendationByXBrokers.size() " + buyRecommendationByXBrokers.size());
+
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in addFilterAttributes: ", ex);
+			throw ex;
+
+		}
+
+		return searchResultDataVOList;
+	}
+
+	private List<SearchResultDataVO> filterBuyRecommendedByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getBuyRecommendationByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getBuyRecommendationByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getBuyRecommendationByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getBuyRecommendationByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in filterBuyRecommendedByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterSellRecommendedByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getSellRecommendationByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getSellRecommendationByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSellRecommendationByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSellRecommendationByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in filterSellRecommendedByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterNeutralRecommendedByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getNeutralRecommendationByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getNeutralRecommendationByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNeutralRecommendationByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNeutralRecommendationByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in filterNeutralRecommendedByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterNewCoverageByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getNewCoverageByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getNewCoverageByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNewCoverageByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNewCoverageByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in filterNewCoverageByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterNewCoverageBuyByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getNewCoverageBUYByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getNewCoverageBUYByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNewCoverageBUYByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNewCoverageBUYByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in filterNewCoverageBuyByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterNewCoverageSellByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getNewCoverageSELLByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getNewCoverageSELLByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNewCoverageSELLByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNewCoverageSELLByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in filterNewCoverageSellByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterNewCoverageNeutralByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getNewCoverageNEUTRALByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getNewCoverageNEUTRALByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNewCoverageNEUTRALByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNewCoverageNEUTRALByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in filterNewCoverageNeutralByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterChangeRatingByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getChangedRatingByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getChangedRatingByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedRatingByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedRatingByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in filterChangeRatingByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterChangeRatingBuyByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList.get(0).getChangedToBuyByXBrokers();
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getChangedToBuyByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getChangedToBuyByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToBuyByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToBuyByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in filterChangeRatingBuyByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterChangeRatingSellByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getChangedToSellByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getChangedToSellByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToSellByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToSellByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in filterChangeRatingSellByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterChangeRatingNeutralByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getChangedToNeutralByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getChangedToNeutralByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToNeutralByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToNeutralByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in filterChangeRatingNeutralByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterSameRatingByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getSameRatingByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getSameRatingByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSameRatingByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSameRatingByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in filterSameRatingByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterSameRatingBuyByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getSameRatingBuyByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getSameRatingBuyByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSameRatingBuyByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSameRatingBuyByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in filterSameRatingBuyByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterSameRatingSellByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getSameRatingSellByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getSameRatingSellByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSameRatingSellByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSameRatingSellByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in filterSameRatingSellByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterSameRatingNeutralByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getSameRatingNeutralByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getSameRatingNeutralByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSameRatingNeutralByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSameRatingNeutralByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in filterSameRatingNeutralByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterSameRatingSuspendedByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getSameRatingToSuspendedByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getSameRatingToSuspendedByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSameRatingToSuspendedByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSameRatingToSuspendedByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+
+		} catch (Exception ex) {
+			log.fatal("Error in filterSameRatingSuspendedByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterChangeRatingSuspendedByXBrokers(
+			List<SearchResultDataVO> searchResultDataList, List<SearchNumberFieldValuesVO> numberFieldValuesList)
+			throws Exception {
+
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getChangedToSuspendedByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getChangedToSuspendedByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToSuspendedByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToSuspendedByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in filterChangeRatingSuspendedByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterNotRatedByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getNotRatedByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getNotRatedByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNotRatedByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNotRatedByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in filterNotRatedByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterNotCoveredByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getNotCoveredByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getNotCoveredByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNotCoveredByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getNotCoveredByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in filterNotRatedByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterChangeRatingStoppedByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getChangedToStoppedByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getChangedToStoppedByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToStoppedByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToStoppedByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in filterChangeRatingStoppedByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterChangeRatingNotRatedByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getChangedToNotRatedByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getChangedToNotRatedByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToNotRatedByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToNotRatedByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in filterChangeRatingNotRatedByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterChangeRatingNotCoveredByXBrokers(
+			List<SearchResultDataVO> searchResultDataList, List<SearchNumberFieldValuesVO> numberFieldValuesList)
+			throws Exception {
+
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getChangedToNotCoveredByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getChangedToNotCoveredByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToNotCoveredByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getChangedToNotCoveredByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in filterChangeRatingNotCoveredByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	private List<SearchResultDataVO> filterSameRatingStoppedByXBrokers(List<SearchResultDataVO> searchResultDataList,
+			List<SearchNumberFieldValuesVO> numberFieldValuesList) throws Exception {
+
+		try {
+
+			if (searchResultDataList.size() > 0) {
+				if (numberFieldValuesList.size() > 1) {
+					searchResultDataList = searchResultDataList.stream()
+							.filter(p -> (p.getSameNotCoveredByXBrokers() >= Integer
+									.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())
+									&& p.getSameNotCoveredByXBrokers() <= Integer
+											.parseInt("" + numberFieldValuesList.get(1).getActualFieldValue())))
+							.collect(Collectors.toList());
+				} else {
+
+					if ("Greater than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSameNotCoveredByXBrokers() >= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					} else if ("Less than Or Equals"
+							.equalsIgnoreCase(numberFieldValuesList.get(0).getComparatorOperator())) {
+						searchResultDataList = searchResultDataList.stream()
+								.filter(p -> (p.getSameNotCoveredByXBrokers() <= Integer
+										.parseInt("" + numberFieldValuesList.get(0).getActualFieldValue())))
+								.collect(Collectors.toList());
+					}
+				}
+			}
+		} catch (Exception ex) {
+			log.fatal("Error in filterSameRatingStoppedByXBrokers: ", ex);
+			throw ex;
+		}
+		return searchResultDataList;
+	}
+
+	@Override
+	public HashMap<String, JsonArray> getCatcheInfo(List<String> configTypes, HttpServletRequest request) {
+		log.debug("Entering");
+		String accessToken = null;
+		String response = null;
+		HashMap<String, JsonArray> configTypeValueList = new HashMap<>();
+		try {
+			accessToken = request.getHeader("Authorization");
+			JsonObject maintenanceGetRequest = new JsonObject();
+			JsonArray jsonArray = new JsonArray();
+			for (String val : configTypes) {
+				jsonArray.add(val);
+			}
+			JsonObject configValue = new JsonObject();
+			configValue.add("configTypes", jsonArray);
+			maintenanceGetRequest.add("maintenanceGetRequest", configValue);
+
+			response = AssetUtil.syncHttpCall(maintenanceGetRequest.toString(), CACHE_INFO_URL, accessToken);
+			JsonObject jsonObject = gson.fromJson(response, JsonObject.class);
+			JsonArray success = jsonObject.get("success").getAsJsonArray();
+			JsonObject jsonObject2 = success.get(0).getAsJsonObject();
+			for (JsonElement obj : jsonObject2.get("appConfig").getAsJsonArray()) {
+				JsonObject configValues = obj.getAsJsonObject();
+				configTypeValueList.put(configValues.get("configType").getAsString(),
+						configValues.get("configValueList").getAsJsonArray());
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		log.debug("Leaving");
+		return configTypeValueList;
+	}
+
+	private boolean getChangeRating(UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerRefDate,
+			UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerAsOnDate,
+			Map<String, List<UniverseStockDetailsByBrokerVO>> brokerToRatingDatesMap,
+			Map<String, Set<String>> changedRatingMap, boolean ratedBetween, int countFor, int checkRatedBefore,
+			String brokerConfigName) {
+		boolean isComputed = false;
+		try {
+			Set<String> changedToRating = null;
+			/*
+			 * 3==>change to Buy or sell or neutral count from date (Not rated OR Not
+			 * covered) AND to date Buy sell neutral
+			 */
+			if (countFor == 3) {
+				if (universeStockDetailsByBrokerRefDate.getLast_rating_config_name() != null) {
+					if (AssetConstants.KLAY_ASSET_RATING_BUY
+							.equalsIgnoreCase(universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+						if (universeStockDetailsByBrokerRefDate.getLast_rating_config_name()
+								.equalsIgnoreCase(universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+							if (changedRatingMap.containsKey("SameToBuy")) {
+								changedToRating = changedRatingMap.get("SameToBuy");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("SameToBuy", changedToRating);
+							}
+						} else {
+							if (changedRatingMap.containsKey("ChangeToBuy")) {
+								changedToRating = changedRatingMap.get("ChangeToBuy");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("ChangeToBuy", changedToRating);
+							}
+						}
+					}
+
+					if (AssetConstants.KLAY_ASSET_RATING_SELL
+							.equalsIgnoreCase(universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+						if (universeStockDetailsByBrokerRefDate.getLast_rating_config_name()
+								.equalsIgnoreCase(universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+
+							if (changedRatingMap.containsKey("SameToSell")) {
+								changedToRating = changedRatingMap.get("SameToSell");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("SameToSell", changedToRating);
+							}
+						} else {
+							if (changedRatingMap.containsKey("ChangeToSell")) {
+								changedToRating = changedRatingMap.get("ChangeToSell");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("ChangeToSell", changedToRating);
+							}
+						}
+
+					}
+
+					if (AssetConstants.KLAY_ASSET_RATING_NEUTRAL
+							.equalsIgnoreCase(universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+
+						if (universeStockDetailsByBrokerRefDate.getLast_rating_config_name()
+								.equalsIgnoreCase(universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+
+							if (changedRatingMap.containsKey("SameToNeutral")) {
+								changedToRating = changedRatingMap.get("SameToNeutral");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("SameToNeutral", changedToRating);
+							}
+						} else {
+							if (changedRatingMap.containsKey("ChangeToNeutral")) {
+								changedToRating = changedRatingMap.get("ChangeToNeutral");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("ChangeToNeutral", changedToRating);
+							}
+						}
+
+					}
+
+				} else {
+					String ratingBetweenTwoDates = betweenDatesIsRatingAvailable(brokerToRatingDatesMap,
+							universeStockDetailsByBrokerRefDate, universeStockDetailsByBrokerAsOnDate,
+							brokerConfigName);
+					if (ratingBetweenTwoDates != null) {
+						if (AssetConstants.KLAY_ASSET_RATING_BUY
+								.equalsIgnoreCase(universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())
+								&& AssetConstants.KLAY_ASSET_RATING_BUY.equalsIgnoreCase(ratingBetweenTwoDates)) {
+
+							if (changedRatingMap.containsKey("SameToBuy")) {
+								changedToRating = changedRatingMap.get("SameToBuy");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("SameToBuy", changedToRating);
+							}
+						} else {
+							if (changedRatingMap.containsKey("ChangeToBuy")) {
+								changedToRating = changedRatingMap.get("ChangeToBuy");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("ChangeToBuy", changedToRating);
+							}
+						}
+
+						if (AssetConstants.KLAY_ASSET_RATING_SELL
+								.equalsIgnoreCase(universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())
+								&& AssetConstants.KLAY_ASSET_RATING_SELL.equalsIgnoreCase(ratingBetweenTwoDates)) {
+
+							if (changedRatingMap.containsKey("SameToSell")) {
+								changedToRating = changedRatingMap.get("SameToSell");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("SameToSell", changedToRating);
+							}
+						} else {
+							if (changedRatingMap.containsKey("ChangeToSell")) {
+								changedToRating = changedRatingMap.get("ChangeToSell");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("ChangeToSell", changedToRating);
+							}
+						}
+
+						if (AssetConstants.KLAY_ASSET_RATING_NEUTRAL
+								.equalsIgnoreCase(universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())
+								&& AssetConstants.KLAY_ASSET_RATING_NEUTRAL.equalsIgnoreCase(ratingBetweenTwoDates)) {
+
+							if (changedRatingMap.containsKey("SameToNeutral")) {
+								changedToRating = changedRatingMap.get("SameToNeutral");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("SameToNeutral", changedToRating);
+							}
+						} else {
+							if (changedRatingMap.containsKey("ChangeToNeutral")) {
+								changedToRating = changedRatingMap.get("ChangeToNeutral");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("ChangeToNeutral", changedToRating);
+							}
+						}
+
+					} else {
+						if (AssetConstants.KLAY_ASSET_RATING_BUY
+								.equalsIgnoreCase(universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+							if (changedRatingMap.containsKey("NewCoverageBuyCount")) {
+								changedToRating = changedRatingMap.get("NewCoverageBuyCount");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("NewCoverageBuyCount", changedToRating);
+							}
+						} else if (AssetConstants.KLAY_ASSET_RATING_SELL
+								.equalsIgnoreCase(universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+							if (changedRatingMap.containsKey("NewCoverageSellCount")) {
+								changedToRating = changedRatingMap.get("NewCoverageSellCount");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("NewCoverageSellCount", changedToRating);
+							}
+						} else if (AssetConstants.KLAY_ASSET_RATING_NEUTRAL
+								.equalsIgnoreCase(universeStockDetailsByBrokerAsOnDate.getRatingAppConfigName())) {
+							if (changedRatingMap.containsKey("NewCoverageNeutralCount")) {
+								changedToRating = changedRatingMap.get("NewCoverageNeutralCount");
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							} else {
+								changedToRating = new HashSet<String>();
+								changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+								changedRatingMap.put("NewCoverageNeutralCount", changedToRating);
+							}
+						}
+					}
+				}
+
+			} else if (countFor == 4 || countFor == 7) {
+
+				if (((checkRatedBefore & 1) == 1
+						&& "RATED".equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getAsRatedOrNot()))
+						&& ((betweenDatesIsRatingAvailable(brokerToRatingDatesMap, universeStockDetailsByBrokerRefDate,
+								universeStockDetailsByBrokerAsOnDate, brokerConfigName) != null) == ratedBetween)) {
+					if (countFor == 4) {
+						if (changedRatingMap.containsKey("SameSuspended")) {
+							changedToRating = changedRatingMap.get("SameSuspended");
+							changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+						} else {
+							changedToRating = new HashSet<String>();
+							changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							changedRatingMap.put("SameSuspended", changedToRating);
+						}
+						isComputed=true;
+					}
+					if (countFor == 7) {
+						if (changedRatingMap.containsKey("SameStopped")) {
+							changedToRating = changedRatingMap.get("SameStopped");
+							changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+						} else {
+							changedToRating = new HashSet<String>();
+							changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							changedRatingMap.put("SameStopped", changedToRating);
+						}
+						isComputed=true;
+					}
+				}
+			} else if (countFor == 5 || countFor == 8) {
+				if (((checkRatedBefore & 1) == 1
+						&& "RATED".equalsIgnoreCase(universeStockDetailsByBrokerRefDate.getAsRatedOrNot()))
+						|| ((betweenDatesIsRatingAvailable(brokerToRatingDatesMap, universeStockDetailsByBrokerRefDate,
+								universeStockDetailsByBrokerAsOnDate, brokerConfigName) != null) == ratedBetween)) {
+					if (countFor == 5) {
+						if (changedRatingMap.containsKey("ChangeToSuspended")) {
+							changedToRating = changedRatingMap.get("ChangeToSuspended");
+							changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+						} else {
+							changedToRating = new HashSet<String>();
+							changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							changedRatingMap.put("ChangeToSuspended", changedToRating);
+						}
+						isComputed=true;
+					}
+
+					if (countFor == 8) {
+						if (changedRatingMap.containsKey("ChangeToStopped")) {
+							changedToRating = changedRatingMap.get("ChangeToStopped");
+							changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+						} else {
+							changedToRating = new HashSet<String>();
+							changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+							changedRatingMap.put("ChangeToStopped", changedToRating);
+						}
+						isComputed=true;
+					}
+				}
+			} else if (countFor == 6 || countFor == 9 || countFor == 10 || countFor == 11) {
+				if (countFor == 6) {
+					if (changedRatingMap.containsKey("SameNotRatedCount")) {
+						changedToRating = changedRatingMap.get("SameNotRatedCount");
+						changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+					} else {
+						changedToRating = new HashSet<String>();
+						changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+						changedRatingMap.put("SameNotRatedCount", changedToRating);
+					}
+				}
+				if (countFor == 9) {
+					if (changedRatingMap.containsKey("SameNotCoveredCount")) {
+						changedToRating = changedRatingMap.get("SameNotCoveredCount");
+						changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+					} else {
+						changedToRating = new HashSet<String>();
+						changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+						changedRatingMap.put("SameNotCoveredCount", changedToRating);
+					}
+				}
+				if (countFor == 10) {
+					if (changedRatingMap.containsKey("ChangeToNotCovered")) {
+						changedToRating = changedRatingMap.get("ChangeToNotCovered");
+						changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+					} else {
+						changedToRating = new HashSet<String>();
+						changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+						changedRatingMap.put("ChangeToNotCovered", changedToRating);
+					}
+				}
+				if (countFor == 11) {
+					if (changedRatingMap.containsKey("ChangeToNotRated")) {
+						changedToRating = changedRatingMap.get("ChangeToNotRated");
+						changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+					} else {
+						changedToRating = new HashSet<String>();
+						changedToRating.add(universeStockDetailsByBrokerAsOnDate.getBrokerAppConfigName());
+						changedRatingMap.put("ChangeToNotRated", changedToRating);
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return isComputed;
+	}
+
+}

@@ -1,0 +1,69 @@
+package com.klayx.asset.model;
+
+import java.util.Date;
+
+public class UniverseStockInitialRated {
+	private int id;
+	private String isin;
+	private int currency_id;
+	private int broker_app_id;
+	private int rating_count;
+	private Date last_rating_date;
+	private boolean updatedFlag;
+	
+	
+	public UniverseStockInitialRated() {
+		super();
+		this.updatedFlag = false;
+	}
+	public String getIsin() {
+		return isin;
+	}
+	public void setIsin(String isin) {
+		this.isin = isin;
+	}
+	public int getCurrency_id() {
+		return currency_id;
+	}
+	public void setCurrency_id(int currency_id) {
+		this.currency_id = currency_id;
+	}
+	public int getBroker_app_id() {
+		return broker_app_id;
+	}
+	public void setBroker_app_id(int broker_app_id) {
+		this.broker_app_id = broker_app_id;
+	}
+	public int getRating_count() {
+		return rating_count;
+	}
+	public void setRating_count(int rating_count) {
+		this.rating_count = rating_count;
+	}
+	public Date getLast_rating_date() {
+		return last_rating_date;
+	}
+	public void setLast_rating_date(Date last_rating_date) {
+		this.last_rating_date = last_rating_date;
+	}
+	
+	public boolean isUpdatedFlag() {
+		return updatedFlag;
+	}
+	public void setUpdatedFlag(boolean updatedFlag) {
+		this.updatedFlag = updatedFlag;
+	}
+	public int getId() {
+		return id;
+	}
+	public void setId(int id) {
+		this.id = id;
+	}
+	@Override
+	public String toString() {
+		return "UniverseStockInitialRated [id=" + id + ", isin=" + isin + ", currency_id=" + currency_id
+				+ ", broker_app_id=" + broker_app_id + ", rating_count=" + rating_count + ", last_rating_date="
+				+ last_rating_date + ", updatedFlag=" + updatedFlag + "]";
+	}
+	
+}

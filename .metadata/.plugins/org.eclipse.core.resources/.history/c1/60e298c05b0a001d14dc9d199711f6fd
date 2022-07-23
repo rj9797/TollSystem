@@ -1,0 +1,46 @@
+package com.klayx.asset.model;
+
+import java.util.List;
+
+public class SearchNumberVO {
+
+	private String aliasName;
+	
+	private String logicalOperator;
+	
+	private String aliasDataType;
+	
+	private List<SearchNumberFieldValuesVO> values = null;
+
+	public String getAliasName() {
+		return aliasName;
+	}
+
+	public void setAliasName(String aliasName) {
+		this.aliasName = aliasName;
+	}
+
+	public String getLogicalOperator() {
+		return logicalOperator;
+	}
+
+	public void setLogicalOperator(String logicalOperator) {
+		this.logicalOperator = logicalOperator;
+	}
+
+	public String getAliasDataType() {
+		return aliasDataType;
+	}
+
+	public void setAliasDataType(String aliasDataType) {
+		this.aliasDataType = aliasDataType;
+	}
+
+	public List<SearchNumberFieldValuesVO> getValues() {
+		return values;
+	}
+
+	public void setValues(List<SearchNumberFieldValuesVO> values) {
+		this.values = values;
+	}
+}

@@ -1,0 +1,28 @@
+package com.klayx.asset.rowmapper;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.springframework.jdbc.core.RowMapper;
+
+import com.klayx.asset.model.AssetValuationScheduleVO;
+
+public class AssetValuationScheduleGetRowMapper implements RowMapper<AssetValuationScheduleVO> {
+	@Override
+	public AssetValuationScheduleVO mapRow(ResultSet rs, int rowNum) throws SQLException {
+		AssetValuationScheduleVO valuationScheduleVO = new AssetValuationScheduleVO();
+
+		valuationScheduleVO.setId(rs.getBigDecimal("vid"));
+		valuationScheduleVO.setAssetID(rs.getBigDecimal("asset_id"));
+		valuationScheduleVO.setValuationDate(rs.getDate("valuation_date"));
+		valuationScheduleVO.setPaymentDate(rs.getDate("payment_date"));
+		valuationScheduleVO.setCouponBarrierPercentage(rs.getDouble("coupon_barrier_perc"));
+		valuationScheduleVO.setCallStrike(rs.getDouble("call_strike_perc"));
+		valuationScheduleVO.setRedemptionPercentage(rs.getDouble("redemption_perc"));
+		valuationScheduleVO.setMaxUpsidePercentage(rs.getDouble("max_upside_perc"));
+		valuationScheduleVO.setMaximumProtectionLevelPercentage(rs.getDouble("max_protection_level_perc"));
+		valuationScheduleVO.setParticipationLevelPercentage(rs.getDouble("participation_level_perc"));
+		
+		return valuationScheduleVO;
+	}
+}

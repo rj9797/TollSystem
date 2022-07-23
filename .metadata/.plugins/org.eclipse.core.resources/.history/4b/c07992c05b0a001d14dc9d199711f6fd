@@ -1,0 +1,98 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+public class UniverseStockAdditionalInfoVO {
+
+	private BigDecimal id;
+	private BigDecimal universeStockId;
+	private BigDecimal attributeId;
+	private String attributeConfigName;
+	private String attributeStringValue;
+	private BigDecimal attributeNumberValue;
+	private String attributeValueConfigName;
+	private String createdBy;
+	private Date createdDate;
+	private String updatedBy;
+	private Date updatedDate;
+	
+	public BigDecimal getId() {
+		return id;
+	}
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+	public BigDecimal getAttributeId() {
+		return attributeId;
+	}
+	public void setAttributeId(BigDecimal attributeId) {
+		this.attributeId = attributeId;
+	}
+	public String getAttributeConfigName() {
+		return attributeConfigName;
+	}
+	public void setAttributeConfigName(String attributeConfigName) {
+		this.attributeConfigName = attributeConfigName;
+	}
+	public String getAttributeStringValue() {
+		return attributeStringValue;
+	}
+	public void setAttributeStringValue(String attributeStringValue) {
+		this.attributeStringValue = attributeStringValue;
+	}
+	public BigDecimal getAttributeNumberValue() {
+		return attributeNumberValue;
+	}
+	public void setAttributeNumberValue(BigDecimal attributeNumberValue) {
+		this.attributeNumberValue = attributeNumberValue;
+	}
+	public String getAttributeValueConfigName() {
+		return attributeValueConfigName;
+	}
+	public void setAttributeValueConfigName(String attributeValueConfigName) {
+		this.attributeValueConfigName = attributeValueConfigName;
+	}
+	public String getCreatedBy() {
+		return createdBy;
+	}
+	public void setCreatedBy(String createdBy) {
+		this.createdBy = createdBy;
+	}
+	public Date getCreatedDate() {
+		return createdDate;
+	}
+	public void setCreatedDate(Date createdDate) {
+		this.createdDate = createdDate;
+	}
+	public String getUpdatedBy() {
+		return updatedBy;
+	}
+	public void setUpdatedBy(String updatedBy) {
+		this.updatedBy = updatedBy;
+	}
+	public Date getUpdatedDate() {
+		return updatedDate;
+	}
+	public void setUpdatedDate(Date updatedDate) {
+		this.updatedDate = updatedDate;
+	}
+	public BigDecimal getUniverseStockId() {
+		return universeStockId;
+	}
+	public void setUniverseStockId(BigDecimal universeStockId) {
+		this.universeStockId = universeStockId;
+	}
+	@Override
+	public String toString() {
+		return "UniverseStockAdditionalInfoVO [id=" + id + ", universeStockId=" + universeStockId + ", attributeId="
+				+ attributeId + ", attributeConfigName=" + attributeConfigName + ", attributeStringValue="
+				+ attributeStringValue + ", attributeNumberValue=" + attributeNumberValue
+				+ ", attributeValueConfigName=" + attributeValueConfigName + ", createdBy=" + createdBy
+				+ ", createdDate=" + createdDate + ", updatedBy=" + updatedBy + ", updatedDate=" + updatedDate + "]";
+	}
+	
+	
+	
+	
+}

@@ -1,0 +1,35 @@
+package com.klayx.asset.service;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import com.klayx.asset.model.AssetAddRequestVO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetSPMetricsVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.ResponseVO;
+
+public interface IAssetSPMetricsService {
+
+	
+	ResponseVO<AssetSPMetricsVO, AssetAddRequestVO> addSPMertics(AssetRequestVO requestVO)
+			throws Exception;
+
+	void setIsActive(String tenantCode,List<AssetVO> assetMasters);
+
+	Map<String, Object> getStructureProductMetrics(String tenantCode,List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO requestVO) throws Exception;
+
+//	Map<String, Object> getAssetPrice(List<AssetGetRequestVO> successVOs, List<FailedVO<AssetGetRequestVO>> failedVOs,
+//			AssetRequestVO assetCompositeRequestByInfoVO);
+
+//	public List<AssetPriceVO> getAssetPriceList(List<AssetGetRequestVO> reqParam, Date referenceDate, String tenantCode)
+//			throws Exception;
+
+	public List<AssetSPMetricsVO> getStructureProductMetricsList(String tenantCode,List<AssetGetRequestVO> reqParam, Date referenceDate);
+
+}

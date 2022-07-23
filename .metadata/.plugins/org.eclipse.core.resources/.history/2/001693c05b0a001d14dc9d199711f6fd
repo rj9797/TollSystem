@@ -1,0 +1,97 @@
+package com.klayx.asset.model;
+
+public class AssetAddRequestVO {
+	private AssetVO asset;
+	private AssetPriceVO assetPrice;
+	private AssetKeyFigureVO assetKeyFigure;
+	private AssetReturnsVO assetReturns;
+	private ExchangeRateVO exchangeRate;
+	private AssetPriceKeyFigReturnsCompositeVO assetComposite;
+	private AssetSPMetricsVO assetSPMetrics;
+	private UniverseStockVO universeStock;
+	private UniverseStockDetailsByBrokerVO universeStockDetailsByBroker;
+
+	public AssetVO getAsset() {
+		return asset;
+	}
+
+	public void setAsset(AssetVO asset) {
+		this.asset = asset;
+	}
+
+	public AssetPriceVO getAssetPrice() {
+		return assetPrice;
+	}
+
+	public void setAssetPrice(AssetPriceVO assetPrice) {
+		this.assetPrice = assetPrice;
+	}
+
+	public AssetKeyFigureVO getAssetKeyFigure() {
+		return assetKeyFigure;
+	}
+
+	public void setAssetKeyFigure(AssetKeyFigureVO assetKeyFigure) {
+		this.assetKeyFigure = assetKeyFigure;
+	}
+
+	public AssetReturnsVO getAssetReturns() {
+		return assetReturns;
+	}
+
+	public void setAssetReturns(AssetReturnsVO assetReturns) {
+		this.assetReturns = assetReturns;
+	}
+
+	public ExchangeRateVO getExchangeRate() {
+		return exchangeRate;
+	}
+
+	public void setExchangeRate(ExchangeRateVO exchangeRate) {
+		this.exchangeRate = exchangeRate;
+	}
+
+	public AssetPriceKeyFigReturnsCompositeVO getAssetComposite() {
+		return assetComposite;
+	}
+
+	public void setAssetComposite(AssetPriceKeyFigReturnsCompositeVO assetComposite) {
+		this.assetComposite = assetComposite;
+	}
+
+	public AssetSPMetricsVO getAssetSPMetrics() {
+		return assetSPMetrics;
+	}
+
+	public void setAssetSPMetrics(AssetSPMetricsVO assetSPMetrics) {
+		this.assetSPMetrics = assetSPMetrics;
+	}
+
+	public UniverseStockVO getUniverseStock() {
+		return universeStock;
+	}
+
+	public void setUniverseStock(UniverseStockVO universeStock) {
+		this.universeStock = universeStock;
+	}
+
+	public UniverseStockDetailsByBrokerVO getUniverseStockDetailsByBroker() {
+		return universeStockDetailsByBroker;
+	}
+
+	public void setUniverseStockDetailsByBroker(UniverseStockDetailsByBrokerVO universeStockDetailsByBroker) {
+		this.universeStockDetailsByBroker = universeStockDetailsByBroker;
+	}
+
+	@Override
+	public String toString() {
+		return "AssetAddRequestVO [asset=" + asset + ", assetPrice=" + assetPrice + ", assetKeyFigure=" + assetKeyFigure
+				+ ", assetReturns=" + assetReturns + ", exchangeRate=" + exchangeRate + ", assetComposite="
+				+ assetComposite + ", assetSPMetrics=" + assetSPMetrics + ", universeStock=" + universeStock
+				+ ", universeStockDetailsByBroker=" + universeStockDetailsByBroker + "]";
+	}
+
+	
+
+	
+}

@@ -1,0 +1,162 @@
+{
+	"$schema": "http://json-schema.org/draft-04/schema#",
+	"type": "object",
+	"properties": {
+		"issueDate": {
+			"type": "string"
+		},
+		"tradeDate": {
+			"type": "string"
+		},
+		"maturityDate": {
+			"type": "string"
+		},
+		"rate": {
+			"type": "number"
+		},
+		"intrinsicVsMarkFlag": {
+			"type": "number"
+		},
+		"isin": {
+			"type": "string"
+		},
+		"assetID1": {
+			"anyOf": [
+				{
+					"type": "integer"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"name": {
+			"anyOf": [
+				{
+					"type": "string"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"description_1": {
+			"type": "string"
+		},
+		"effectiveFromDate": {
+			"type": "string"
+		},
+		"_currencyAppId": {
+			"type": "integer"
+		},
+		"_categoryAppId": {
+			"type": "integer"
+		},
+		"_subcategory1AppId": {
+			"type": "integer"
+		},
+		"_subcategory2AppId": {
+			"type": "integer"
+		},
+		"_subcategory3AppId": {
+			"type": "integer"
+		},
+		"subcategory1AppConfigName": {
+			"type": "string"
+		},
+		"subcategory2AppConfigName": {
+			"type": "string"
+		},
+		"subcategory3AppConfigName": {
+			"type": "string"
+		},
+		"_issuerAppId": {
+			"type": "integer"
+		},
+		"divisor": {
+			"type": "integer"
+		},
+		"denomination": {
+			"type": "integer"
+		},
+		"_thirdPartyProcessorId1": {
+			"type": "integer"
+		},
+		"_thirdPartyProcessorId2": {
+			"type": "integer"
+		},
+		"currencyAppConfigName": {
+			"type": "string"
+		},
+		"categoryAppConfigName": {
+			"type": "string"
+		},
+		"issuerAppConfigName": {
+			"type": "string"
+		},
+		"_interestCurrencyAppId": {
+			"type": "integer"
+		},
+		"interestCurrencyAppConfigName": {
+			"type": "string"
+		},
+		"_redemptionCurrencyAppId": {
+			"type": "integer"
+		},
+		"redemptionCurrencyAppConfigName": {
+			"type": "string"
+		},
+		"_interestFrequencyAppId": {
+			"type": "integer"
+		},
+		"interestFrequencyAppConfigName": {
+			"type": "string"
+		},
+		"_redemptionFrequencyAppId": {
+			"type": "integer"
+		},
+		"redemptionFrequencyAppConfigName": {
+			"type": "string"
+		},
+		"_statusAppId": {
+			"type": "integer"
+		},
+		"statusAppConfigName": {
+			"type": "string"
+		},
+		"sourceAppConfigName": {
+			"type": "string"
+		},
+		"_sourceAppId": {
+			"type": "integer"
+		},
+		"underlyingAssets": {
+			"type": "array",
+			"items": {
+				
+			}
+		},
+		"assetValuationSchedule": {
+			"type": "array",
+			"items": {
+				
+			}
+		},
+		"uniqueKey": {
+			"anyOf": [{
+					"type": "string"
+				},
+				{
+					"type": "null"
+				}
+			]
+		}
+	},
+	"required": [
+		"isin",
+		"effectiveFromDate",
+		"subcategory1AppConfigName",
+		"subcategory2AppConfigName",
+		"subcategory3AppConfigName" 
+	]
+}

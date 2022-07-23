@@ -1,0 +1,2521 @@
+package com.klayx.asset.dao.impl;
+
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCreator;
+import org.springframework.jdbc.core.PreparedStatementSetter;
+import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Repository;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IAssetDAO;
+import com.klayx.asset.datasourcemanager.DataSourceManager;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.AssetValuationScheduleVO;
+import com.klayx.asset.model.CategoryList;
+import com.klayx.asset.model.ConsolidationDetails;
+import com.klayx.asset.model.ConsolidationVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.FailedAssetVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.PreferredAssetGroupVO;
+import com.klayx.asset.model.PreferredAssetVO;
+import com.klayx.asset.model.ResponseVO;
+import com.klayx.asset.model.SearchRequestVO;
+import com.klayx.asset.model.SearchResultDataVO;
+import com.klayx.asset.model.UnderlyingAssetsVO;
+import com.klayx.asset.rowmapper.AssetMasterRowMapper;
+import com.klayx.asset.rowmapper.AssetRowMapper;
+import com.klayx.asset.rowmapper.AssetValuationScheduleRowMapper;
+import com.klayx.asset.rowmapper.PrefeerredAssetInfoRowMapper;
+import com.klayx.asset.rowmapper.PreferredAssetGroupForMaxDateMapper;
+import com.klayx.asset.rowmapper.UnderlyingAssetMapRowMapper;
+import com.klayx.asset.rowmapper.UnderlyingAssetRowMapper;
+import com.klayx.asset.transactionmanager.CustomTransactional;
+
+@Repository(AssetConstants.ASSETDAO)
+@PropertySource({ "classpath:${DBSQLFILE}.properties" })
+public class AssetDAOImpl implements IAssetDAO {
+
+	private static final Logger log = LogManager.getLogger(AssetDAOImpl.class);
+
+//	@Autowired
+//	DataSource dataSource;
+
+	@Autowired
+	DataSourceManager dataSourceManager;
+
+	private JdbcTemplate jdbcTemplate;
+
+	private NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+
+	@Value("${INSERT_FailedAssets}")
+	private String insertFailedAssets;
+
+	@Value("${SERVICE_ID}")
+	private int serviceId;
+
+//	public DataSource getdatasource() {
+//		return dataSource;
+//	}
+
+	@Value("${ASSET_MASTER_QUERY}")
+	private String assetMasterQuery;
+
+	@Value("${UNDERLAYING_ASSET_QUERY}")
+	private String underlyingAssetsQuery;
+
+	@Value("${UPDATE_UNDERLYING_ASSET_QUERY}")
+	private String updateUnderlyingAssetsQuery;
+
+	@Value("${IS_ASSET_ID_PRESENT}")
+	private String IS_ASSET_ID_PRESENT;
+
+	@Value("${ASSET_MASTER_UPDATE_QUERY}")
+	private String assetMasterUpdateQuery;
+
+	@Value("${ASSET_INTEREST_DETAILS_QUERY}")
+	private String assetInterestDetailsQuery;
+
+	@Value("${ASSET_INTEREST_SCHEDULE_QUERY}")
+	private String assetInterestScheduleQuery;
+
+	@Value("${ASSET_REDEMPTION_DETAILS_QUERY}")
+	private String assetRedemptionDetailsQuery;
+
+	@Value("${ASSET_REDEMPTION_SCHEDULE_QUERY}")
+	private String assetRedemptionScheduleQuery;
+
+	@Value("${UPDATE_ASSET_INTERST_DETAILS}")
+	private String UPDATE_ASSET_INTERST_DETAILS;
+
+	@Value("${UPDATE_ASSET_INTERST_SCHEDULE}")
+	private String UPDATE_ASSET_INTERST_SCHEDULE;
+
+	@Value("${UPDATE_ASSET_REDEMPTION_DETAILS}")
+	private String UPDATE_ASSET_REDEMPTION_DETAILS;
+
+	@Value("${UPDATE_ASSET_REDEMPTION_SCHEDULE}")
+	private String UPDATE_ASSET_REDEMPTION_SCHEDULE;
+
+	@Value("${SERVICE_ID}")
+	private BigDecimal SERVICE_ID;
+
+	@Value("${ERROR_INSERT_SQL}")
+	private String errorInsertQuery;
+
+	@Value("${pagination.offset}")
+	private int paginationOffset;
+
+	@Value("${ASSET_SEARCH_SQL}")
+	private String assetSearchSql;
+
+	@Value("${GET_ISIN_CURRENCY}")
+	private String GET_ISIN_CURRENCY;
+
+	@Value("${GET_UNDERLYING_ASSET_MAP_BY_PARENT_ASSET_ID}")
+	private String GET_UNDERLYING_ASSET_MAP_BY_PARENT_ASSET_ID;
+
+	@Value("${DELETE_UNDERLYING_ASSET_QUERY}")
+	private String DELETE_UNDERLYING_ASSET_QUERY;
+
+	@Value("${ASSET_VALUATION_SCHEDULE_INSERT}")
+	private String ASSET_VALUATION_SCHEDULE_INSERT;
+
+	@Value("${ASSET_VALUATION_SCHEDULE_UPDATE}")
+	private String ASSET_VALUATION_SCHEDULE_UPDATE;
+
+	@Value("${ASSET_VALUATION_SCHEDULE_DELETE}")
+	private String ASSET_VALUATION_SCHEDULE_DELETE;
+
+	@Value("${GET_VALUATION_SCHEDULE}")
+	private String GET_VALUATION_SCHEDULE;
+
+	@Value("${GET_ASSETS}")
+	private String GET_ASSETS;
+
+	@Value("${SELECT_SP_UNDERLYING_METRICS}")
+	private String SELECT_SP_UNDERLYING_METRICS;
+
+	@Value("${UPDATE_ASSET_SP_UNDERLYING_METRICS}")
+	private String UPDATE_ASSET_SP_UNDERLYING_METRICS;
+
+	@Value("${IS_EFF_TO_DATE_PRESENT}")
+	private String IS_EFF_TO_DATE_PRESENT;
+
+	@Value("${IS_EFF_TO_DATE_NOT_PRESENT}")
+	private String IS_EFF_TO_DATE_NOT_PRESENT;
+
+	@Value("${SET_IS_ACTIVE}")
+	private String SET_IS_ACTIVE;
+
+	@Value("${SET_EFF_TO_DATE}")
+	private String SET_EFF_TO_DATE;
+
+	@Value("${SELECT_SP_METRICS}")
+	private String SELECT_SP_METRICS;
+
+	@Value("${SET_ASSET_INTEREST_DETAIL_INACTIVE}")
+	private String SET_ASSET_INTEREST_DETAIL_INACTIVE;
+
+	@Value("${SET_ASSET_INTEREST_SCHEDULE_INACTIVE}")
+	private String SET_ASSET_INTEREST_SCHEDULE_INACTIVE;
+
+	@Value("${SET_ASSET_REDEM_DETAIL_INACTIVE}")
+	private String SET_ASSET_REDEM_DETAIL_INACTIVE;
+
+	@Value("${SET_ASSET_REDEM_SCHEDULE_INACTIVE}")
+	private String SET_ASSET_REDEM_SCHEDULE_INACTIVE;
+
+	@Value("${SET_UNDERLYING_ASSET_INACTIVE}")
+	private String SET_UNDERLYING_ASSET_INACTIVE;
+
+	@Value("${UPDATE_ASSET_SP_METRICS}")
+	private String UPDATE_ASSET_SP_METRICS;
+
+	@Value("${UPDATE_ASSET_MASTER_FOR_SOURCE}")
+	private String UPDATE_ASSET_MASTER_FOR_SOURCE;
+
+	@Value("${Delete_Underlying_Asset_Map}")
+	private String delUnderlyingAssetMap;
+
+	@Value("${Delete_Asset_Valuation_Schedule}")
+	private String delAssetValuationSchedule;
+
+	@Value("${GET_TENANT_INFO_URL}")
+	private String getTenantInfoUrl;
+
+	@Value("${GET_ASSET_INFO_FOR_UNDERLYING_ASSET}")
+	private String assetInfoForUnderlyingAsset;
+
+	@Value("${CHECK_UNDERLYING_ASSET}")
+	private String checkUnderlyingAsset;
+
+	@Value("${ADD_PREFERRED_ASSETS_GROUP}")
+	private String addPreferredAssetsGroup;
+
+	@Value("${ADD_PREFERRED_ASSETS}")
+	private String addPreferredAssets;
+	
+	@Value("${GET_ASSET_CUSTODIANWISE_MAX_DATE}")
+	private String getAssetCustodianWiseMaxDate;
+	
+	@Value("${UPDATE_CUSTODIANWISE_MAX_DATE}")
+	private String updateCustodianWiseMaxDate;
+	
+	@Value("${DEACTIVATE_PREFERRED_ASSETS}")
+	private String deactivatePreferredAssets;
+	
+	@Value("${DEACTIVATE_PREFERRED_ASSETS_GROUP}")
+	private String deactivatePreferredAssetsGroup;
+	
+	@Value("${INSERT_MAX_DATE}")
+	private String insertMaxDate;
+	
+	@Value("${DOCUMENT_UUID}")
+	private String getUUIDsURL;
+	
+	@Value("${PREFERRED_ASSET_BY_INFO_1}")
+	private String preferredAssetByInfo1;
+	
+	@Value("${PREFERRED_ASSET_BY_INFO_CONDITION_1}")
+	private String preferredAssetByInfoConditiion1;
+	
+	@Value("${PREFERRED_ASSET_BY_INFO_CONDITION_2}")
+	private String preferredAssetByInfoConditiion2;
+	
+	@Value("${PREFERRED_ASSET_BY_INFO_2}")
+	private String preferredAssetByInfo2;
+	
+	@Value("${STATEMENT_MERGER}")
+	private String statementMerger;
+	
+	@Value("${PREFERRED_ASSET_BY_CODE}")
+	private String preferredAssetByCode;
+	
+	@Value("${PREFERRED_ASSET_BY_CODE_CONDITION_1}")
+	private String preferredAssetByCodeCondition1;
+	
+	@Value("${PREFERRED_ASSET_BY_CODE_END}")
+	private String preferredAssetByCodeEnd;
+	
+	@Value("${PREFERRED_ASSET_QUERY_LEFT_OUTER}")
+	private String preferredAssetQueryLeftOuter;
+	
+	@Value("${PREFERRED_ASSET_QUERY_WHERE_CLAUSE}")
+	private String preferredAssetQueryWhereClause;
+	
+	Gson gson = new Gson();
+
+	@CustomTransactional
+	@Override
+	public void addAsset(String tenantCode, AssetVO assetVO) throws Exception {
+		BigDecimal primaryKey = new BigDecimal("0");
+
+		BigDecimal tenantId = assetVO.get_tenantId();
+		BigDecimal updatedpk = new BigDecimal("0");
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			KeyHolder keyHolder = new GeneratedKeyHolder();
+			int status = 0;
+			if (assetVO.getSourceAppConfigName() != null && "ACM1717".equals(assetVO.getSourceAppConfigName())) {
+				status = jdbcTemplate.update(new PreparedStatementCreator() {
+					public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+						PreparedStatement preparedStatement = connection
+								.prepareStatement(UPDATE_ASSET_MASTER_FOR_SOURCE, new String[] { "id" });
+						int i = 1;
+						preparedStatement.setString(i++, assetVO.getIsin());
+//						preparedStatement.setString(i++, assetVO.getName());
+						preparedStatement.setString(i++, assetVO.getDescription1());
+						preparedStatement.setBigDecimal(i++, assetVO.get_categoryAppId());
+						preparedStatement.setString(i++, assetVO.getCategoryAppConfigName());
+						preparedStatement.setBigDecimal(i++, assetVO.get_subcategory1AppId());
+						preparedStatement.setString(i++, assetVO.getSubcategory1AppConfigName());
+						preparedStatement.setBigDecimal(i++, assetVO.get_subcategory2AppId());
+						preparedStatement.setString(i++, assetVO.getSubcategory2AppConfigName());
+						preparedStatement.setBigDecimal(i++, assetVO.get_subcategory3AppId());
+						preparedStatement.setString(i++, assetVO.getSubcategory3AppConfigName());
+						 
+						if (assetVO.getRate() != null) {
+							preparedStatement.setDouble(i++, assetVO.getRate());
+						}else {
+							preparedStatement.setNull(i++, Types.NUMERIC);
+						}
+						preparedStatement.setBigDecimal(i++, assetVO.get_currencyAppId());
+						preparedStatement.setString(i++, assetVO.getCurrencyAppConfigName());
+						preparedStatement.setDate(i++, AssetUtil.DateFormater(assetVO.getIssueDate()));
+						preparedStatement.setBigDecimal(i++, assetVO.get_issuerAppId());
+						preparedStatement.setString(i++, assetVO.getIssuerAppConfigName());
+						preparedStatement.setDate(i++, AssetUtil.DateFormater(assetVO.getTradeDate()));
+						preparedStatement.setDate(i++, AssetUtil.DateFormater(assetVO.getExpiryDate()));
+						preparedStatement.setDate(i++, AssetUtil.DateFormater(assetVO.getMaturityDate()));
+						preparedStatement.setInt(i++, assetVO.getIntrinsicVsMarkFlag());
+						preparedStatement.setBigDecimal(i++, assetVO.get_statusAppId());
+						preparedStatement.setString(i++, assetVO.getStatusAppConfigName());
+						preparedStatement.setBigDecimal(i++, assetVO.get_interestCurrencyAppId());
+						preparedStatement.setString(i++, assetVO.getInterestCurrencyAppConfigName());
+						preparedStatement.setBigDecimal(i++, assetVO.get_interestFrequencyAppId());
+						preparedStatement.setString(i++, assetVO.getInterestFrequencyAppConfigName());
+						preparedStatement.setBigDecimal(i++, assetVO.get_redemptionCurrencyAppId());
+						preparedStatement.setString(i++, assetVO.getRedemptionCurrencyAppConfigName());
+						preparedStatement.setBigDecimal(i++, assetVO.get_redemptionFrequencyAppId());
+						preparedStatement.setString(i++, assetVO.getRedemptionFrequencyAppConfigName());
+						preparedStatement.setBigDecimal(i++, assetVO.get_productRiskAppId());
+						preparedStatement.setString(i++, assetVO.getProductRiskAppConfigName());
+						preparedStatement.setDouble(i++, assetVO.getInvestmentHorizon());
+						preparedStatement.setBigDecimal(i++, assetVO.get_liquidityAppId());
+						preparedStatement.setString(i++, assetVO.getLiquidityAppConfigName());
+						preparedStatement.setDate(i++, AssetUtil.DateFormater(assetVO.getEffectiveFromDate()));
+						preparedStatement.setString(i++, assetVO.getUsername());
+
+						preparedStatement.setString(i++, assetVO.getIsin());
+						preparedStatement.setString(i++, assetVO.getCurrencyAppConfigName());
+
+						return preparedStatement;
+					}
+				}, keyHolder);
+			} else {
+
+				status = jdbcTemplate.update(new PreparedStatementCreator() {
+					public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+						PreparedStatement preparedStatement = connection.prepareStatement(assetMasterUpdateQuery,
+								new String[] { "id" });
+
+						preparedStatement.setString(1, assetVO.getIsin());
+						preparedStatement.setString(2, assetVO.getName());
+						preparedStatement.setString(3, assetVO.getAssetID1());
+						preparedStatement.setString(4, assetVO.getAssetID2());
+						preparedStatement.setString(5, assetVO.getAssetID3());
+						preparedStatement.setString(6, assetVO.getAssetID4());
+						preparedStatement.setString(7, assetVO.getAssetID5());
+						preparedStatement.setString(8, assetVO.getDescription1());
+						preparedStatement.setString(9, assetVO.getDescription2());
+						preparedStatement.setString(10, assetVO.getDescription3());
+						preparedStatement.setBigDecimal(11, assetVO.get_categoryAppId());
+						preparedStatement.setBigDecimal(12, assetVO.get_subcategory1AppId());
+						preparedStatement.setBigDecimal(13, assetVO.get_subcategory2AppId());
+						preparedStatement.setBigDecimal(14, assetVO.get_subcategory3AppId());
+						preparedStatement.setBigDecimal(15, assetVO.get_subcategory4AppId());
+						preparedStatement.setBigDecimal(16, assetVO.get_subcategory5AppId());
+						preparedStatement.setBigDecimal(17, assetVO.get_sectorAppId());
+						preparedStatement.setBigDecimal(18, assetVO.get_regionAppId());
+						preparedStatement.setBigDecimal(19, assetVO.get_countryAppId());
+						preparedStatement.setBigDecimal(20, assetVO.get_stockExchangeAppId());
+						preparedStatement.setBigDecimal(21, assetVO.get_rateTypeAppId());
+						if (assetVO.getRate() != null) {
+							preparedStatement.setDouble(22, assetVO.getRate());
+						}else {
+							preparedStatement.setNull(22, Types.NUMERIC);
+						}
+						preparedStatement.setBigDecimal(23, assetVO.get_currencyAppId());
+						preparedStatement.setBigDecimal(24, assetVO.getDivisor());
+						preparedStatement.setBigDecimal(25, assetVO.getDenomination());
+						preparedStatement.setBigDecimal(26, assetVO.get_optionStyleAppId());
+						preparedStatement.setBigDecimal(27, assetVO.get_optionDirectionAppId());
+						preparedStatement.setBigDecimal(28, assetVO.getStrikePrice());
+						preparedStatement.setBigDecimal(29, assetVO.get_strikePriceCurrencyAppId());
+						preparedStatement.setInt(30, assetVO.getContractSize());
+						preparedStatement.setBigDecimal(31, assetVO.get_firstLegCurrencyAppId());
+						preparedStatement.setBigDecimal(32, assetVO.getFirstLegAmount());
+						preparedStatement.setBigDecimal(33, assetVO.get_secondLegCurrencyAppId());
+						preparedStatement.setBigDecimal(34, assetVO.getSecondLegAmount());
+						preparedStatement.setBigDecimal(35, assetVO.get_originatingCurrencyAppId());
+						preparedStatement.setBigDecimal(36, assetVO.get_targetCurrencyAppId());
+						preparedStatement.setDate(37, AssetUtil.DateFormater(assetVO.getIssueDate()));
+						preparedStatement.setBigDecimal(38, assetVO.get_issuerAppId());
+						preparedStatement.setDate(39, AssetUtil.DateFormater(assetVO.getExpiryDate()));
+						preparedStatement.setDate(40, AssetUtil.DateFormater(assetVO.getMaturityDate()));
+						preparedStatement.setInt(41, assetVO.getIntrinsicVsMarkFlag());
+						preparedStatement.setInt(42, assetVO.getWorkflowId());
+						preparedStatement.setBigDecimal(43, assetVO.get_statusAppId());
+						preparedStatement.setInt(44, 1);
+						preparedStatement.setString(45, assetVO.getSubcategory1AppConfigName());
+						preparedStatement.setString(46, assetVO.getSubcategory2AppConfigName());
+						preparedStatement.setString(47, assetVO.getSubcategory3AppConfigName());
+						preparedStatement.setString(48, assetVO.getSubcategory4AppConfigName());
+						preparedStatement.setString(49, assetVO.getSubcategory5AppConfigName());
+						preparedStatement.setString(50, assetVO.getCategoryAppConfigName());
+						preparedStatement.setString(51, assetVO.getSectorAppConfigName());
+						preparedStatement.setString(52, assetVO.getRegionAppConfigName());
+						preparedStatement.setString(53, assetVO.getCountryAppConfigName());
+						preparedStatement.setString(54, assetVO.getStockExchangeAppConfigName());
+						preparedStatement.setString(55, assetVO.getRateTypeAppConfigName());
+						preparedStatement.setString(56, assetVO.getCurrencyAppConfigName());
+						preparedStatement.setString(57, assetVO.getOptionStyleAppConfigName());
+						preparedStatement.setString(58, assetVO.getOptionDirectionAppConfigName());
+						preparedStatement.setString(59, assetVO.getFirstLegCurrencyAppConfigName());
+						preparedStatement.setString(60, assetVO.getSecondLegCurrencyAppConfigName());
+						preparedStatement.setString(61, assetVO.getOriginatingCurrencyAppConfigName());
+						preparedStatement.setString(62, assetVO.getTargetCurrencyAppConfigName());
+						preparedStatement.setString(63, assetVO.getIssuerAppConfigName());
+						preparedStatement.setString(64, assetVO.getStatusAppConfigName());
+						preparedStatement.setString(65, assetVO.getStrikePriceCurrencyAppConfigName());
+						preparedStatement.setDate(66, AssetUtil.DateFormater(assetVO.getEffectiveFromDate()));
+						preparedStatement.setDate(67, AssetUtil.DateFormater(assetVO.getEffectiveToDate()));
+
+						preparedStatement.setBigDecimal(68, assetVO.get_interestPracticeAppId());
+						preparedStatement.setString(69, assetVO.getInterestPracticeAppConfigName());
+						preparedStatement.setBigDecimal(70, assetVO.get_interestCurrencyAppId());
+						preparedStatement.setString(71, assetVO.getInterestCurrencyAppConfigName());
+						preparedStatement.setBigDecimal(72, assetVO.get_interestFrequencyAppId());
+						preparedStatement.setString(73, assetVO.getInterestFrequencyAppConfigName());
+
+						preparedStatement.setBigDecimal(74, assetVO.get_redemptionCurrencyAppId());
+						preparedStatement.setString(75, assetVO.getRedemptionCurrencyAppConfigName());
+						preparedStatement.setBigDecimal(76, assetVO.get_redemptionFrequencyAppId());
+						preparedStatement.setString(77, assetVO.getRedemptionFrequencyAppConfigName());
+						preparedStatement.setDate(78, AssetUtil.DateFormater(assetVO.getRedemptionDate()));
+						preparedStatement.setBigDecimal(79, assetVO.getRedemptionPrice());
+						preparedStatement.setDate(80, AssetUtil.DateFormater(assetVO.getEarlyRedemptionDate()));
+						preparedStatement.setBigDecimal(81, assetVO.getEarlyRedemptionPrice());
+						preparedStatement.setDate(82, AssetUtil.DateFormater(assetVO.getTradeDate()));
+						preparedStatement.setBigDecimal(83, assetVO.get_productRiskAppId());
+						preparedStatement.setString(84, assetVO.getProductRiskAppConfigName());
+						preparedStatement.setDouble(85, assetVO.getInvestmentHorizon());
+						preparedStatement.setBigDecimal(86, assetVO.get_liquidityAppId());
+						preparedStatement.setString(87, assetVO.getLiquidityAppConfigName());
+						preparedStatement.setString(88, assetVO.getUsername());
+						preparedStatement.setString(89, assetVO.getIsin());
+						preparedStatement.setBigDecimal(90, assetVO.get_currencyAppId());
+
+						return preparedStatement;
+					}
+				}, keyHolder);
+			}
+			if (status > 0) {
+				updatedpk = (BigDecimal) keyHolder.getKey();
+			}
+
+			if (status == 0) {
+				String SQL_INS_QUERY = assetMasterQuery;
+
+				jdbcTemplate.update(new PreparedStatementCreator() {
+					public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+						PreparedStatement preparedStatement = connection.prepareStatement(SQL_INS_QUERY,
+								new String[] { "id" });
+
+						preparedStatement.setString(1, assetVO.getIsin());
+						preparedStatement.setString(2, assetVO.getName());
+						preparedStatement.setString(3, assetVO.getAssetID1());
+						preparedStatement.setString(4, assetVO.getAssetID2());
+						preparedStatement.setString(5, assetVO.getAssetID3());
+						preparedStatement.setString(6, assetVO.getAssetID4());
+						preparedStatement.setString(7, assetVO.getAssetID5());
+						preparedStatement.setString(8, assetVO.getDescription1());
+						preparedStatement.setString(9, assetVO.getDescription2());
+						preparedStatement.setString(10, assetVO.getDescription3());
+						preparedStatement.setBigDecimal(11, assetVO.get_categoryAppId());
+						preparedStatement.setBigDecimal(12, assetVO.get_subcategory1AppId());
+						preparedStatement.setBigDecimal(13, assetVO.get_subcategory2AppId());
+						preparedStatement.setBigDecimal(14, assetVO.get_subcategory3AppId());
+						preparedStatement.setBigDecimal(15, assetVO.get_subcategory4AppId());
+						preparedStatement.setBigDecimal(16, assetVO.get_subcategory5AppId());
+						preparedStatement.setBigDecimal(17, assetVO.get_sectorAppId());
+						preparedStatement.setBigDecimal(18, assetVO.get_regionAppId());
+						preparedStatement.setBigDecimal(19, assetVO.get_countryAppId());
+						preparedStatement.setBigDecimal(20, assetVO.get_stockExchangeAppId());
+						preparedStatement.setBigDecimal(21, assetVO.get_rateTypeAppId());
+						 
+						if (assetVO.getRate() != null) {
+							preparedStatement.setDouble(22, assetVO.getRate());
+						}else {
+							preparedStatement.setNull(22, Types.NUMERIC);
+						}
+						preparedStatement.setBigDecimal(23, assetVO.get_currencyAppId());
+						preparedStatement.setBigDecimal(24, assetVO.getDivisor());
+						preparedStatement.setBigDecimal(25, assetVO.getDenomination());
+						preparedStatement.setBigDecimal(26, assetVO.get_optionStyleAppId());
+						preparedStatement.setBigDecimal(27, assetVO.get_optionDirectionAppId());
+						preparedStatement.setBigDecimal(28, assetVO.getStrikePrice());
+						preparedStatement.setBigDecimal(29, assetVO.get_strikePriceCurrencyAppId());
+						preparedStatement.setInt(30, assetVO.getContractSize());
+						preparedStatement.setBigDecimal(31, assetVO.get_firstLegCurrencyAppId());
+						preparedStatement.setBigDecimal(32, assetVO.getFirstLegAmount());
+						preparedStatement.setBigDecimal(33, assetVO.get_secondLegCurrencyAppId());
+						preparedStatement.setBigDecimal(34, assetVO.getSecondLegAmount());
+						preparedStatement.setBigDecimal(35, assetVO.get_originatingCurrencyAppId());
+						preparedStatement.setBigDecimal(36, assetVO.get_targetCurrencyAppId());
+						preparedStatement.setDate(37, AssetUtil.DateFormater(assetVO.getIssueDate()));
+						preparedStatement.setBigDecimal(38, assetVO.get_issuerAppId());
+						preparedStatement.setDate(39, AssetUtil.DateFormater(assetVO.getExpiryDate()));
+						preparedStatement.setDate(40, AssetUtil.DateFormater(assetVO.getMaturityDate()));
+						preparedStatement.setInt(41, assetVO.getIntrinsicVsMarkFlag());
+						preparedStatement.setInt(42, assetVO.getWorkflowId());
+						preparedStatement.setBigDecimal(43, assetVO.get_statusAppId());
+						preparedStatement.setInt(44, 1);
+						preparedStatement.setString(45, assetVO.getApprovedBy());
+						preparedStatement.setDate(46, AssetUtil.DateFormater(assetVO.getApprovedDate()));
+
+						preparedStatement.setString(47, assetVO.getUsername());
+						// preparedStatement.setString(48, assetVO.getCreatedDate());
+
+						preparedStatement.setBigDecimal(48, SERVICE_ID); // service_id
+						preparedStatement.setBigDecimal(49, assetVO.get_tenantId()); // tenent_id
+						preparedStatement.setString(50, assetVO.getSubcategory1AppConfigName());
+						preparedStatement.setString(51, assetVO.getSubcategory2AppConfigName());
+						preparedStatement.setString(52, assetVO.getSubcategory3AppConfigName());
+						preparedStatement.setString(53, assetVO.getSubcategory4AppConfigName());
+						preparedStatement.setString(54, assetVO.getSubcategory5AppConfigName());
+						preparedStatement.setString(55, assetVO.getCategoryAppConfigName());
+						preparedStatement.setString(56, assetVO.getSectorAppConfigName());
+						preparedStatement.setString(57, assetVO.getRegionAppConfigName());
+						preparedStatement.setString(58, assetVO.getCountryAppConfigName());
+						preparedStatement.setString(59, assetVO.getStockExchangeAppConfigName());
+
+						preparedStatement.setString(60, assetVO.getRateTypeAppConfigName());
+						preparedStatement.setString(61, assetVO.getCurrencyAppConfigName());
+						preparedStatement.setString(62, assetVO.getOptionStyleAppConfigName());
+						preparedStatement.setString(63, assetVO.getOptionDirectionAppConfigName());
+						preparedStatement.setString(64, assetVO.getFirstLegCurrencyAppConfigName());
+						preparedStatement.setString(65, assetVO.getSecondLegCurrencyAppConfigName());
+						preparedStatement.setString(66, assetVO.getOriginatingCurrencyAppConfigName());
+						preparedStatement.setString(67, assetVO.getTargetCurrencyAppConfigName());
+						preparedStatement.setString(68, assetVO.getIssuerAppConfigName());
+						preparedStatement.setString(69, assetVO.getStatusAppConfigName());
+						preparedStatement.setString(70, assetVO.getStrikePriceCurrencyAppConfigName());
+						preparedStatement.setDate(71, AssetUtil.DateFormater(assetVO.getEffectiveFromDate()));
+						preparedStatement.setDate(72, AssetUtil.DateFormater(assetVO.getEffectiveToDate()));
+
+						preparedStatement.setBigDecimal(73, assetVO.get_interestPracticeAppId());
+						preparedStatement.setString(74, assetVO.getInterestPracticeAppConfigName());
+						preparedStatement.setBigDecimal(75, assetVO.get_interestCurrencyAppId());
+						preparedStatement.setString(76, assetVO.getInterestCurrencyAppConfigName());
+						preparedStatement.setBigDecimal(77, assetVO.get_interestFrequencyAppId());
+						preparedStatement.setString(78, assetVO.getInterestFrequencyAppConfigName());
+
+						preparedStatement.setBigDecimal(79, assetVO.get_redemptionCurrencyAppId());
+						preparedStatement.setString(80, assetVO.getRedemptionCurrencyAppConfigName());
+						preparedStatement.setBigDecimal(81, assetVO.get_redemptionFrequencyAppId());
+						preparedStatement.setString(82, assetVO.getRedemptionFrequencyAppConfigName());
+						preparedStatement.setDate(83, AssetUtil.DateFormater(assetVO.getRedemptionDate()));
+						preparedStatement.setBigDecimal(84, assetVO.getRedemptionPrice());
+						preparedStatement.setDate(85, AssetUtil.DateFormater(assetVO.getEarlyRedemptionDate()));
+						preparedStatement.setBigDecimal(86, assetVO.getEarlyRedemptionPrice());
+						preparedStatement.setDate(87, AssetUtil.DateFormater(assetVO.getTradeDate()));
+						preparedStatement.setBigDecimal(88, assetVO.get_productRiskAppId());
+						preparedStatement.setString(89, assetVO.getProductRiskAppConfigName());
+						preparedStatement.setDouble(90, assetVO.getInvestmentHorizon());
+						preparedStatement.setBigDecimal(91, assetVO.get_liquidityAppId());
+						preparedStatement.setString(92, assetVO.getLiquidityAppConfigName());
+						return preparedStatement;
+					}
+				}, keyHolder);
+
+			}
+
+			if (status > 0) {
+				assetVO.setId(updatedpk);
+			} else {
+				primaryKey = (BigDecimal) keyHolder.getKey();
+				assetVO.setId(primaryKey);
+			}
+			if (primaryKey.longValue() > 0 || updatedpk.longValue() > 0) {
+				this.addUnderlyingAssets(tenantCode, assetVO);
+				this.addValuationSchedule(tenantCode, assetVO);
+//					throw new IllegalArgumentException("Test RollBack");
+			}
+		} catch (Exception exception) {
+			log.fatal("Error While adding Asset_Master", exception);
+
+			throw exception;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+	}
+
+	@CustomTransactional
+	@Override
+	public void addUnderlyingAssets(String tenantCode, AssetVO assetVO) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		List<UnderlyingAssetsVO> underlyingAssetsInsertList = new ArrayList<UnderlyingAssetsVO>();
+		// ("Inside addUnderlyingAssets=" + assetVO.getUnderlyingAssets().size());
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			if (assetVO.getUnderlyingAssets() != null && assetVO.getUnderlyingAssets().size() > 0) {
+				// Get AssetId's from Asset_Master
+				StringBuilder query1 = new StringBuilder();
+				query1.append(GET_ISIN_CURRENCY);
+
+				for (int i = 0; i < assetVO.getUnderlyingAssets().size(); i++) {
+					if (i == assetVO.getUnderlyingAssets().size() - 1) {
+						String last = "(ISIN='" + assetVO.getUnderlyingAssets().get(i).getUnderlyingAssetIsin()
+								+ "' AND currency_config_name='"
+								+ assetVO.getUnderlyingAssets().get(i).getUnderlyingAssetCurrencyAppConfigName()
+								+ "'))";
+						query1.append(last);
+					} else {
+						String last = "(ISIN='" + assetVO.getUnderlyingAssets().get(i).getUnderlyingAssetIsin()
+								+ "' AND currency_config_name='"
+								+ assetVO.getUnderlyingAssets().get(i).getUnderlyingAssetCurrencyAppConfigName()
+								+ "') OR ";
+						query1.append(last);
+					}
+				}
+				List<AssetVO> result = jdbcTemplate.query(query1.toString(), new AssetRowMapper());
+				// ("result=" + result.size());
+				List<UnderlyingAssetsVO> underlyingAssetsVOs = new ArrayList<UnderlyingAssetsVO>();
+				int flag = 0;
+				if (result.size() > 0 && assetVO.getUnderlyingAssets().size() > 0) {
+					for (int i = 0; i < assetVO.getUnderlyingAssets().size(); i++) {
+						flag = 0;
+						for (int j = 0; j < result.size(); j++) {
+							if (result.get(j).getIsin()
+									.equals(assetVO.getUnderlyingAssets().get(i).getUnderlyingAssetIsin())
+									&& assetVO.getUnderlyingAssets().get(i).get_underlyingAssetCurrencyAppId()
+											.equals(result.get(j).get_currencyAppId())) {
+
+								assetVO.getUnderlyingAssets().get(i).setUnderlyingAssetId(result.get(j).getId());
+								underlyingAssetsVOs.add(assetVO.getUnderlyingAssets().get(i));
+								flag = 1;
+								break;
+							}
+						}
+						if (flag == 0) {
+							assetVO.getUnderlyingAssets().get(i).setHasError(1);
+							List<ErrorVO> errorVOs = new ArrayList<ErrorVO>();
+//							ErrorVO errorVO = new ErrorVO();
+//							errorVO.setErrorMessage("ISIN and Currency not present in Master Table");
+//							errorVO.setErrorCode("ERR203");
+//							errorVOs.add(errorVO);
+							errorVOs.add(AssetUtil.getError("BUSAST32"));
+							assetVO.getUnderlyingAssets().get(i).setErrors(errorVOs);
+						}
+					}
+				}
+				// Update Logic
+				List<UnderlyingAssetsVO> underlyingDbData = jdbcTemplate.query(
+						GET_UNDERLYING_ASSET_MAP_BY_PARENT_ASSET_ID + assetVO.getId() + " AND is_active=1",
+						new UnderlyingAssetMapRowMapper());
+				// ("underlyingDbData.size=" + underlyingDbData.size());
+				Map<BigDecimal, UnderlyingAssetsVO> requestMap = new HashMap<BigDecimal, UnderlyingAssetsVO>();
+				for (int i = 0; i < underlyingAssetsVOs.size(); i++) {
+					requestMap.put(underlyingAssetsVOs.get(i).getUnderlyingAssetId(), underlyingAssetsVOs.get(i));
+				}
+				// ("requestMap=" + requestMap.keySet());
+
+				List<UnderlyingAssetsVO> underlyingAssetsDeleteList = new ArrayList<UnderlyingAssetsVO>();
+				List<UnderlyingAssetsVO> updateUnderlyingList = new ArrayList<UnderlyingAssetsVO>();
+				for (int i = 0; i < underlyingAssetsVOs.size(); i++) {
+					flag = 0;
+
+					for (int j = 0; j < underlyingDbData.size(); j++) {
+						if (!requestMap.containsKey(underlyingDbData.get(j).getUnderlyingAssetId())) {
+							underlyingAssetsDeleteList.add(underlyingDbData.get(j));
+						}
+						if (underlyingAssetsVOs.get(i).getUnderlyingAssetId()
+								.equals(underlyingDbData.get(j).getUnderlyingAssetId())) {
+							flag = 1;
+						}
+					}
+					if (flag == 1) {
+						updateUnderlyingList.add(underlyingAssetsVOs.get(i));
+					} else {
+						// freshInsertList
+						underlyingAssetsInsertList.add(underlyingAssetsVOs.get(i));
+					}
+				}
+
+				// Update Logic
+				// ("updateUnderlyingList=" + updateUnderlyingList);
+				if (null != updateUnderlyingList && updateUnderlyingList.size() > 0) {
+					jdbcTemplate.batchUpdate(updateUnderlyingAssetsQuery, new BatchPreparedStatementSetter() {
+
+						@Override
+						public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+							// ("*UpdateInsert=" + updateUnderlyingList.get(i).getUnderlyingAssetId());
+							preparedStatement.setString(1, assetVO.getUsername());
+							preparedStatement.setBigDecimal(2, updateUnderlyingList.get(i).getInitialLevel());
+							preparedStatement.setBigDecimal(3, assetVO.getId()); // parent_asset_id
+							preparedStatement.setBigDecimal(4, updateUnderlyingList.get(i).getUnderlyingAssetId()); // assetId
+						}
+
+						@Override
+						public int getBatchSize() {
+							return updateUnderlyingList.size();
+						}
+					});
+				}
+				// Delete logic (-99)
+				// ("underlyingAssetsDeleteList=" + underlyingAssetsDeleteList);
+				if (null != underlyingAssetsDeleteList && underlyingAssetsDeleteList.size() > 0) {
+					jdbcTemplate.batchUpdate(DELETE_UNDERLYING_ASSET_QUERY, new BatchPreparedStatementSetter() {
+
+						@Override
+						public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+							// ("*DELETE=" + underlyingAssetsDeleteList.get(i).getUnderlyingAssetId());
+							preparedStatement.setString(1, assetVO.getUsername());
+							preparedStatement.setBigDecimal(2, assetVO.getId()); // parent_asset_id
+							preparedStatement.setBigDecimal(3,
+									underlyingAssetsDeleteList.get(i).getUnderlyingAssetId()); // assetId
+						}
+
+						@Override
+						public int getBatchSize() {
+							return underlyingAssetsDeleteList.size();
+						}
+					});
+				}
+
+				// Fresh Insert Logic\
+				// ("FreshInsertList" + underlyingAssetsInsertList);
+				if (null != underlyingAssetsInsertList && underlyingAssetsInsertList.size() > 0) {
+					jdbcTemplate.batchUpdate(underlyingAssetsQuery, new BatchPreparedStatementSetter() {
+
+						@Override
+						public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+//							System.out.println(
+//									"*FreshInsert=" + underlyingAssetsInsertList.get(i).getUnderlyingAssetId());
+
+							preparedStatement.setBigDecimal(1, assetVO.getId()); // parent_asset_id
+							preparedStatement.setBigDecimal(2,
+									underlyingAssetsInsertList.get(i).getUnderlyingAssetId()); // assetId
+							preparedStatement.setBigDecimal(3, underlyingAssetsInsertList.get(i).getInitialLevel());
+							preparedStatement.setInt(4, 1); // is_status
+							preparedStatement.setString(5, assetVO.getUsername());
+							preparedStatement.setBigDecimal(6, SERVICE_ID); // service_id
+							preparedStatement.setBigDecimal(7, assetVO.get_tenantId()); // tenent_id
+							preparedStatement.setString(8,
+									assetVO.getUnderlyingAssets().get(i).getUnderlyingAssetIsin());
+							preparedStatement.setString(9,
+									assetVO.getUnderlyingAssets().get(i).getUnderlyingAssetCurrencyAppConfigName());
+							preparedStatement.setBigDecimal(10,
+									assetVO.getUnderlyingAssets().get(i).get_underlyingAssetCurrencyAppId());
+						}
+
+						@Override
+						public int getBatchSize() {
+							return underlyingAssetsInsertList.size();
+						}
+					});
+				}
+			}
+		} catch (Exception exception) {
+			log.fatal("Ërror while adding addUnderlyingAssets", exception);
+			throw exception;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@CustomTransactional
+	@Override
+	public void addValuationSchedule(String tenantCode, AssetVO assetVO) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			if (assetVO.getAssetValuationSchedule() != null && assetVO.getAssetValuationSchedule().size() > 0) {
+				List<AssetValuationScheduleVO> valuationScheduleDbData = jdbcTemplate.query(
+						GET_VALUATION_SCHEDULE + assetVO.getId() + " AND is_active=1 ",
+						new AssetValuationScheduleRowMapper());
+				// ("valuationScheduleDbData.size=" + valuationScheduleDbData.size());
+				List<AssetValuationScheduleVO> insertList = new ArrayList<AssetValuationScheduleVO>();
+				List<AssetValuationScheduleVO> updateList = new ArrayList<AssetValuationScheduleVO>();
+				List<AssetValuationScheduleVO> deleteList = new ArrayList<AssetValuationScheduleVO>();
+
+				Map<String, AssetValuationScheduleVO> requestMap = new HashMap<String, AssetValuationScheduleVO>();
+				if (assetVO.getAssetValuationSchedule() != null) {
+
+					for (int i = 0; i < assetVO.getAssetValuationSchedule().size(); i++) {
+
+						requestMap.put(AssetUtil
+								.DateFormater(assetVO.getAssetValuationSchedule().get(i).getValuationDate()).toString(),
+								assetVO.getAssetValuationSchedule().get(i));
+					}
+					// ("requestMap=" + requestMap.keySet());
+					int flag;
+					for (int i = 0; i < assetVO.getAssetValuationSchedule().size(); i++) {
+						flag = 0;
+						for (int j = 0; j < valuationScheduleDbData.size(); j++) {
+//					System.out.println("AssetUtil.DateFormater(valuationScheduleDbData.get(j).getValuationDate())="
+//							+ AssetUtil.DateFormater(valuationScheduleDbData.get(j).getValuationDate()));
+							if (!requestMap.containsKey(
+									(AssetUtil.DateFormater(valuationScheduleDbData.get(j).getValuationDate()))
+											.toString())
+									&& i == 0) {
+								deleteList.add(valuationScheduleDbData.get(j));
+							}
+							if (assetVO.getAssetValuationSchedule().get(i).getValuationDate()
+									.equals(valuationScheduleDbData.get(j).getValuationDate())) {
+								flag = 1;
+							}
+						}
+						if (flag == 1) {
+							updateList.add(assetVO.getAssetValuationSchedule().get(i));
+						} else {
+							insertList.add(assetVO.getAssetValuationSchedule().get(i));
+						}
+					}
+				}
+//			System.out.println("Valuation Schedule=" + assetVO.getAssetValuationSchedule());
+				if (null != insertList && insertList.size() > 0) {
+					jdbcTemplate.batchUpdate(ASSET_VALUATION_SCHEDULE_INSERT, new BatchPreparedStatementSetter() {
+
+						@Override
+						public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+//						System.out.println("*INSERT=" + insertList.get(i));
+
+							preparedStatement.setBigDecimal(1, SERVICE_ID);
+							preparedStatement.setBigDecimal(2, assetVO.get_tenantId());
+							preparedStatement.setBigDecimal(3, assetVO.getId()); // assetId
+							preparedStatement.setDate(4, AssetUtil.DateFormater(insertList.get(i).getValuationDate()));
+							preparedStatement.setDate(5, AssetUtil.DateFormater(insertList.get(i).getPaymentDate()));
+							if(insertList.get(i).getCouponBarrierPercentage()!=null) {
+								preparedStatement.setDouble(6, insertList.get(i).getCouponBarrierPercentage());
+							}else {
+								preparedStatement.setNull(6, Types.NUMERIC);
+							}
+							if(insertList.get(i).getCallStrike()!=null) {
+								preparedStatement.setDouble(7, insertList.get(i).getCallStrike());
+							}else {
+								preparedStatement.setNull(7, Types.NUMERIC);
+							}
+							if(insertList.get(i).getRedemptionPercentage()!=null) {
+								preparedStatement.setDouble(8, insertList.get(i).getRedemptionPercentage());
+							}else {
+								preparedStatement.setNull(8, Types.NUMERIC);
+							}
+							if(insertList.get(i).getMaxUpsidePercentage()!=null) {
+								preparedStatement.setDouble(9, insertList.get(i).getMaxUpsidePercentage());
+							}else {
+								preparedStatement.setNull(9, Types.NUMERIC);
+							}
+							if(insertList.get(i).getMaximumProtectionLevelPercentage()!=null) {
+								preparedStatement.setDouble(10, insertList.get(i).getMaximumProtectionLevelPercentage());
+							}else {
+								preparedStatement.setNull(10, Types.NUMERIC);
+							}
+							if(insertList.get(i).getParticipationLevelPercentage()!=null) {
+								preparedStatement.setDouble(11, insertList.get(i).getParticipationLevelPercentage());
+							}else {
+								preparedStatement.setNull(11, Types.NUMERIC);
+							}
+							preparedStatement.setString(12, assetVO.getUsername());
+						}
+
+						@Override
+						public int getBatchSize() {
+							return insertList.size();
+						}
+					});
+				}
+
+				if (null != updateList && updateList.size() > 0) {
+					jdbcTemplate.batchUpdate(ASSET_VALUATION_SCHEDULE_UPDATE, new BatchPreparedStatementSetter() {
+
+						@Override
+						public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+//						System.out.println("*Update=" + updateList.get(i));
+
+							preparedStatement.setDate(1, AssetUtil.DateFormater(updateList.get(i).getPaymentDate()));
+							preparedStatement.setDouble(2, updateList.get(i).getCouponBarrierPercentage());
+							preparedStatement.setDouble(3, updateList.get(i).getCallStrike());
+							preparedStatement.setDouble(4, updateList.get(i).getRedemptionPercentage());
+							preparedStatement.setDouble(5, updateList.get(i).getMaxUpsidePercentage());
+							preparedStatement.setDouble(6, updateList.get(i).getMaximumProtectionLevelPercentage());
+							preparedStatement.setDouble(7, updateList.get(i).getParticipationLevelPercentage());
+							preparedStatement.setString(8, assetVO.getUsername());
+							preparedStatement.setBigDecimal(9, assetVO.getId()); // assetId
+							preparedStatement.setDate(10, AssetUtil.DateFormater(updateList.get(i).getValuationDate()));
+
+						}
+
+						@Override
+						public int getBatchSize() {
+							return updateList.size();
+						}
+					});
+				}
+
+				if (null != deleteList && deleteList.size() > 0) {
+					jdbcTemplate.batchUpdate(ASSET_VALUATION_SCHEDULE_DELETE, new BatchPreparedStatementSetter() {
+
+						@Override
+						public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+//						System.out.println("*Delete=" + deleteList.get(i));
+							preparedStatement.setString(1, assetVO.getUsername());
+							preparedStatement.setBigDecimal(2, assetVO.getId()); // assetId
+							preparedStatement.setDate(3, AssetUtil.DateFormater(deleteList.get(i).getValuationDate()));
+						}
+
+						@Override
+						public int getBatchSize() {
+							return deleteList.size();
+						}
+					});
+				}
+			}
+		} catch (Exception e) {
+			throw e;
+		}
+
+	}
+
+	@CustomTransactional
+	public void addAssets(String tenantCode, List<AssetVO> assetVOs, AssetRequestVO assetRequestVO) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		try {
+			for (AssetVO assetVO : assetVOs) {
+				assetVO.set_tenantId(assetRequestVO.get_tenantId());
+				this.addAsset(tenantCode, assetVO);
+			}
+		} catch (Exception exception) {
+			log.fatal("Error While adding ", exception);
+
+			throw exception;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+	}
+
+	@CustomTransactional
+	public List<AssetVO> getAsset(String tenantCode, List<AssetGetRequestVO> assetGetRequestVOs, BigDecimal tenantId)
+			throws Exception {
+		List<AssetVO> result = null;
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			String query = GET_ASSETS;
+
+			StringBuilder placeholder = new StringBuilder();
+			for (int i = 0; i < assetGetRequestVOs.size(); i++) {
+				placeholder.append("(isin = ? AND currency_config_name = ?)");
+				if (i != assetGetRequestVOs.size() - 1) {
+					placeholder.append(" or ");
+				}
+			}
+			placeholder.append("  AND is_active=1 ");
+			query = query.replace("<<placeholder>>", placeholder);
+			if (assetGetRequestVOs != null && assetGetRequestVOs.size() > 0) {
+				result = jdbcTemplate.query(query.toString(), new PreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement ps) throws SQLException {
+						for (int i = 0, j = 1; i < assetGetRequestVOs.size(); i++) {
+							ps.setString(j++, assetGetRequestVOs.get(i).getIsin());
+							ps.setString(j++, assetGetRequestVOs.get(i).getCurrencyConfigName());
+						}
+					}
+				}, new ResultSetExtractor<List<AssetVO>>() {
+
+					@Override
+					public List<AssetVO> extractData(ResultSet rs) throws SQLException, DataAccessException {
+						List<AssetVO> queryResult = new ArrayList<AssetVO>();
+						HashMap<String, AssetVO> assetMap = new HashMap<>();
+						HashMap<String, AssetValuationScheduleVO> assetValuationMap = new HashMap<>();
+						HashMap<String, UnderlyingAssetsVO> underlyingMap = new HashMap<>();
+
+						while (rs.next()) {
+							AssetVO assetVO = null;
+							UnderlyingAssetsVO underlyingAssetsVO = null;
+							AssetValuationScheduleVO assetValuationScheduleVO = null;
+							if (rs.getString("section") != null) {
+								switch (rs.getString("section")) {
+
+								case "underlying_asset_map":
+									underlyingAssetsVO = new UnderlyingAssetRowMapper().mapRow(rs, rs.getRow());
+
+									break;
+								case "asset_valuation_schedule":
+									assetValuationScheduleVO = new AssetValuationScheduleRowMapper().mapRow(rs,
+											rs.getRow());
+									break;
+								}
+
+								if (assetMap.containsKey(rs.getString("isin") + rs.getString("currency_config_name"))) {
+									assetVO = assetMap.get(rs.getString("isin") + rs.getString("currency_config_name"));
+								} else {
+									assetVO = new AssetMasterRowMapper().mapRow(rs, rs.getRow());
+								}
+
+								if (underlyingAssetsVO != null) {
+									String key = assetVO.getId() + " " + underlyingAssetsVO.getId();
+
+									if (!underlyingMap.containsKey(key)) {
+										underlyingMap.put(key, underlyingAssetsVO);
+										if (assetVO.getUnderlyingAssets() != null
+												&& assetVO.getUnderlyingAssets().size() > 0) {
+											List<UnderlyingAssetsVO> existingVO = assetVO.getUnderlyingAssets();
+											existingVO.add(underlyingAssetsVO);
+											assetVO.setUnderlyingAssets(existingVO);
+										} else {
+											List<UnderlyingAssetsVO> newVO = new ArrayList<>();
+											newVO.add(underlyingAssetsVO);
+											assetVO.setUnderlyingAssets(newVO);
+										}
+									}
+								} else if (assetValuationScheduleVO != null) {
+
+									String key = assetVO.getId() + " " + assetValuationScheduleVO.getId();
+									if (!assetValuationMap.containsKey(key)) {
+										assetValuationMap.put(key, assetValuationScheduleVO);
+
+										if (assetVO.getAssetValuationSchedule() != null
+												&& assetVO.getAssetValuationSchedule().size() > 0) {
+											List<AssetValuationScheduleVO> existingVO = assetVO
+													.getAssetValuationSchedule();
+											existingVO.add(assetValuationScheduleVO);
+											assetVO.setAssetValuationSchedule(existingVO);
+										} else {
+											List<AssetValuationScheduleVO> newVO = new ArrayList<>();
+											newVO.add(assetValuationScheduleVO);
+											assetVO.setAssetValuationSchedule(newVO);
+										}
+									}
+								}
+							} else {
+								if (assetMap.containsKey(rs.getString("isin") + rs.getString("currency_config_name"))) {
+									assetVO = assetMap.get(rs.getString("isin") + rs.getString("currency_config_name"));
+								} else {
+									assetVO = new AssetMasterRowMapper().mapRow(rs, rs.getRow());
+								}
+							}
+							if (assetMap.containsKey(rs.getString("isin") + rs.getString("currency_config_name"))) {
+								assetMap.replace(rs.getString("isin") + rs.getString("currency_config_name"), assetVO);
+							} else {
+								assetMap.put(rs.getString("isin") + rs.getString("currency_config_name"), assetVO);
+							}
+
+						}
+
+						Set<String> keySet = assetMap.keySet();
+
+						for (String key : keySet) {
+							queryResult.add(assetMap.get(key));
+						}
+						return queryResult;
+					}
+				});
+			}
+			return result;
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+	}
+
+	// BatchInactive
+	@CustomTransactional
+	@Override
+	public int assetsInactive(String tenantCode) throws Exception {
+		List<BigDecimal> idList = new ArrayList<BigDecimal>();
+
+		int updateCounter = 0;
+		jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+		List<AssetVO> assetVOs = jdbcTemplate.query(IS_EFF_TO_DATE_PRESENT, new AssetRowMapper());
+
+		if (assetVOs.size() > 0) {
+
+			try {
+				SimpleDateFormat sdfo = new SimpleDateFormat("yyyy-MM-dd");
+				Date date = new Date();
+				// String todaysDate = sdfo.format(date);
+				for (AssetVO assetVO : assetVOs) {
+					Date dbEffToDate = new Date();
+					// int flag = 0;
+					if (assetVO.getEffectiveToDate() != null) {
+						dbEffToDate = assetVO.getEffectiveToDate();
+						// flag = 1;
+					} else if (assetVO.getExpiryDate() != null) {
+						dbEffToDate = assetVO.getExpiryDate();
+						// flag = 2;
+					} else if (assetVO.getMaturityDate() != null) {
+						dbEffToDate = assetVO.getMaturityDate();
+					}
+
+					Date dbDate = null, currentDate = null;
+					dbDate = AssetUtil.DateFormater(dbEffToDate);
+					currentDate = AssetUtil.DateFormater(date);
+
+					if (dbDate.before(currentDate)) {
+
+						int status = jdbcTemplate.update(SET_IS_ACTIVE, dbDate, assetVO.getId());
+
+						int assetInterestDetailsCnt = jdbcTemplate.update(SET_ASSET_INTEREST_DETAIL_INACTIVE,
+								assetVO.getId());
+						int assetInterestScheduleCnt = jdbcTemplate.update(SET_ASSET_INTEREST_SCHEDULE_INACTIVE,
+								assetVO.getId());
+						int assetRedemptionDetailsCnt = jdbcTemplate.update(SET_ASSET_REDEM_DETAIL_INACTIVE,
+								assetVO.getId());
+						int assetRedemptionScheduleCnt = jdbcTemplate.update(SET_ASSET_REDEM_SCHEDULE_INACTIVE,
+								assetVO.getId());
+						int undelyingAssetCnt = jdbcTemplate.update(SET_UNDERLYING_ASSET_INACTIVE, assetVO.getId());
+
+						updateCounter = status + assetInterestDetailsCnt + assetInterestScheduleCnt
+								+ assetRedemptionDetailsCnt + assetRedemptionScheduleCnt + undelyingAssetCnt;
+
+						if ("ACM236".equals(assetVO.getSubcategory1AppConfigName())
+								|| "ACM247".equals(assetVO.getSubcategory1AppConfigName())
+								|| "ACM250".equals(assetVO.getSubcategory1AppConfigName())) {
+							idList.add(assetVO.getId());
+						}
+
+					}
+
+				}
+			} catch (Exception exception) {
+				log.fatal("Error while batch inactive : ", exception);
+				throw exception;
+			}
+		}
+		// int spMetricsCnt = 0;
+		if (idList.size() > 0) {
+			checkAssetSPMetrics(idList, tenantCode);
+		}
+		return updateCounter;
+	}
+
+	public void checkAssetSPMetrics(List<BigDecimal> assetId, String tenantCode) {
+		List<BigDecimal> assetSPMetricsId = new ArrayList<BigDecimal>();
+		int counter = 0;
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			for (int i = 0; i < assetId.size(); i++) {
+				int status = jdbcTemplate.update(UPDATE_ASSET_SP_METRICS, assetId.get(i));
+				counter = counter + status;
+				String query = SELECT_SP_METRICS + assetId.get(i);
+				assetSPMetricsId = jdbcTemplate.queryForList(query, BigDecimal.class);
+			}
+
+		} catch (Exception exception) {
+			log.fatal("Error:" + exception);
+		}
+		checkAssetSPUnderlyingMetrics(assetId, assetSPMetricsId, tenantCode);
+		// System.out.println("SPMetrics=" + counter + underlyingCnt);
+		// return counter + underlyingCnt;
+
+	}
+
+	public void checkAssetSPUnderlyingMetrics(List<BigDecimal> assetId, List<BigDecimal> assetSPMetricsId,
+			String tenantCode) {
+		int counter = 0;
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			for (int i = 0; i < assetId.size(); i++) {
+				int status = jdbcTemplate.update(UPDATE_ASSET_SP_UNDERLYING_METRICS, assetId.get(i));
+				counter = counter + status;
+			}
+		} catch (Exception exception) {
+			log.fatal("Error: " + exception);
+		}
+	}
+
+	@Override
+	public ResponseVO<SearchResultDataVO, SearchRequestVO> getAssetSearchInResponse(String tenantCode,
+			String queryConditions, List<String> searchInTextParams, List<String> textSearchParams,
+			List<String> dateSearchParams, List<String> numberSearchParams, AssetRequestVO assetRequestVO)
+			throws Exception {
+
+		log.debug("Entering");
+		ResponseVO<SearchResultDataVO, SearchRequestVO> response = null;
+		StringBuilder assetSearchquery = new StringBuilder();
+		String assetSearchSql1 = null;
+		try {
+
+			if (queryConditions == null || queryConditions.length() == 0) {
+				assetSearchSql1 = assetSearchSql.replaceAll("where", "");
+				assetSearchSql1 = assetSearchSql1.replace("select name from asset_master", "select name from asset_master where ");
+			} else {
+				assetSearchSql1 = assetSearchSql;
+			}
+
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			if (assetRequestVO.getIsDownload() == 0) {
+				assetSearchquery.append(assetSearchSql1).append(" where  finalOutput.record_number between ? and ?");
+			} else {
+				assetSearchquery.append(assetSearchSql1);
+			}
+
+			String assetSearchQuery = assetSearchquery.toString().replace("<Conditions>", queryConditions);
+
+			log.debug("AssetDAOImpl.mandateSearchQuery: " + assetSearchQuery);
+			log.debug("AssetDAOImpl.textSearchParam: " + textSearchParams);
+			log.debug("AssetDAOImpl.dateSearchParams: " + dateSearchParams);
+			log.debug("AssetDAOImpl.searchInTextParams: " + searchInTextParams);
+			log.debug("AssetDAOImpl.numberSearchParams: " + numberSearchParams);
+
+			int pageNumber = assetRequestVO.getPageNumber();
+			int pageOffSet = assetRequestVO.getPaginationOffSet();
+			if (assetRequestVO.getPaginationOffSet() == 0) {
+				pageOffSet = paginationOffset;
+			}
+			int endIndex = pageNumber * pageOffSet;
+			int startIndex = endIndex - (pageOffSet - 1);
+
+			List<Integer> paginationParams = new ArrayList<Integer>();
+
+			paginationParams.add(startIndex);
+			paginationParams.add(endIndex);
+
+			List<SearchResultDataVO> searchResultDataList = new ArrayList<SearchResultDataVO>();
+			final List<SearchResultDataVO> searchResultDataList1 = new ArrayList<SearchResultDataVO>();
+
+			searchResultDataList = jdbcTemplate.query(assetSearchQuery, new PreparedStatementSetter() {
+				public void setValues(PreparedStatement preparedStatement) throws SQLException {
+					int i = 0;
+
+					for (int j = 1; j <= 2; j++) {
+						if (searchInTextParams != null && !searchInTextParams.isEmpty()) {
+							for (String searchInTextParams : searchInTextParams) {
+								preparedStatement.setString(++i, searchInTextParams.trim());
+							}
+						}
+						if (textSearchParams != null && !textSearchParams.isEmpty()) {
+							for (String textSearch : textSearchParams) {
+								preparedStatement.setString(++i, textSearch.trim());
+							}
+						}
+						if (dateSearchParams != null && !dateSearchParams.isEmpty()) {
+							for (String dateSearch : dateSearchParams) {
+								preparedStatement.setDate(++i, java.sql.Date.valueOf(dateSearch.trim()));
+							}
+						}
+						if (numberSearchParams != null && !numberSearchParams.isEmpty()) {
+							for (String numberSearch : numberSearchParams) {
+								preparedStatement.setInt(++i, Integer.parseInt(numberSearch.trim()));
+							}
+						}
+					}
+
+					if (assetRequestVO.getIsDownload() == 0) {
+						if (!paginationParams.isEmpty()) {
+							for (int paginationParam : paginationParams) {
+								preparedStatement.setInt(++i, paginationParam);
+							}
+						}
+					}
+				}
+			}, new ResultSetExtractor<List<SearchResultDataVO>>() {
+				public List<SearchResultDataVO> extractData(ResultSet resultSet)
+						throws SQLException, DataAccessException {
+					Map<BigDecimal, SearchResultDataVO> searchResultMap = new HashMap<>();
+					while (resultSet.next()) {
+
+						SearchResultDataVO searchResultDataObj = new SearchResultDataVO();
+
+						searchResultDataObj.setId(resultSet.getBigDecimal("id"));
+						searchResultDataObj.setIsin(resultSet.getString("ISIN"));
+						searchResultDataObj.setName(resultSet.getString("Name"));
+						searchResultDataObj.setAssetID1(resultSet.getString("Asset_id_1"));
+						searchResultDataObj.setAssetID2(resultSet.getString("Asset_id_2"));
+						searchResultDataObj.setAssetID3(resultSet.getString("Asset_id_3"));
+						searchResultDataObj.setAssetID4(resultSet.getString("Asset_id_4"));
+						searchResultDataObj.setAssetID5(resultSet.getString("Asset_id_5"));
+						searchResultDataObj.setDescription1(resultSet.getString("Description_1"));
+						searchResultDataObj.setDescription2(resultSet.getString("Description_2"));
+						searchResultDataObj.setDescription3(resultSet.getString("Description_3"));
+						searchResultDataObj.setCategoryAppId(resultSet.getBigDecimal("Category_id"));
+						searchResultDataObj.setCategoryConfigName(resultSet.getString("Category_Config_Name"));
+						searchResultDataObj.setSubcategory1AppId(resultSet.getBigDecimal("SubCategory_1_id"));
+						searchResultDataObj.setSubcategory1ConfigName(resultSet.getString("Subcategory_1_Config_Name"));
+						searchResultDataObj.setSubcategory2AppId(resultSet.getBigDecimal("SubCategory_2_id"));
+						searchResultDataObj.setSubcategory2ConfigName(resultSet.getString("Subcategory_2_Config_Name"));
+						searchResultDataObj.setSubcategory3AppId(resultSet.getBigDecimal("SubCategory_3_id"));
+						searchResultDataObj.setSubcategory3ConfigName(resultSet.getString("Subcategory_3_Config_Name"));
+						searchResultDataObj.setSubcategory4AppId(resultSet.getBigDecimal("SubCategory_4_id"));
+						searchResultDataObj.setSubcategory4ConfigName(resultSet.getString("Subcategory_4_Config_Name"));
+						searchResultDataObj.setSubcategory5AppId(resultSet.getBigDecimal("SubCategory_5_id"));
+						searchResultDataObj.setSubcategory5ConfigName(resultSet.getString("Subcategory_5_Config_Name"));
+						searchResultDataObj.setSectorAppId(resultSet.getBigDecimal("Sector_id"));
+						searchResultDataObj.setSectorConfigName(resultSet.getString("Sector_Config_Name"));
+						searchResultDataObj.setRegionAppId(resultSet.getBigDecimal("Region_id"));
+						searchResultDataObj.setRegionConfigName(resultSet.getString("Region_Config_Name"));
+						searchResultDataObj.setCountryAppId(resultSet.getBigDecimal("Country_id"));
+						searchResultDataObj.setCountryConfigName(resultSet.getString("Country_Config_Name"));
+						searchResultDataObj.setStockExchangeAppId(resultSet.getBigDecimal("Stock_Exchange_id"));
+						searchResultDataObj
+								.setStockExchangeConfigName(resultSet.getString("Stock_Exchange_Config_Name"));
+						searchResultDataObj.setCurrencyAppId(resultSet.getBigDecimal("Currency_id"));
+						searchResultDataObj.setCurrencyAppConfigName(resultSet.getString("Currency_Config_Name"));
+						searchResultDataObj.setDivisor(resultSet.getBigDecimal("Divisor"));
+						searchResultDataObj.setDenomination(resultSet.getBigDecimal("Denomination"));
+						searchResultDataObj.setOptionStyleAppId(resultSet.getBigDecimal("Option_Style_id"));
+						searchResultDataObj.setOptionStyleConfigName(resultSet.getString("Option_Style_Config_Name"));
+						searchResultDataObj.setOptionDirectionAppId(resultSet.getBigDecimal("Option_Direction_id"));
+						searchResultDataObj
+								.setOptionDirectionConfigName(resultSet.getString("Option_Direction_Config_Name"));
+						searchResultDataObj.setStrikePrice(resultSet.getBigDecimal("strike_price_amt"));
+						searchResultDataObj
+								.setStrikePriceCurrencyAppId(resultSet.getBigDecimal("strike_price_currency_id"));
+						searchResultDataObj.setStrikePriceCurrencyConfigName(
+								resultSet.getString("Strike_Price_Currency_Config_Name"));
+						searchResultDataObj.setContractSize(resultSet.getInt("contract_size_cnt"));
+						searchResultDataObj
+								.setSecondLegCurrencyAppId(resultSet.getBigDecimal("second_leg_currency_id"));
+						searchResultDataObj
+								.setSecondLegCurrencyConfigName(resultSet.getString("Second_Leg_Currency_Config_Name"));
+						searchResultDataObj.setSecondLegAmount(resultSet.getBigDecimal("Second_leg_amt"));
+						searchResultDataObj
+								.setOriginatingCurrencyAppId(resultSet.getBigDecimal("originating_currency_id"));
+						searchResultDataObj.setOriginatingCurrencyConfigName(
+								resultSet.getString("Originating_Currency_Config_Name"));
+						searchResultDataObj.setTargetCurrencyAppId(resultSet.getBigDecimal("target_currency_id"));
+						searchResultDataObj
+								.setTargetCurrencyConfigName(resultSet.getString("Target_Currency_Config_Name"));
+						searchResultDataObj.setFirstLegCurrencyAppId(resultSet.getBigDecimal("First_Leg_Currency_Id"));
+						searchResultDataObj
+								.setFirstLegCurrencyConfigName(resultSet.getString("First_Leg_Currency_Config_Name"));
+						searchResultDataObj.setFirstLegAmount(resultSet.getBigDecimal("First_Leg_Amt"));
+						searchResultDataObj.setTotalRecords(resultSet.getLong("TotalRecords"));
+						searchResultDataObj.setStatusConfigName(resultSet.getString("status_config_name"));
+						searchResultDataObj.setEffectiveFromDate(resultSet.getString("eff_from_date"));
+						searchResultDataObj.setEffectiveToDate(resultSet.getString("eff_to_date"));
+						UnderlyingAssetsVO underlyingAssetsVO = new UnderlyingAssetRowMapper().mapRow(resultSet,
+								resultSet.getRow());
+						if (underlyingAssetsVO.getId() != null)
+							searchResultDataObj.setUnderlyingAssets(new ArrayList<>(Arrays.asList(underlyingAssetsVO)));
+						if (!searchResultMap.containsKey(searchResultDataObj.getId())) {
+							searchResultDataList1.add(searchResultDataObj);
+							searchResultMap.put(searchResultDataObj.getId(), searchResultDataObj);
+						} else {
+							List<UnderlyingAssetsVO> list = searchResultMap.get(searchResultDataObj.getId())
+									.getUnderlyingAssets();
+							if (underlyingAssetsVO.getId() != null)
+								list.add(underlyingAssetsVO);
+							searchResultMap.get(searchResultDataObj.getId()).setUnderlyingAssets(list);
+						}
+					}
+					return searchResultDataList1;
+				}
+			});
+
+			// Response creation
+			response = new ResponseVO<SearchResultDataVO, SearchRequestVO>();
+			List<SearchResultDataVO> successVOs = null;
+			if (searchResultDataList != null && searchResultDataList.size() > 0) {
+				successVOs = new ArrayList<SearchResultDataVO>();
+				successVOs.addAll(searchResultDataList);
+				response.setTotalPaginationRecords(searchResultDataList.get(0).getTotalRecords());
+			}
+
+			response.setSuccess(successVOs);
+			response.setTotalRecords(1);
+			response.setPageNumber(assetRequestVO.getPageNumber());
+			response.setSearchIn(assetRequestVO.getSearchRequest().getSearchIn());
+
+			if (searchResultDataList == null || searchResultDataList.size() <= 0) {
+
+				List<FailedVO<SearchRequestVO>> failedVOs = new ArrayList<FailedVO<SearchRequestVO>>();
+
+				FailedVO<SearchRequestVO> failedVO = new FailedVO<SearchRequestVO>();
+				failedVO.setIdentityDetails(assetRequestVO.getSearchRequest());
+				failedVO.setTenantCode(assetRequestVO.getTenantCode());
+				failedVO.set_tenantId(assetRequestVO.get_tenantId());
+
+				List<ErrorVO> errors = new ArrayList<ErrorVO>();
+				errors.add(AssetUtil.getError("BUSAST31"));
+				failedVO.setErrors(errors);
+				failedVOs.add(failedVO);
+				response.setFailed(failedVOs);
+				response.setTotalfailedRecords(1);
+			}
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			log.fatal("Error occurred in getMandateSearchInResponse: ", ex);
+			throw ex;
+		}
+
+		log.debug("Leaving");
+		return response;
+	}
+
+	@Override
+	@CustomTransactional
+	public ResponseVO deleteActiveAssetDao(String tenantCode) throws Exception {
+
+		ResponseVO responseVO = new ResponseVO();
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			int deleteCount = jdbcTemplate.update(delUnderlyingAssetMap);
+			deleteCount += jdbcTemplate.update(delAssetValuationSchedule);
+
+			responseVO.setTotalRecords(deleteCount);
+			return responseVO;
+
+		} catch (Exception exp) {
+			exp.printStackTrace();
+			log.fatal("error while executing cleartables Asset", exp);
+			throw exp;
+		}
+	}
+
+	public HashMap<String, AssetVO> getAssetMap(List<AssetGetRequestVO> assetGetRequestVOs, BigDecimal tenantId,
+			String tenantCode) throws Exception {
+		List<AssetVO> result = null;
+
+		log.debug("Entering");
+		HashMap<String, AssetVO> resultMap = new HashMap<String, AssetVO>();
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			String query = GET_ASSETS;
+
+			StringBuilder placeholder = new StringBuilder();
+			for (int i = 0; i < assetGetRequestVOs.size(); i++) {
+				placeholder.append("(isin = ? AND currency_config_name = ?)");
+				if (i != assetGetRequestVOs.size() - 1) {
+					placeholder.append(" or ");
+				}
+			}
+			query = query.replace("<<placeholder>>", placeholder);
+			if (assetGetRequestVOs != null && assetGetRequestVOs.size() > 0) {
+				log.debug("getAssetMapQuery: " + query.toString());
+				result = jdbcTemplate.query(query.toString(), new PreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement ps) throws SQLException {
+						for (int i = 0, j = 1; i < assetGetRequestVOs.size(); i++) {
+							ps.setString(j++, assetGetRequestVOs.get(i).getIsin());
+							ps.setString(j++, assetGetRequestVOs.get(i).getCurrencyConfigName());
+						}
+
+						log.debug("getAssetMapQuery: " + ps);
+					}
+				}, new ResultSetExtractor<List<AssetVO>>() {
+
+					@Override
+					public List<AssetVO> extractData(ResultSet rs) throws SQLException, DataAccessException {
+						List<AssetVO> queryResult = new ArrayList<AssetVO>();
+						HashMap<String, AssetVO> assetMap = new HashMap<>();
+						HashMap<String, AssetValuationScheduleVO> assetValuationMap = new HashMap<>();
+						HashMap<String, UnderlyingAssetsVO> underlyingMap = new HashMap<>();
+
+						while (rs.next()) {
+							AssetVO assetVO = null;
+							UnderlyingAssetsVO underlyingAssetsVO = null;
+							AssetValuationScheduleVO assetValuationScheduleVO = null;
+							if (rs.getString("section") != null) {
+								switch (rs.getString("section")) {
+
+								case "underlying_asset_map":
+									underlyingAssetsVO = new UnderlyingAssetRowMapper().mapRow(rs, rs.getRow());
+
+									break;
+								case "asset_valuation_schedule":
+									assetValuationScheduleVO = new AssetValuationScheduleRowMapper().mapRow(rs,
+											rs.getRow());
+									break;
+								}
+
+								if (assetMap.containsKey(rs.getString("isin") + rs.getString("currency_config_name"))) {
+									assetVO = assetMap.get(rs.getString("isin") + rs.getString("currency_config_name"));
+								} else {
+									assetVO = new AssetMasterRowMapper().mapRow(rs, rs.getRow());
+								}
+
+								if (underlyingAssetsVO != null) {
+									String key = assetVO.getId() + " " + underlyingAssetsVO.getId();
+
+									if (!underlyingMap.containsKey(key)) {
+										underlyingMap.put(key, underlyingAssetsVO);
+										if (assetVO.getUnderlyingAssets() != null
+												&& assetVO.getUnderlyingAssets().size() > 0) {
+											List<UnderlyingAssetsVO> existingVO = assetVO.getUnderlyingAssets();
+											existingVO.add(underlyingAssetsVO);
+											assetVO.setUnderlyingAssets(existingVO);
+										} else {
+											List<UnderlyingAssetsVO> newVO = new ArrayList<>();
+											newVO.add(underlyingAssetsVO);
+											assetVO.setUnderlyingAssets(newVO);
+										}
+									}
+								} else if (assetValuationScheduleVO != null) {
+
+									String key = assetVO.getId() + " " + assetValuationScheduleVO.getId();
+									if (!assetValuationMap.containsKey(key)) {
+										assetValuationMap.put(key, assetValuationScheduleVO);
+
+										if (assetVO.getAssetValuationSchedule() != null
+												&& assetVO.getAssetValuationSchedule().size() > 0) {
+											List<AssetValuationScheduleVO> existingVO = assetVO
+													.getAssetValuationSchedule();
+											existingVO.add(assetValuationScheduleVO);
+											assetVO.setAssetValuationSchedule(existingVO);
+										} else {
+											List<AssetValuationScheduleVO> newVO = new ArrayList<>();
+											newVO.add(assetValuationScheduleVO);
+											assetVO.setAssetValuationSchedule(newVO);
+										}
+									}
+								}
+							} else {
+								if (assetMap.containsKey(rs.getString("isin") + rs.getString("currency_config_name"))) {
+									assetVO = assetMap.get(rs.getString("isin") + rs.getString("currency_config_name"));
+								} else {
+									assetVO = new AssetMasterRowMapper().mapRow(rs, rs.getRow());
+								}
+							}
+							if (assetMap.containsKey(rs.getString("isin") + rs.getString("currency_config_name"))) {
+								assetMap.replace(rs.getString("isin") + rs.getString("currency_config_name"), assetVO);
+							} else {
+								assetMap.put(rs.getString("isin") + rs.getString("currency_config_name"), assetVO);
+							}
+
+						}
+
+						Set<String> keySet = assetMap.keySet();
+
+						for (String key : keySet) {
+							queryResult.add(assetMap.get(key));
+						}
+						return queryResult;
+					}
+				});
+			}
+			for (AssetVO asset : result) {
+				String key = asset.getIsin() + "|" + asset.getCurrencyAppConfigName();
+				resultMap.put(key, asset);
+			}
+
+			log.debug("Leaving");
+			return resultMap;
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+	}
+
+	@Override
+	public void insertFailedAsset(List<FailedAssetVO> failedAssetVOList, String tenantCode) {
+
+		jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+		if (failedAssetVOList != null && failedAssetVOList.size() > 0) {
+
+			jdbcTemplate.batchUpdate(insertFailedAssets, new BatchPreparedStatementSetter() {
+
+				@Override
+				public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+					int j = 0;
+					preparedStatement.setInt(++j, serviceId);
+					preparedStatement.setInt(++j, 1);
+					preparedStatement.setString(++j, failedAssetVOList.get(i).getDefaultedFor());//
+					preparedStatement.setString(++j, failedAssetVOList.get(i).getISIN());
+					preparedStatement.setString(++j, failedAssetVOList.get(i).getCurrency());
+					preparedStatement.setString(++j, failedAssetVOList.get(i).getFromCurrency());
+					preparedStatement.setString(++j, failedAssetVOList.get(i).getToCurrency());
+					preparedStatement.setString(++j, failedAssetVOList.get(i).getCustodian());
+					preparedStatement.setDate(++j, AssetUtil.DateFormater(failedAssetVOList.get(i).getReferenceDate()));
+					preparedStatement.setDate(++j, AssetUtil.DateFormater(failedAssetVOList.get(i).getEffFromDate()));
+					preparedStatement.setDate(++j, AssetUtil.DateFormater(failedAssetVOList.get(i).getEffToDate()));
+				}
+
+				@Override
+				public int getBatchSize() {
+					return failedAssetVOList.size();
+				}
+			});
+//			 if(1=1) {
+//				 throw Exception
+//			 }
+		}
+	}
+
+	@Override
+	public Map<String, AssetVO> checkAssets(List<UnderlyingAssetsVO> underlyingAssetVoList, String tenantCode) {
+		log.debug("Enting get Asset Underlying");
+		Map<String, AssetVO> uniqueMap = new HashMap<String, AssetVO>();
+
+		jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+		String query = assetInfoForUnderlyingAsset;
+		StringBuilder placeholder = new StringBuilder();
+		for (int i = 0; i < underlyingAssetVoList.size() * 2; i++) {
+			placeholder.append("(isin = ? AND currency_config_name = ?)");
+			if (i != underlyingAssetVoList.size() * 2 - 1) {
+				placeholder.append(" or ");
+			}
+		}
+		query = query.replace("<<placeholder>>", placeholder);
+
+		if (underlyingAssetVoList != null && underlyingAssetVoList.size() > 0) {
+			List<AssetVO> assetList = jdbcTemplate.query(query, new PreparedStatementSetter() {
+
+				@Override
+				public void setValues(PreparedStatement ps) throws SQLException {
+					int j = 0;
+					for (int i = 0; i < underlyingAssetVoList.size(); i++) {
+						ps.setString(++j, underlyingAssetVoList.get(i).getISIN());
+						ps.setString(++j, underlyingAssetVoList.get(i).getAssetCurrencyAppConfigName());
+
+						ps.setString(++j, underlyingAssetVoList.get(i).getUnderlyingAssetIsin());
+						ps.setString(++j, underlyingAssetVoList.get(i).getUnderlyingAssetCurrencyAppConfigName());
+
+					}
+				}
+			}, new AssetMasterRowMapper());
+
+			for (AssetVO assetVO : assetList) {
+				uniqueMap.put(assetVO.getIsin() + "~" + assetVO.getCurrencyAppConfigName(), assetVO);
+			}
+		}
+
+		log.debug("Leaving");
+
+		return uniqueMap;
+
+	}
+
+	@Override
+	public Map<BigDecimal, List<UnderlyingAssetsVO>> getAssetUnderLying(List<UnderlyingAssetsVO> underlyingAssetVoList,
+			String tenantCode) {
+		Map<BigDecimal, List<UnderlyingAssetsVO>> uniqueUnderlyingAssetMap = new HashMap<BigDecimal, List<UnderlyingAssetsVO>>();
+		log.debug("Entering");
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			String query = checkUnderlyingAsset;
+			StringBuilder placeholder = new StringBuilder();
+			for (int i = 0; i < underlyingAssetVoList.size(); i++) {
+				placeholder.append("(parent_asset_id = ? OR underlying_asset_id = ?)");
+				if (i != underlyingAssetVoList.size() - 1) {
+					placeholder.append(" or ");
+				}
+			}
+			query = query.replace("<<placeholder>>", placeholder);
+			if (underlyingAssetVoList.size() > 0 && underlyingAssetVoList != null) {
+				List<UnderlyingAssetsVO> assetList = jdbcTemplate.query(query, new PreparedStatementSetter() {
+
+					@Override
+					public void setValues(PreparedStatement ps) throws SQLException {
+						int j = 0;
+						for (int i = 0; i < underlyingAssetVoList.size(); i++) {
+							ps.setBigDecimal(++j, underlyingAssetVoList.get(i).getParentAssetId());
+							ps.setBigDecimal(++j, underlyingAssetVoList.get(i).getUnderlyingAssetId());
+
+						}
+					}
+				}, new UnderlyingAssetMapRowMapper());
+
+				for (UnderlyingAssetsVO underlyingAssetVO : assetList) {
+
+					if (uniqueUnderlyingAssetMap.containsKey(underlyingAssetVO.getParentAssetId())) {
+						uniqueUnderlyingAssetMap.get(underlyingAssetVO.getParentAssetId()).add(underlyingAssetVO);
+					} else {
+						List<UnderlyingAssetsVO> underlyigAssetTemp = new ArrayList<UnderlyingAssetsVO>();
+						underlyigAssetTemp.add(underlyingAssetVO);
+						uniqueUnderlyingAssetMap.put(underlyingAssetVO.getParentAssetId(), underlyigAssetTemp);
+					}
+
+				}
+			}
+
+		} catch (Exception e) {
+			log.fatal("Error while fetching from underlying asset: ", e);
+			throw e;
+		}
+
+		log.debug("Leaving");
+		return uniqueUnderlyingAssetMap;
+	}
+
+	@CustomTransactional
+	@Override
+	public void addUnderlyingAsset(String tenantCode, List<UnderlyingAssetsVO> underlyingAssetsVOsInsert,
+			AssetRequestVO assetRequestVO) throws Exception {
+		log.debug("Entering");
+		// INSERTING the records
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			if (underlyingAssetsVOsInsert != null && underlyingAssetsVOsInsert.size() > 0) {
+				jdbcTemplate.batchUpdate(underlyingAssetsQuery, new BatchPreparedStatementSetter() {
+
+					@Override
+					public void setValues(PreparedStatement ps, int i) throws SQLException {
+						int j = 0;
+						ps.setBigDecimal(++j, underlyingAssetsVOsInsert.get(i).getParentAssetId());
+						ps.setBigDecimal(++j, underlyingAssetsVOsInsert.get(i).getUnderlyingAssetId());
+						ps.setBigDecimal(++j,
+								underlyingAssetsVOsInsert.get(i).getInitialLevel() == null ? BigDecimal.ZERO
+										: underlyingAssetsVOsInsert.get(i).getInitialLevel());
+						ps.setInt(++j, 1);
+						ps.setString(++j, underlyingAssetsVOsInsert.get(i).getUserName());
+						ps.setBigDecimal(++j, SERVICE_ID); // service_id
+						ps.setBigDecimal(++j, assetRequestVO.get_tenantId());
+						ps.setString(++j, underlyingAssetsVOsInsert.get(i).getUnderlyingAssetIsin());
+						ps.setString(++j, underlyingAssetsVOsInsert.get(i).getUnderlyingAssetCurrencyAppConfigName());
+						ps.setBigDecimal(++j, underlyingAssetsVOsInsert.get(i).get_underlyingAssetCurrencyAppId());
+					}
+
+					@Override
+					public int getBatchSize() {
+						return underlyingAssetsVOsInsert.size();
+					}
+				});
+			}
+		} catch (Exception e) {
+			log.fatal("Error in add underlying Asset", e);
+			throw e;
+		}
+		log.debug("Leaving");
+	}
+
+	@CustomTransactional
+	@Override
+	public void updateUnderlyingAsset(String tenantCode, List<UnderlyingAssetsVO> underlyingAssetsVOsUpdate,
+			AssetRequestVO assetRequestVO) throws Exception {
+		log.debug("Entering");
+		// UPDATING the records
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			if (underlyingAssetsVOsUpdate != null && underlyingAssetsVOsUpdate.size() > 0) {
+				jdbcTemplate.batchUpdate(updateUnderlyingAssetsQuery, new BatchPreparedStatementSetter() {
+
+					@Override
+					public void setValues(PreparedStatement ps, int i) throws SQLException {
+						int j = 0;
+						ps.setString(++j, underlyingAssetsVOsUpdate.get(i).getUserName());
+						ps.setBigDecimal(++j,
+								underlyingAssetsVOsUpdate.get(i).getInitialLevel() == null ? BigDecimal.ZERO
+										: underlyingAssetsVOsUpdate.get(i).getInitialLevel());
+						ps.setBigDecimal(++j, underlyingAssetsVOsUpdate.get(i).getParentAssetId());
+						ps.setBigDecimal(++j, underlyingAssetsVOsUpdate.get(i).getUnderlyingAssetId());
+					}
+
+					@Override
+					public int getBatchSize() {
+						// TODO Auto-generated method stub
+						return underlyingAssetsVOsUpdate.size();
+					}
+
+				});
+			}
+		} catch (Exception e) {
+			log.fatal("Error in update underlying Asset", e);
+			throw e;
+		}
+		log.debug("Leaving");
+
+	}
+
+	@CustomTransactional
+	@Override
+	public void deactivateUnderlyingAsset(String tenantCode, List<UnderlyingAssetsVO> underlyingAssetVosDelete,
+			AssetRequestVO assetRequestVO) throws Exception {
+		log.debug("Entering");
+		// Deactivating records
+		try {
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			if (underlyingAssetVosDelete != null && underlyingAssetVosDelete.size() > 0) {
+				jdbcTemplate.batchUpdate(DELETE_UNDERLYING_ASSET_QUERY, new BatchPreparedStatementSetter() {
+					@Override
+					public void setValues(PreparedStatement ps, int i) throws SQLException {
+						int z = 0;
+						ps.setString(++z, underlyingAssetVosDelete.get(i).getUserName());
+						ps.setBigDecimal(++z, underlyingAssetVosDelete.get(i).getParentAssetId()); // parent_asset_id
+						ps.setBigDecimal(++z, underlyingAssetVosDelete.get(i).getUnderlyingAssetId()); // Underlying_assetId
+					}
+
+					@Override
+					public int getBatchSize() {
+						return underlyingAssetVosDelete.size();
+					}
+				});
+			}
+		} catch (Exception e) {
+			log.fatal("Error in delete underlying Asset", e);
+			throw e;
+		}
+		log.debug("Leaving");
+
+	}
+	
+	@Override
+	public String getpreferredassetsinfo(List<AssetGetRequestVO> req,String tenantCode ,String date) throws Exception
+	{
+		
+
+		String finalResponse=null;
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		try
+		{
+			int choice=1;
+			
+//			 &&
+//				req.get(i).getPagroupvo().getGroupTypeConfigName()==null &&
+//				req.get(i).getPagroupvo().getGroupTypeId()==null
+			for(int i=0;i<req.size();i++)
+			{
+				if(req.get(i).getPagroupvo().getGroupCode()!=null)
+				{
+					choice=2;
+					break;
+				}
+			}
+			List<Integer> choices=new ArrayList<>();
+			choices.add(choice);
+			int call1assetbyinfo=1,call1assetbycode=2;
+			List<PreferredAssetGroupVO> groups=new ArrayList<>();
+			for(int i=0;i<req.size();i++)
+			{
+				groups.add(req.get(i).getPagroupvo());
+			}
+			String query1="";
+//			String queryByInfoBegin=" select Preferred_Assets_Group.id as id_Preferred_Assets_Group,Preferred_Assets_Group.is_active as active1,pa_group_code,pa_group_type_id,pa_group_type_config_name,Preferred_Assets_Group.created_by, Preferred_Assets_Group.created_date,Preferred_Assets_Group.updated_by,Preferred_Assets_Group.updated_date,Preferred_Assets_Group.eff_from_date,Preferred_Assets_Group.eff_to_date ,Preferred_Assets.*,asset_consolidation_master.*, asset_consolidation_master.id as asset_consolidation_master_id_1 ,asset_consolidation_details.* , asset_consolidation_details.id as id_asset_consolidation from Preferred_Assets_Group  join Preferred_Assets on ( Preferred_Assets_Group.Id=Preferred_Assets.Preferred_Assets_Group_Id and ( ";
+//			String queryByInfoCondition1="(Preferred_Assets_Group.PA_Group_Type_Config_Name=? " ;
+//			String queryByInfoCondition2="and Preferred_Assets_Group.PA_Group_Type_Id=?)";
+//			String queryByInfoEnd=" ) )";
+//			String statementMergefix=" or ";
+			String query2="";
+//			String queryByCode=" select Preferred_Assets_Group.id as id_Preferred_Assets_Group,Preferred_Assets_Group.is_active as active1,pa_group_code,pa_group_type_id,pa_group_type_config_name,Preferred_Assets_Group.created_by, Preferred_Assets_Group.created_date,Preferred_Assets_Group.updated_by,Preferred_Assets_Group.updated_date,Preferred_Assets_Group.eff_from_date,Preferred_Assets_Group.eff_to_date ,Preferred_Assets.*,asset_consolidation_master.*, asset_consolidation_master.id as asset_consolidation_master_id_1 ,asset_consolidation_details.* , asset_consolidation_details.id as id_asset_consolidation from Preferred_Assets_Group  join Preferred_Assets on ( Preferred_Assets_Group.Id=Preferred_Assets.Preferred_Assets_Group_Id and ( ";
+//			String queryByCodecondition1=" (Preferred_Assets_Group.PA_Group_Code=?) ";
+//			String queryByCodeEnd=" ) ) ";
+//			String queryLeftover="    left outer  join asset_consolidation_master  on asset_consolidation_master.consolidation_code=preferred_assets.asset_consolidation_code left outer join asset_consolidation_details  on asset_consolidation_details.asset_consolidation_master_id= asset_consolidation_master.id";
+//			
+//			String queryForBegin=" where (EFF_FROM_DATE <= TO_DATE(?, 'yyyy-mm-DD') AND eff_to_date >= TO_DATE(?, 'yyyy-mm-DD') ) OR ((EFF_TO_DATE is null OR EFF_TO_DATE >= TO_DATE(?, 'yyyy-mm-DD')))";
+			
+			query1=preferredAssetByInfo1;
+			query2=preferredAssetByCode;
+			for(int i=0;i<groups.size();i++)
+			{
+				if(choice==call1assetbyinfo)
+				{
+					if(i<groups.size()-1)
+					{
+						query1=query1+preferredAssetByInfoConditiion1+preferredAssetByInfoConditiion2+statementMerger;
+					}
+					else
+					{
+						query1=query1+preferredAssetByInfoConditiion1+preferredAssetByInfoConditiion2;
+					}
+					if(i==groups.size()-1)
+					{
+						query1=query1+preferredAssetByInfo2;
+					}
+				}
+				else
+				{
+					if(i<groups.size()-1)
+					{
+
+						query2=query2+preferredAssetByCodeCondition1+statementMerger;
+					}
+					else
+					{
+						query2=query2+preferredAssetByCodeCondition1;
+					}
+					if(i==groups.size()-1)
+					{
+						query2=query2+preferredAssetByCodeEnd;
+					}
+				}
+			}
+			String query=null;
+			if(choice==call1assetbyinfo)
+			{
+				query=query1;
+			}
+			else
+			{
+				query=query2;
+			}
+			query+=preferredAssetQueryLeftOuter;
+			
+			query=query+preferredAssetQueryWhereClause;
+			
+
+			jdbcTemplate = dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			List<PreferredAssetGroupVO> dbResult=new ArrayList<>();
+			List<PreferredAssetGroupVO> output=new ArrayList<>();
+			dbResult=jdbcTemplate.query(query, new PreparedStatementSetter() {
+				@Override
+				public void setValues(PreparedStatement ps) throws SQLException
+				{
+					int counter=0;
+					for(int i=0;i<groups.size();i++)
+					{
+						counter++;
+						if(choices.get(0)==call1assetbyinfo)
+						{
+							String configName=groups.get(i).getGroupTypeConfigName();
+							BigDecimal configId=groups.get(i).getGroupTypeId();
+							ps.setString(counter,configName);
+							counter++;
+							ps.setBigDecimal(counter,configId);
+							
+//							changes
+							
+							counter++;
+							ps.setString(counter, date);
+							counter++;
+							ps.setString(counter,date);
+							counter++;
+							ps.setString(counter,date);
+//							done
+						}
+						else
+						{
+							String code=groups.get(i).getGroupCode();
+							ps.setString(counter,code);
+							counter++;
+							ps.setString(counter, date);
+							counter++;
+							ps.setString(counter,date);
+							counter++;
+							ps.setString(counter,date);
+						}
+					}
+				}
+			},new PrefeerredAssetInfoRowMapper());
+			for(int z=0;z<dbResult.size();z++)
+			{
+				PreferredAssetGroupVO parent=dbResult.get(z);
+				PreferredAssetVO child=parent.getPreferredAssets().get(0);
+				String paGroupTypeConfigName=null;
+
+				paGroupTypeConfigName=parent.getGroupTypeConfigName();
+				BigDecimal paGroupTypeId=parent.getGroupTypeId();
+				String paGroupCode=parent.getGroupCode();
+
+				boolean isParentExist=false;
+				int index=-99;
+				if(output.size()>=1)
+				{
+					for(int i=0;i<output.size();i++)
+					{
+						if(choice==call1assetbyinfo)
+						{
+							if(paGroupTypeConfigName.equals(output.get(i).getGroupTypeConfigName())  &&  paGroupTypeId.equals(output.get(i).getGroupTypeId()  ))
+							{
+								isParentExist=true;
+								index=i;
+								break;
+							}
+						}
+						else
+						{
+							if(paGroupCode.equals(output.get(i).getGroupCode()))
+							{
+								isParentExist=true;
+								index=i;
+								break;
+							}
+						}
+					}
+				}
+				if(isParentExist)
+				{
+
+					if(output.get(index).getPreferredAssets()!=null)
+					{
+						List<PreferredAssetVO>  checkChildDedup=output.get(index).getPreferredAssets();
+						Boolean childOfPagroup=false;
+						for(int k=0;k<checkChildDedup.size();k++)
+						{
+							if(child.getId().equals(checkChildDedup.get(k).getId()))
+							{
+								ConsolidationVO consolidationVOToCheck=child.getConsolidationVO();
+								ConsolidationVO consolidationVOExist=checkChildDedup.get(k).getConsolidationVO();
+								if(consolidationVOExist!=null && consolidationVOExist.getId()!=null && consolidationVOToCheck!=null && consolidationVOToCheck.getId()!=null)
+								{
+									if(consolidationVOExist.getId().equals(consolidationVOToCheck.getId()))
+									{
+										Boolean consoleChildFound=false;
+										List<ConsolidationDetails> lastChildCheck=consolidationVOExist.getConsolidationDetails();
+										for(int m=0;m<lastChildCheck.size();m++)
+										{
+											ConsolidationDetails lastChild=lastChildCheck.get(m);
+											if(lastChild.getId().equals(consolidationVOToCheck.getConsolidationDetails().get(0).getId()))
+											{
+												consoleChildFound=true;
+												break;
+											}
+										}
+										if(!consoleChildFound)
+										{
+											lastChildCheck.add(consolidationVOToCheck.getConsolidationDetails().get(0));
+										}
+									}
+								}
+								break;
+							}
+							else
+							{
+								if(k==checkChildDedup.size()-1)
+								{
+									output.get(index).getPreferredAssets().add(child);
+								}
+							}
+						}
+					}
+					else
+					{
+						output.get(index).setPreferredAssets(new ArrayList<>());
+						output.get(index).getPreferredAssets().add(child);
+					}
+				}
+				else
+				{
+					output.add(parent);
+				}
+			}
+
+			// convert to NEW OBJECTS
+
+			for(int i=0;output!=null && i<output.size();i++)
+			{
+				PreferredAssetGroupVO  preferredAssetGroupVO =output.get(i);
+				List<PreferredAssetVO> participants=preferredAssetGroupVO.getPreferredAssets();
+				for(int j=0;participants!=null && j<participants.size();j++)
+				{
+					PreferredAssetVO preferredAssetVO = participants.get(j);
+					// Our sortout
+					if(preferredAssetVO.getIsin() == null)
+					{
+						ConsolidationVO consolidationGroup=preferredAssetVO.getConsolidationVO();
+						// one properties
+						AssetVO root=new AssetVO();
+						AssetKeyFigureVO assetKeyFigure=new AssetKeyFigureVO();
+						try
+						{
+							assetKeyFigure.setLtvPercentage(Double.parseDouble(""+consolidationGroup.getLtvPerc()));
+						}
+						catch (Exception err)
+						{
+							log.fatal(err);
+						}
+						try
+						{
+							assetKeyFigure.setEstimatedDividend(Double.parseDouble(""+consolidationGroup.getExpectedIncomePerc()));
+						}
+						catch (Exception err)
+						{
+							log.fatal(err);
+						}
+						try
+						{
+							assetKeyFigure.setEarning(Double.parseDouble(""+consolidationGroup.getExpetedReturnPerc()));
+						}
+						catch (Exception err)
+						{
+							log.fatal(err);
+						}
+
+						List<CategoryList>  categoryLists=new ArrayList<>();
+						//---------------------
+						List<ConsolidationDetails> consolidationChild= consolidationGroup.getConsolidationDetails();
+						for(int k=0; consolidationChild!=null &&  k<consolidationChild.size();k++)
+						{
+							ConsolidationDetails consolidationChildHold=consolidationChild.get(k);
+							CategoryList category=new CategoryList();
+							category.setId(consolidationChildHold.getId());
+							category.setCategoryId(consolidationChildHold.getCategoryId());
+							category.setCategoryConfigName(consolidationChildHold.getCategoryConfigName());
+							category.setSubcategory1Id(consolidationChildHold.getSubcategory1Id());
+							category.setSubcategory2Id(consolidationChildHold.getSubcategory2Id());
+							category.setSubcategory3Id(consolidationChildHold.getSubcategory3Id());
+							category.setSubcategory1ConfigName(consolidationChildHold.getSubcategory1ConfigName());
+							category.setSubcategory2ConfigName(consolidationChildHold.getSubcategory2ConfigName());
+							category.setSubcategory3ConfigName(consolidationChildHold.getSubcategory3ConfigName());
+							categoryLists.add(category);
+						}
+
+						// Once its done so yeah attach  root to parent root
+						root.setCategoryList(categoryLists);
+						List<AssetKeyFigureVO> assetKeyFiguresListCurrent=new ArrayList<>();
+						assetKeyFiguresListCurrent.add(assetKeyFigure);
+						root.setAssetKeyFigure(assetKeyFiguresListCurrent);
+						preferredAssetVO.setAssetDetails(root);
+
+						// once work done so yeah remove old object
+						consolidationGroup=null;
+
+						preferredAssetVO.setConsolidationVO(null);
+//						if(child.getConsolidationVO()==null)
+//						{
+//							System.out.println(" Null set successfully");
+//						}
+//						else
+//						{
+//							System.out.println(" Could not set null");
+//						}
+					}
+				}
+			}
+
+
+			//----------------------
+
+
+
+			List<AssetGetRequestVO> responseFormat=new ArrayList<>();
+			List<AssetGetRequestVO> tracker=new ArrayList<>();
+			boolean trackerOn=false;
+			for(int i=0;i<req.size();i++)
+			{
+				PreferredAssetGroupVO parent=req.get(i).getPagroupvo();
+				PreferredAssetGroupVO found=null;
+				for(int j=0;j<output.size();j++)
+				{
+					if(      parent!=null && parent.getGroupTypeConfigName()!=null && parent.getGroupTypeId()!=null &&
+							output!=null && output.get(j)!=null && output.get(j).getGroupTypeConfigName() !=null  &&
+							output.get(j).getGroupTypeId()!=null &&
+							parent.getGroupTypeConfigName().equals(output.get(j).getGroupTypeConfigName())
+							&&  parent.getGroupTypeId().equals(output.get(j).getGroupTypeId())
+							&& choice==call1assetbyinfo )
+					{
+						found=output.get(j);
+						break;
+					}
+					else
+					{
+						if( parent!=null && parent.getGroupCode()!=null && output!=null && output.get(j)!=null
+								&& output.get(j).getGroupCode()!=null &&
+								parent.getGroupCode().equals(output.get(j).getGroupCode())  && choice==call1assetbycode)
+						{
+							found=output.get(j);
+							break;
+						}
+					}
+				}
+				if(found!=null)
+				{
+					AssetGetRequestVO holder=new AssetGetRequestVO();
+					holder.setPagroupvo(found);
+					responseFormat.add(holder);
+				}
+				else
+				{
+					AssetGetRequestVO holder=new AssetGetRequestVO();
+					PreferredAssetGroupVO h=parent;
+					h.setPreferredAssets(new ArrayList<>());
+					holder.setPagroupvo(h);
+					responseFormat.add(holder);
+					if(!trackerOn)
+					{
+						trackerOn=true;
+					}
+					tracker.add(req.get(i));
+				}
+			}
+			ResponseVO<AssetGetRequestVO,AssetRequestVO> response=new ResponseVO<>();
+			response.setSuccess(responseFormat);
+			response.setTotalfailedRecords(0);
+			response.setTotalfailedRecords(0);
+			response.setTotalRecords(req.size());
+			if(tracker!=null && tracker.size()>=1)
+			{
+				List<FailedVO<AssetRequestVO>> failedAttachment=new ArrayList<>();
+				AssetRequestVO requestFailure=new AssetRequestVO();
+				requestFailure.setAssetGetRequest(tracker);
+				FailedVO<AssetRequestVO> attachment=new FailedVO<>();
+				attachment.setIdentityDetails(requestFailure);
+				List<ErrorVO> errorVOS=new ArrayList<>();
+				errorVOS.add(AssetUtil.getError("BUSPORT42"));
+				attachment.setErrors(errorVOS);
+				failedAttachment.add(attachment);
+				response.setFailed(failedAttachment);
+				response.setTotalfailedRecords(tracker.size());
+			}
+			finalResponse=AssetUtil.fromObjectToJSON(response);
+		}
+		catch (Exception err)
+		{
+			log.fatal(" error while getpreferreedassetsinfo");
+			throw  err;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return finalResponse;
+	}
+
+	@Override
+	public void addPreferredAssetsGroup(String tenantCode, List<PreferredAssetGroupVO> preferredAssetGroupVOFreshInsertList,
+			AssetRequestVO assetRequestVO) throws Exception {
+		try {
+			List<PreferredAssetGroupVO> addList=new ArrayList<PreferredAssetGroupVO>();
+			
+			jdbcTemplate=dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			
+			
+			
+			List<Object> UUIDsList=null;
+			JsonObject obj = new JsonObject();
+			JsonArray utilityGetRequestList = new JsonArray();
+			JsonObject innerRequest = new JsonObject();
+			innerRequest.addProperty("requiredPrefix", "GRP");
+			innerRequest.addProperty("requiredCnt", preferredAssetGroupVOFreshInsertList.size());
+			utilityGetRequestList.add(innerRequest);
+			obj.add("utilityGetRequest", utilityGetRequestList);
+			String response = AssetUtil.syncHttpCall(obj.toString(), getUUIDsURL,assetRequestVO.getAccessToken());
+			UUIDsList = (new JSONArray(new JSONObject(response).get("success").toString())).getJSONObject(0)
+			.getJSONArray("UUIDS").toList();
+			
+			if(preferredAssetGroupVOFreshInsertList!=null) {
+				int itr=0;
+				for(PreferredAssetGroupVO vo:preferredAssetGroupVOFreshInsertList) {
+					vo.setGroupCode(UUIDsList.get(itr).toString());
+					addList.add(vo);
+					itr++;
+				}
+			}
+			
+			namedParameterJdbcTemplate = dataSourceManager.refreshCustomNamedJdbc(tenantCode, null);
+			String query = "";
+			MapSqlParameterSource map = new MapSqlParameterSource();
+			
+			for (int count = 0; count < addList.size() - 1; count++) {
+				PreferredAssetGroupVO preferredGroup = addList.get(count);
+				preferredGroup.setUserName(assetRequestVO.getUsername());
+				
+				
+				map.addValues(setPreferredAssetMapSqlParameter(count, preferredGroup, true));
+				query += "(Cast(Concat(" + serviceId + "," + assetRequestVO.get_tenantId()
+						+ ", NEXTVAL('seq_preferred_assets_group')) AS NUMERIC), :paGroupCode" + count + ", :paGroupTypeId" + count
+						+ ", :paGroupTypeConfigName" + count + ",1 "+",:referenceDate" + count + ", :createdby"+ count +",NOW()),";
+			}
+			KeyHolder keyHolder = new GeneratedKeyHolder();
+			
+				PreferredAssetGroupVO preferredGroup = addList.get(addList.size()-1);
+				int count = addList.size() - 1;
+				preferredGroup.setUserName(assetRequestVO.getUsername());
+				map.addValues(setPreferredAssetMapSqlParameter(count, preferredGroup, true));
+	
+				query += "(Cast(Concat(" + serviceId + "," + assetRequestVO.get_tenantId()
+				+ ", NEXTVAL('seq_preferred_assets_group')) AS NUMERIC), :paGroupCode" + count + ", :paGroupTypeId" + count
+				+ ", :paGroupTypeConfigName" + count + ",0 "+",:referenceDate" + count + ", :createdby"+ count +",NOW())";
+				
+				namedParameterJdbcTemplate.update(addPreferredAssetsGroup + query, map, keyHolder,
+						new String[] { "id", "pa_group_type_config_name" });
+	
+				for (int i = 0; i < keyHolder.getKeyList().size(); i++) {
+					PreferredAssetGroupVO preferredGroupVO= addList.get(i);
+						for(PreferredAssetVO preferredAsset: preferredGroupVO.getPreferredAssets()) {
+							preferredAsset.setPreferredAssetsGroupId(new BigDecimal(keyHolder.getKeyList().get(i).get("id").toString()));
+						}
+				}
+				
+				//Adding in Preferred Assets
+				List<PreferredAssetVO> preferredAssetListForAddtion=new ArrayList<PreferredAssetVO>();
+				for(PreferredAssetGroupVO preferredGroupTemp: addList) {
+					for(PreferredAssetVO preferredAsset: preferredGroupTemp.getPreferredAssets()) {
+						preferredAssetListForAddtion.add(preferredAsset);
+					}
+				}
+				addPreferredAssets(tenantCode, preferredAssetListForAddtion, assetRequestVO);
+		
+		}catch (Exception e) {
+			log.fatal("Error in Add Preferred Assets: ",e);
+			throw e;
+		}
+		
+	}
+	
+	
+	
+	private Map<String, Object> setPreferredAssetMapSqlParameter(int count, PreferredAssetGroupVO preferredAssetGroupVO,
+			boolean isInsertStatement) {
+		Map<String, Object> map = new HashMap<>();
+		map.put("paGroupCode" + count, preferredAssetGroupVO.getGroupCode());
+		map.put("paGroupTypeId" + count, preferredAssetGroupVO.getGroupTypeId());
+		map.put("paGroupTypeConfigName" + count, preferredAssetGroupVO.getGroupTypeConfigName());
+		map.put("referenceDate" + count, preferredAssetGroupVO.getReferenceDate());
+		if (isInsertStatement) {
+			map.put("createdby" + count, preferredAssetGroupVO.getUserName());
+		} else {
+			map.put("updatedby" + count, preferredAssetGroupVO.getUserName());
+		}
+
+		return map;
+	}
+
+
+	@Override
+	public void addPreferredAssets(String tenantCode, List<PreferredAssetVO> preferredAssetVOList,
+			AssetRequestVO assetRequestVO) throws Exception {
+		log.debug("Entering");
+		try {
+			
+			
+			
+			jdbcTemplate=dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			jdbcTemplate.batchUpdate(addPreferredAssets, new BatchPreparedStatementSetter() {
+				
+				@Override
+				public void setValues(PreparedStatement ps, int i) throws SQLException {
+					int j=0;
+					ps.setInt(++j, serviceId);
+					ps.setBigDecimal(++j, assetRequestVO.get_tenantId());
+					ps.setBigDecimal(++j, preferredAssetVOList.get(i).getPreferredAssetsGroupId());
+					ps.setString(++j, preferredAssetVOList.get(i).getIsin());
+					ps.setBigDecimal(++j, preferredAssetVOList.get(i).getCurrencyAppId());
+					ps.setString(++j, preferredAssetVOList.get(i).getCurrencyAppConfigName());
+					ps.setBigDecimal(++j, preferredAssetVOList.get(i).getMinPerc());
+					ps.setBigDecimal(++j, preferredAssetVOList.get(i).getMinimumFlatAmt());
+					ps.setInt(++j, preferredAssetVOList.get(i).getAllocationOrder());
+					ps.setBigDecimal(++j, preferredAssetVOList.get(i).getInstrumentTypeId());
+					ps.setString(++j, preferredAssetVOList.get(i).getInstrumentTypeAppConfigName());
+					ps.setBigDecimal(++j, preferredAssetVOList.get(i).getPreferredAssetsTypeId());
+					ps.setString(++j, preferredAssetVOList.get(i).getPreferredAssetsTypeConfigName());
+					ps.setString(++j, preferredAssetVOList.get(i).getConsolidationCode());
+					ps.setString(++j, preferredAssetVOList.get(i).getSecurityRating());
+					ps.setInt(++j, preferredAssetVOList.get(i).getAllocationPriority());
+					ps.setInt(++j, 1);
+					ps.setString(++j, assetRequestVO.getUsername());
+					
+					
+				}
+				
+				@Override
+				public int getBatchSize() {
+					return preferredAssetVOList.size();
+				}
+			});
+			
+		}catch (Exception e) {
+			log.fatal("Exception in add Preferred Assets: ",e);
+			throw e;
+		}
+		
+	}
+
+	@Override
+	public Map<BigDecimal, PreferredAssetGroupVO> getCustodianWiseMaxDate(String tenantCode,
+			List<PreferredAssetGroupVO> preferredAssetGroupVO, AssetRequestVO assetRequestVO) throws Exception {
+		Map<BigDecimal,PreferredAssetGroupVO> preferredGroupMap=new HashMap<BigDecimal, PreferredAssetGroupVO>();
+		try {
+			StringBuilder dynamicQueryBuilder=new StringBuilder();
+			for(int i=0 ; i < preferredAssetGroupVO.size(); i++) {
+				if(i==preferredAssetGroupVO.size()-1) {
+					dynamicQueryBuilder.append("(pag.pa_group_type_id="+preferredAssetGroupVO.get(i).getGroupTypeId()+" and pag.eff_to_date IS null) ");
+				}else {
+					dynamicQueryBuilder.append(" (pag.pa_group_type_id="+preferredAssetGroupVO.get(i).getGroupTypeId()+" and pag.eff_to_date IS null) OR ");
+				}
+			}
+			String finalQuery=getAssetCustodianWiseMaxDate.concat(dynamicQueryBuilder.toString());
+			jdbcTemplate=dataSourceManager.refreshCustomJdbc(tenantCode,null);
+			
+			List<PreferredAssetGroupVO> preferredAssetGroupList=jdbcTemplate.query(finalQuery,new PreferredAssetGroupForMaxDateMapper());
+			for(PreferredAssetGroupVO preferredGroupVo: preferredAssetGroupList) {
+				if(!preferredGroupMap.containsKey(preferredGroupVo.getGroupTypeId())) {
+					preferredGroupMap.put(preferredGroupVo.getGroupTypeId(), preferredGroupVo);
+				}
+			}
+			return preferredGroupMap;
+		}catch (Exception e) {
+			log.fatal("Exception in get Custofian wise max date: ",e);
+			throw e;
+		}
+	}
+
+	@Override
+	public void updateCustodianWiseMaxDate(String tenantCode, List<PreferredAssetGroupVO> preferredAssetGroupVOList,
+			AssetRequestVO assetRequestVO) throws Exception {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			jdbcTemplate.batchUpdate(updateCustodianWiseMaxDate,new BatchPreparedStatementSetter() {
+				
+				@Override
+				public void setValues(PreparedStatement ps, int i) throws SQLException {
+					int j=0;
+					ps.setDate(++j, AssetUtil.DateFormater(preferredAssetGroupVOList.get(i).getReferenceDate()));
+					ps.setString(++j, preferredAssetGroupVOList.get(i).getUserName());
+					ps.setBigDecimal(++j, preferredAssetGroupVOList.get(i).getGroupTypeId());
+				}
+				
+				@Override
+				public int getBatchSize() {
+					return preferredAssetGroupVOList.size();
+				}
+			});
+		}catch (Exception e) {
+			log.fatal("Error in UpdateMax Date: ",e);
+			throw e;
+		}
+		
+	}
+
+	@Override
+	public void addCustodianWiseMaxDate(String tenantCode, List<PreferredAssetGroupVO> preferredAssetGroupList,
+			AssetRequestVO assetRequestVO) throws Exception {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			jdbcTemplate.batchUpdate(insertMaxDate,new BatchPreparedStatementSetter() {
+				
+				@Override
+				public void setValues(PreparedStatement ps, int i) throws SQLException {
+					int j=0;
+					ps.setInt(++j, serviceId);
+					ps.setBigDecimal(++j, assetRequestVO.get_tenantId());
+					ps.setBigDecimal(++j, preferredAssetGroupList.get(i).getGroupTypeId());
+					ps.setString(++j, preferredAssetGroupList.get(i).getGroupTypeConfigName());
+					ps.setBigDecimal(++j, new BigDecimal(2827));
+					ps.setString(++j,"ACM2079");
+					ps.setDate(++j, AssetUtil.DateFormater(preferredAssetGroupList.get(i).getReferenceDate()));
+					ps.setString(++j, assetRequestVO.getUsername());
+				}
+				
+				@Override
+				public int getBatchSize() {
+					return preferredAssetGroupList.size();
+				}
+			});
+		}catch (Exception e) {
+			log.fatal("Exception in Custodian Wise Max Date: ",e);
+			throw e;
+		}
+		
+	}
+
+	@Override
+	public void deactivatePreferredAssetGroup(String tenantCode,
+			List<PreferredAssetGroupVO> preferredAssetGroupList, AssetRequestVO assetRequestVO)
+			throws Exception {
+		try {
+			
+			if(preferredAssetGroupList!=null && !preferredAssetGroupList.isEmpty()) {
+				jdbcTemplate.batchUpdate(deactivatePreferredAssetsGroup,new BatchPreparedStatementSetter() {
+					
+					@Override
+					public void setValues(PreparedStatement ps, int i) throws SQLException {
+						int z=0;
+						Date myDate = preferredAssetGroupList.get(i).getReferenceDate();
+						Calendar c = Calendar.getInstance();
+						c.setTime(myDate);
+						c.add(Calendar.MILLISECOND, -1);
+						Date newDate = c.getTime();
+						try {
+							ps.setTimestamp(++z, AssetUtil.stringToTimestamp(newDate));
+						} catch (SQLException e) {
+							e.printStackTrace();
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+						ps.setBigDecimal(++z, preferredAssetGroupList.get(i).getId());
+					}
+					
+					@Override
+					public int getBatchSize() {
+						return preferredAssetGroupList.size();
+					}
+				});
+				
+				deactivatePreferredAsset(tenantCode,preferredAssetGroupList,assetRequestVO);
+			}
+			
+		}catch (Exception e) {
+			log.fatal("Exception e: ",e);
+			throw e;
+		}
+		
+	}
+
+	@Override
+	public void deactivatePreferredAsset(String tenantCode,
+			List<PreferredAssetGroupVO> preferredAssetGroupList, AssetRequestVO assetRequestVO)
+			throws Exception {
+		try {
+			if(preferredAssetGroupList!=null) {
+				List<PreferredAssetVO> preferredVO=new ArrayList<PreferredAssetVO>(); 
+				for(PreferredAssetGroupVO vo: preferredAssetGroupList) {
+					for(PreferredAssetVO preferredVOTemp: vo.getPreferredAssets()) {
+						preferredVO.add(preferredVOTemp);
+					}
+				}
+				jdbcTemplate=dataSourceManager.refreshCustomJdbc(tenantCode, null);
+				if(preferredVO!=null && !preferredVO.isEmpty()) {
+					jdbcTemplate.batchUpdate(deactivatePreferredAssets,new BatchPreparedStatementSetter() {
+						@Override
+						public void setValues(PreparedStatement ps, int i) throws SQLException {
+							int z=0;
+							ps.setBigDecimal(++z, preferredVO.get(i).getPreferredAssetsGroupId());
+						}
+						
+						@Override
+						public int getBatchSize() {
+							return preferredVO.size();
+						}
+					});
+				}
+			}
+			addPreferredAssetsGroup(tenantCode, preferredAssetGroupList, assetRequestVO);
+		}catch (Exception e) {
+			log.fatal("Exception : ",e);
+			throw e;
+		}
+		
+	}
+	
+	
+}

@@ -1,0 +1,27 @@
+package com.klayx.asset.service;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.klayx.asset.model.*;
+
+public interface IUniverseStockService {
+
+	public void addUniverseStocks(String tenantCode, List<UniverseStockVO> successVOs,
+			List<FailedVO<UniverseStockVO>> failedVOs, List<JsonObject> totalVOs, boolean isInterfaceRequest,
+			AssetRequestVO assetRequestVO, HttpServletRequest httpServletRequest,AccessDetailVO accessDetailVO) throws Exception;
+	public void addUniverseStockDetailByTerminal(List<UniverseStockDetailsByTerminalVO> successVOs, List<FailedVO<UniverseStockDetailsByTerminalVO>> failedVOs,
+			List<JsonObject> totalVOs,boolean isInterfaceRequest, AssetRequestVO assetRequestVO) throws Exception;
+	public String getBrokerRatingHistory(List<AssetGetRequestVO> req, String tenantCode, Date date) throws Exception;
+	public void addUniverseStockDetailsByBroker(String tenantCode, List<UniverseStockDetailsByBrokerVO> successVOs,
+			List<FailedVO<UniverseStockDetailsByBrokerVO>> failedVOs, List<JsonObject> totalVOs,
+			boolean isInterfaceRequest, AssetRequestVO assetRequestVO, HttpServletRequest httpServletRequest) throws Exception;
+	public ResponseVO<SearchResultDataVO, SearchRequestVO> getUniverseStockSearchInResponse(AssetRequestVO assetRequestVO,HttpServletRequest httpServletRequest) throws Exception;
+	public void updateDocumentsExternalReferenceNumber(String tenantCode, List<DocumentVO> documentVOs);
+	public HashMap<String, JsonArray> getCatcheInfo(List<String> configTypes,HttpServletRequest request);
+}

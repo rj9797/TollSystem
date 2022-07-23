@@ -1,0 +1,40 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+
+public class FieldConfigurationVO {
+	String configType;
+	int  numberOfCells;
+	int displayOrder;
+	public FieldConfigurationVO(String configType,
+	int  numberOfCells,
+	int displayOrder) {
+		this.configType=configType;
+		this.numberOfCells=numberOfCells;
+		this.displayOrder=displayOrder;
+	}
+	public String getConfigType() {
+		return configType;
+	}
+	public void setConfigType(String configType) {
+		this.configType = configType;
+	}
+	public int getNumberOfCells() {
+		return numberOfCells;
+	}
+	public void setNumberOfCells(int numberOfCells) {
+		this.numberOfCells = numberOfCells;
+	}
+	public int getDisplayOrder() {
+		return displayOrder;
+	}
+	public void setDisplayOrder(int displayOrder) {
+		this.displayOrder = displayOrder;
+	}
+	
+}

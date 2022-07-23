@@ -1,0 +1,10 @@
+package com.toll.demo.service.impl;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service("TollServiceImpl")
+public class TollServiceimpl implements Toll{
+	
+	
+}

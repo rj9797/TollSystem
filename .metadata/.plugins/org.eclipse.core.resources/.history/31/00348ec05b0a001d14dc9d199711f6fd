@@ -1,0 +1,44 @@
+package com.klayx.asset.rowmapper;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Date;
+
+import javax.swing.tree.TreePath;
+
+import org.springframework.jdbc.core.RowMapper;
+
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.ExchangeRateVO;
+import com.klayx.asset.model.UnderlyingAssetsVO;
+
+public class ExchangeRateRowMapper   implements RowMapper<ExchangeRateVO>{
+
+	public ExchangeRateVO mapRow(ResultSet rs, int rowNum) throws SQLException {
+
+		ExchangeRateVO result=new ExchangeRateVO();
+		result.set_fromCurrencyAppId(rs.getBigDecimal("from_currency_id"));
+		result.set_toCurrencyAppId(rs.getBigDecimal("to_currency_id"));
+		result.set_custodianAppId(rs.getBigDecimal("custodian_id"));
+		result.set_id(rs.getBigDecimal("id"));
+		result.set_sourceAppId(rs.getBigDecimal("source_id"));
+		//result.set_stockExchangeAppId(rs.getLong("stock_exchange_id"));
+		result.setCreatedBy(rs.getString("created_by"));
+		result.setCreatedDate(rs.getTimestamp("created_date"));
+		result.setEffectiveFromDate(rs.getTimestamp("eff_from_date"));
+		result.setPriceAmt(rs.getBigDecimal("price_amt"));
+		result.setRemarks(rs.getString("remarks"));
+		result.setUpdatedBy(rs.getString("updated_by"));
+		result.setUpdatedDate(rs.getTimestamp("updated_date"));
+		result.setEffectiveToDate(rs.getTimestamp("eff_to_date"));
+        result.set_custodianAppConfigName(rs.getString("custodian_config_name"));
+        result.set_fromCurrencyAppConfigName(rs.getString("from_currency_config_name"));
+        //result.set_stockExchangeAppConfigName(rs.getString("stock_exchange_config_name"));
+        result.set_toCurrencyAppConfigName(rs.getString("to_currency_config_name"));
+        result.setSourceAppConfigName(rs.getString("Source_Config_Name"));
+        
+		return result;
+
+    }
+}

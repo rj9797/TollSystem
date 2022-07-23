@@ -1,0 +1,221 @@
+package com.klayx.asset.datasourcemanager;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.PostConstruct;
+import javax.sql.DataSource;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Scope;
+import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import com.klayx.asset.common.AssetConstants;
+
+@Configuration
+@Component
+@ComponentScan("com.klayx.batch.datasourcemanager")
+@EnableTransactionManagement
+@Qualifier("dataSourceManager")
+public class DataSourceManager {
+
+	@Autowired
+	private Environment environment;
+
+	private String dynamiDataSourceName;
+	
+
+	public String getDynamiDataSourceName() {
+		return dynamiDataSourceName;
+	}
+
+	public void setDynamiDataSourceName(String dynamiDataSourceName) {
+		this.dynamiDataSourceName = dynamiDataSourceName;
+	}
+
+	public DataSourceManager() {
+		dynamiDataSourceName = "klayassetmasterdummy";
+	}
+
+	static Map<String, Object> resolvedDataSourceManager = new HashMap<String, Object>();
+	static Map<String, Object> resolvedJdbcTemplateManager = new HashMap<String, Object>();
+	static Map<String, Object> resolvedTransactionTemplate = new HashMap<String, Object>();
+
+	static Map<String, Object> resolvedJdbcTemplate = new HashMap<String, Object>();
+	static Map<String, Object> resolvedNamedJdbcTemplate = new HashMap<String, Object>();
+
+	@Bean
+	public DataSource klayxDataSource() {
+		DriverManagerDataSource dataSource = new DriverManagerDataSource();
+		dataSource.setDriverClassName(
+				environment.getRequiredProperty("spring.klayassetmasterdummy.datasource.driver-class-name"));
+		dataSource.setUrl(environment.getRequiredProperty("spring.klayassetmasterdummy.datasource.url"));
+		dataSource.setUsername(environment.getRequiredProperty("spring.klayassetmasterdummy.datasource.username"));
+		dataSource.setPassword(environment.getRequiredProperty("spring.klayassetmasterdummy.datasource.password"));
+		return dataSource;
+	}
+
+	@Bean
+	public JdbcTemplate klayxjdbcTemplate() throws ClassNotFoundException {
+		JdbcTemplate jdbcTemplate = new JdbcTemplate(klayxDataSource());
+		return jdbcTemplate;
+	}
+
+	@Lazy
+	@Scope("prototype")
+//	@Bean
+	public DataSource klayDynamicEntityDataSource(String tenantCode) {
+//		TransactionTemplate transactionTemplate1;
+		DriverManagerDataSource dataSource;
+		if (tenantCode == null || "".equalsIgnoreCase(tenantCode)) {
+			tenantCode = AssetConstants.DEFAULTTENANTCODE;
+		}
+		if (resolvedDataSourceManager.get(tenantCode) == null) {
+			dataSource = new DriverManagerDataSource();
+			dataSource.setDriverClassName(environment
+					.getRequiredProperty("spring." + tenantCode + ".datasource.driver-class-name"));
+			dataSource.setUrl(environment.getRequiredProperty("spring." + tenantCode + ".datasource.url"));
+			dataSource.setUsername(
+					environment.getRequiredProperty("spring." + tenantCode + ".datasource.username"));
+			dataSource.setPassword(
+					environment.getRequiredProperty("spring." + tenantCode + ".datasource.password"));
+			resolvedDataSourceManager.put(tenantCode, dataSource);
+		} else {
+			dataSource = (DriverManagerDataSource) resolvedDataSourceManager.get(tenantCode);
+		}
+//		TODO added transactionmanager
+//		transactionTemplate1 = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+//		setTransactionTemplate(transactionTemplate1);
+		return dataSource;
+	}
+
+	@Lazy
+	@Scope("prototype")
+	@Bean
+	public JdbcTemplate klayDynamicEntityjdbcTemplate(String tenantCode) throws ClassNotFoundException {
+		JdbcTemplate jdbcTemplate;
+
+		if (resolvedJdbcTemplateManager.get(dynamiDataSourceName) == null) {
+			jdbcTemplate = new JdbcTemplate(klayDynamicEntityDataSource(tenantCode));
+			resolvedJdbcTemplateManager.put(dynamiDataSourceName, jdbcTemplate);
+		} else {
+			jdbcTemplate = (JdbcTemplate) resolvedJdbcTemplateManager.get(dynamiDataSourceName);
+		}
+
+//		transactionTemplate1 = new TransactionTemplate(new DataSourceTransactionManager(jdbcTemplate.getDataSource()));
+//		setTransactionTemplate(transactionTemplate1);
+		return jdbcTemplate;
+	}
+
+	@Lazy
+	@Scope("prototype")
+	@Bean
+	public NamedParameterJdbcTemplate klayDynamicEntityNamedParameterjdbcTemplate(String tenantCode) throws ClassNotFoundException {
+		TransactionTemplate transactionTemplate1;
+		NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+		if (resolvedNamedJdbcTemplate.get(dynamiDataSourceName) == null) {
+			namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(klayDynamicEntityDataSource(tenantCode));
+			resolvedNamedJdbcTemplate.put(dynamiDataSourceName, namedParameterJdbcTemplate);
+		} else {
+			namedParameterJdbcTemplate = (NamedParameterJdbcTemplate) resolvedNamedJdbcTemplate
+					.get(dynamiDataSourceName);
+		}
+//		TODO
+//		transactionTemplate1 = new TransactionTemplate(new DataSourceTransactionManager(namedParameterJdbcTemplate.getJdbcTemplate().getDataSource()));
+//		setTransactionTemplate(transactionTemplate1);
+		return namedParameterJdbcTemplate;
+	}
+
+	public JdbcTemplate refreshCustomJdbc(String tenantCode, String serviceName) {
+		JdbcTemplate customJdbcTemplate = null;
+		TransactionTemplate transactionTemplate=null;
+		customJdbcTemplate = (JdbcTemplate) resolvedJdbcTemplate.get(tenantCode);
+		transactionTemplate = (TransactionTemplate) resolvedTransactionTemplate.get(tenantCode);
+		if (customJdbcTemplate == null) {
+			synchronized (this) {
+				this.setDynamiDataSourceName(tenantCode);
+				try {
+					customJdbcTemplate = this.klayDynamicEntityjdbcTemplate(tenantCode);
+					transactionTemplate = new TransactionTemplate(new DataSourceTransactionManager(customJdbcTemplate.getDataSource()));
+					resolvedJdbcTemplate.put(tenantCode, customJdbcTemplate);
+					resolvedTransactionTemplate.put(tenantCode, transactionTemplate);
+				} catch (ClassNotFoundException e) {
+				}
+			}
+		}
+		
+
+//		transactionTemplate1 = new TransactionTemplate(new DataSourceTransactionManager(customJdbcTemplate.getDataSource()));
+//		setTransactionTemplate(transactionTemplate1);
+		return customJdbcTemplate;
+	}
+
+	public NamedParameterJdbcTemplate refreshCustomNamedJdbc(String tenantCode, String serviceName) {
+		TransactionTemplate transactionTemplate = null;
+		NamedParameterJdbcTemplate namedParameterJdbcTemplate = null;
+		namedParameterJdbcTemplate = (NamedParameterJdbcTemplate) resolvedNamedJdbcTemplate.get(tenantCode);
+		transactionTemplate = (TransactionTemplate) resolvedTransactionTemplate.get(tenantCode);
+		if (namedParameterJdbcTemplate == null) {
+			synchronized (this) {
+				this.setDynamiDataSourceName(tenantCode);
+				try {
+					namedParameterJdbcTemplate = this.klayDynamicEntityNamedParameterjdbcTemplate(tenantCode);
+					transactionTemplate = new TransactionTemplate(new DataSourceTransactionManager(namedParameterJdbcTemplate.getJdbcTemplate().getDataSource()));
+					resolvedNamedJdbcTemplate.put(tenantCode, namedParameterJdbcTemplate);
+					resolvedTransactionTemplate.put(tenantCode,transactionTemplate);
+				} catch (ClassNotFoundException e) {
+				}
+			}
+		}
+//		TODO
+//		transactionTemplate1 = new TransactionTemplate(new DataSourceTransactionManager(namedParameterJdbcTemplate.getJdbcTemplate().getDataSource()));
+//		setTransactionTemplate(transactionTemplate1);
+		return namedParameterJdbcTemplate;
+	}
+
+	public void refreshDataBase(String tenantCode, String serviceName) {
+		TransactionTemplate transactionTemplate = null;
+		NamedParameterJdbcTemplate namedParameterJdbcTemplate = null;
+		namedParameterJdbcTemplate = (NamedParameterJdbcTemplate) resolvedNamedJdbcTemplate.get(tenantCode);
+
+		if (namedParameterJdbcTemplate == null) {
+//			synchronized (this) {
+				try {
+					namedParameterJdbcTemplate = this.klayDynamicEntityNamedParameterjdbcTemplate(tenantCode);
+					transactionTemplate = new TransactionTemplate(new DataSourceTransactionManager(namedParameterJdbcTemplate.getJdbcTemplate().getDataSource()));
+
+					resolvedNamedJdbcTemplate.put(tenantCode, namedParameterJdbcTemplate);
+					resolvedJdbcTemplate.put(tenantCode, namedParameterJdbcTemplate.getJdbcTemplate());
+					resolvedTransactionTemplate.put(tenantCode, transactionTemplate);
+
+				} catch (ClassNotFoundException e) {
+				}
+//			}
+		}
+	}	
+	
+	public NamedParameterJdbcTemplate getNameParameterJdbcTemplate(String tenantCode) {
+		return (NamedParameterJdbcTemplate) resolvedNamedJdbcTemplate.get(tenantCode);
+	}
+	
+	public JdbcTemplate getJdbTemplate(String tenantCode) {
+		return (JdbcTemplate) resolvedJdbcTemplate.get(tenantCode);
+	}
+	public TransactionTemplate getTransactionTemplate(String tenantCode) {
+		return (TransactionTemplate) resolvedTransactionTemplate.get(tenantCode);
+	}
+}

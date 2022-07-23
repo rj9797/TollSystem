@@ -1,0 +1,85 @@
+#ASSET
+#Testing cherry pick
+
+
+#Asset
+#AssetManagement
+#//spring.datasource.url=jdbc:postgresql://localhost:5432/poc_test
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.hibernate.ddl-auto=none
+spring.jpa.hibernate.show-sql=true
+
+spring.klayx.datasource.driver-class-name=org.postgresql.Driver
+spring.klayx.datasource.url=jdbc:postgresql://localhost:5432/klayassetmaster
+spring.klayx.datasource.username=klayassetmaster
+spring.klayx.datasource.password=klayassetmaster
+spring.klayx.datasource.platform=postgresql
+
+spring.klayassetmasterdummy.datasource.driver-class-name=org.postgresql.Driver
+spring.klayassetmasterdummy.datasource.url=jdbc:postgresql://localhost:5432/klayassetmasterdummy
+spring.klayassetmasterdummy.datasource.username=klayassetmasterdummy
+spring.klayassetmasterdummy.datasource.password=klayassetmasterdummy
+spring.klayassetmasterdummy.datasource.platform=postgresql
+
+spring.t4k8.datasource.driver-class-name=org.postgresql.Driver
+spring.t4k8.datasource.url=jdbc:postgresql://localhost:5432/klayassetmaster
+spring.t4k8.datasource.username=klayassetmaster
+spring.t4k8.datasource.password=klayassetmaster
+spring.t4k8.datasource.platform=postgresql
+
+spring.t4c7.datasource.driver-class-name=org.postgresql.Driver
+spring.t4c7.datasource.url=jdbc:postgresql://localhost:5432/klayassetmaster
+spring.t4c7.datasource.username=klayassetmaster
+spring.t4c7.datasource.password=klayassetmaster
+spring.t4c7.datasource.platform=postgresql
+
+
+
+# for debugging
+spring.t4k9.datasource.driver-class-name=org.postgresql.Driver
+spring.t4k9.datasource.url=jdbc:postgresql://localhost:5432/klayassetstaging
+spring.t4k9.datasource.username=klayassetstaging
+spring.t4k9.datasource.password=klayassetstaging
+spring.t4k9.datasource.platform=postgresql
+# for debugging
+
+
+#HIKARI
+spring.t4c7.datasource.hikari.maximumPoolSize=100
+spring.t4c7.datasource.hikari.idleTimeout=30000
+spring.t4c7.datasource.hikari.connectionTimeout=10000
+
+spring.klayassetmasterdummy.datasource.hikari.maximumPoolSize=100
+spring.klayassetmasterdummy.datasource.hikari.idleTimeout=30000
+spring.klayassetmasterdummy.datasource.hikari.connectionTimeout=10000
+
+
+spring.datasource.initialize=true
+spring.datasource.initialization-mode=always
+#spring.datasource.schema=classpath:/schema.sql
+spring.datasource.continue-on-error=true
+
+SERVICE_ID=101 
+Service_id=101
+#server.port=8089
+DBSQLFILE = postgres
+RUNOUTPUTFILEFLAG = true 
+
+pagination.offset=10
+
+
+connector.port=8070
+server.port=8089
+
+server.ssl.enabled=true
+server.ssl.key-store :  C:/ssl certificate/localcertificate.p12
+server.ssl.key-store-password : klay
+server.ssl.keyStoreType : JKS
+
+AMT_SCALE=40
+AMT_ROUNDING_PRECISION=80
+
+
+keycloak_certs_url=https://localhost:8543/auth/realms/klay/protocol/openid-connect/certs
+
+GET_TENANT_INFO_URL = https://localhost:8080/Maintainance/v1/tenantInfo

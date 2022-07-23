@@ -1,0 +1,29 @@
+package com.klayx.asset.model;
+
+import java.util.List;
+
+public class AssetPriceKeyFigReturnsCompositeVO {
+
+	private List<AssetVO>  assetVOs;
+	private List<AssetPriceVO>  assetPriceVOs;
+	private List<AssetReturnsVO>  assetReturnVOs;
+	public List<AssetVO> getAssetVOs() {
+		return assetVOs;
+	}
+	public void setAssetVOs(List<AssetVO> assetVOs) {
+		this.assetVOs = assetVOs;
+	}
+	public List<AssetPriceVO> getAssetPriceVOs() {
+		return assetPriceVOs;
+	}
+	public void setAssetPriceVOs(List<AssetPriceVO> assetPriceVOs) {
+		this.assetPriceVOs = assetPriceVOs;
+	}
+	public List<AssetReturnsVO> getAssetReturnVOs() {
+		return assetReturnVOs;
+	}
+	public void setAssetReturnVOs(List<AssetReturnsVO> assetReturnVOs) {
+		this.assetReturnVOs = assetReturnVOs;
+	}
+	
+}

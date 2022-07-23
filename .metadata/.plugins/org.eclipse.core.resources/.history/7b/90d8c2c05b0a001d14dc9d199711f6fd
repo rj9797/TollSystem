@@ -1,0 +1,115 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+public class BatchInactiveVO {
+
+	private BigDecimal id;
+	private Date eff_to_date;
+	private Date expiry_date;
+	private Date maturity_date;
+
+	private long _tenantId;
+
+	public long getTenantId() {
+		return _tenantId;
+	}
+
+	public void setTenantId(long _tenantId) {
+		this._tenantId = _tenantId;
+	}
+
+	private BigDecimal _thirdPartyProcessorId1;
+	private BigDecimal _thirdPartyProcessorId2;
+	private int hasError;
+
+	private List<ErrorVO> errors;
+
+	public BatchInactiveVO() {
+		super();
+		// TODO Auto-generated constructor stub
+	}
+
+	public BigDecimal getId() {
+		return id;
+	}
+
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+
+	public Date getEff_to_date() {
+		return eff_to_date;
+	}
+
+	public void setEff_to_date(Date eff_to_date) {
+		this.eff_to_date = eff_to_date;
+	}
+
+	public Date getExpiry_date() {
+		return expiry_date;
+	}
+
+	public void setExpiry_date(Date expiry_date) {
+		this.expiry_date = expiry_date;
+	}
+
+	public Date getMaturity_date() {
+		return maturity_date;
+	}
+
+	public void setMaturity_date(Date maturity_date) {
+		this.maturity_date = maturity_date;
+	}
+
+	public long get_tenantId() {
+		return _tenantId;
+	}
+
+	public void set_tenantId(long _tenantId) {
+		this._tenantId = _tenantId;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+
+	public void set_thirdPartyProcessorId1(BigDecimal _thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = _thirdPartyProcessorId1;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+
+	public void set_thirdPartyProcessorId2(BigDecimal _thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = _thirdPartyProcessorId2;
+	}
+
+	public int getHasError() {
+		return hasError;
+	}
+
+	public void setHasError(int hasError) {
+		this.hasError = hasError;
+	}
+
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+
+	@Override
+	public String toString() {
+		return "BatchInactiveVO [id=" + id + ", eff_to_date=" + eff_to_date + ", expiry_date=" + expiry_date
+				+ ", maturity_date=" + maturity_date + ", _tenantId=" + _tenantId + ", _thirdPartyProcessorId1="
+				+ _thirdPartyProcessorId1 + ", _thirdPartyProcessorId2=" + _thirdPartyProcessorId2 + ", hasError="
+				+ hasError + ", errors=" + errors + "]";
+	}
+
+}

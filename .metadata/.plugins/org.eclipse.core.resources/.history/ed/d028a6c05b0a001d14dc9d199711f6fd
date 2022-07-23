@@ -1,0 +1,24 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+
+public class SearchNumberFieldValuesVO {
+
+	
+	private String comparatorOperator;
+	private BigDecimal actualFieldValue;
+	public String getComparatorOperator() {
+		return comparatorOperator;
+	}
+	public void setComparatorOperator(String comparatorOperator) {
+		this.comparatorOperator = comparatorOperator;
+	}
+	public BigDecimal getActualFieldValue() {
+		return actualFieldValue;
+	}
+	public void setActualFieldValue(BigDecimal actualFieldValue) {
+		this.actualFieldValue = actualFieldValue;
+	}
+	
+
+}

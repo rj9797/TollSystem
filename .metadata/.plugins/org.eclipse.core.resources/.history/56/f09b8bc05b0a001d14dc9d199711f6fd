@@ -1,0 +1,72 @@
+package com.klayx.asset.rowmapper;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Component;
+
+import com.klayx.asset.model.AssetSPMetricsVO;
+import com.klayx.asset.model.AssetSPUnderlyingMetricsVO;
+
+@Component
+public class AssetSPMetricsRowMapper implements RowMapper<AssetSPMetricsVO> {
+
+	@Override
+	public AssetSPMetricsVO mapRow(ResultSet rs, int rowNum) throws SQLException {
+		AssetSPMetricsVO assetSPMetric = new AssetSPMetricsVO();
+		assetSPMetric.setId(rs.getBigDecimal("spid"));
+		assetSPMetric.setAssetId(rs.getBigDecimal("asset_id"));
+		assetSPMetric.setComputedDate(rs.getTimestamp("computed_date"));
+		assetSPMetric.setAssetMaturityDaysLeft(rs.getBigDecimal("asset_maturity_days_left"));
+		assetSPMetric.setAssetDaysFromTrade(rs.getBigDecimal("asset_days_from_trade"));
+		assetSPMetric.setAssetDaysToNextValuation(rs.getBigDecimal("asset_days_to_next_valuation"));
+		assetSPMetric.setNextValuationDate(rs.getTimestamp("next_valuation_date"));
+		assetSPMetric.setNextCouponPerc(rs.getDouble("next_coupon_perc"));
+		assetSPMetric.setBarrierPerc(rs.getDouble("barrier_perc"));
+		assetSPMetric.setAutocallPerc(rs.getDouble("autocall_perc"));
+		assetSPMetric.setDistanceToBarrierPerc(rs.getDouble("distance_to_barrier_perc"));
+		assetSPMetric.setIntrinsicPerc(rs.getDouble("intrinsic_perc"));
+		assetSPMetric.setMinIndexReturnPerc(rs.getDouble("min_index_return_perc"));
+		assetSPMetric.setAssetDaysToFinalValuation(rs.getBigDecimal("asset_days_to_final_valuation"));
+		assetSPMetric.setMarkPerc(rs.getDouble("mark_perc"));
+		assetSPMetric.setIsAutocallLikely(rs.getInt("is_autocall_likely"));
+		assetSPMetric.setIsActive(rs.getInt("is_active"));
+		assetSPMetric.setCreatedBy(rs.getString("created_by"));
+		assetSPMetric.setCreatedDate(rs.getTimestamp("created_date"));
+		assetSPMetric.setUpdatedBy(rs.getString("updated_by"));
+		assetSPMetric.setUpdatedDate(rs.getTimestamp("updated_date"));
+		assetSPMetric.setIsin(rs.getString("isin"));
+		assetSPMetric.setCurrencyConfigName(rs.getString("currency_config_name"));
+		assetSPMetric.setFinalValuationDate(rs.getTimestamp("final_valuation_date"));
+	//	assetSPMetric.setCustodianId(BigDecimal.valueOf(rs.getLong("custodian_id")));
+	//	assetSPMetric.setAssetSPUnderlyingMetricsVO(underlyingMetricsRowMapper(rs));
+		return assetSPMetric;
+	}
+
+	private AssetSPUnderlyingMetricsVO underlyingMetricsRowMapper(ResultSet rs) throws SQLException {
+		AssetSPUnderlyingMetricsVO assetSPUnderlyingMetricsVO = new AssetSPUnderlyingMetricsVO();
+		assetSPUnderlyingMetricsVO.setId(rs.getBigDecimal("id"));
+		assetSPUnderlyingMetricsVO.setAssetSPMetricsId(rs.getBigDecimal("asset_sp_metrics_id"));
+		assetSPUnderlyingMetricsVO.setUnderlyingAssetId(rs.getBigDecimal("underlying_asset_id"));
+		assetSPUnderlyingMetricsVO.setParentAssetId(rs.getBigDecimal("parent_asset_id"));
+		assetSPUnderlyingMetricsVO.setComputedDate(rs.getTimestamp("computed_date"));
+		assetSPUnderlyingMetricsVO.setInitialLevelAmt(rs.getBigDecimal("initial_level_amt"));
+		assetSPUnderlyingMetricsVO.setBarrierLevelAmt(rs.getBigDecimal("barrier_level_amt"));
+		assetSPUnderlyingMetricsVO.setCurrentLevelAmt(rs.getBigDecimal("current_level_amt"));
+		assetSPUnderlyingMetricsVO
+				.setMarginBetweenCurrentAndBarrierPerc(rs.getDouble("margin_between_current_and_barrier_perc"));
+		assetSPUnderlyingMetricsVO
+				.setMarginBetweenInitialAndCurrentPerc(rs.getDouble("margin_between_initial_and_current_perc"));
+		assetSPUnderlyingMetricsVO.setAutocallLevelAmt(rs.getBigDecimal("autocall_level_amt"));
+		assetSPUnderlyingMetricsVO.setMarginFromAutocallPerc(rs.getDouble("margin_from_autocall_perc"));
+		assetSPUnderlyingMetricsVO.setIsActive(rs.getInt("is_active"));
+		assetSPUnderlyingMetricsVO.setCreatedBy(rs.getString("created_by"));
+		assetSPUnderlyingMetricsVO.setCreatedDate(rs.getTimestamp("created_date"));
+		assetSPUnderlyingMetricsVO.setUpdatedBy(rs.getString("updated_by"));
+		assetSPUnderlyingMetricsVO.setUpdatedDate(rs.getTimestamp("updated_date"));
+		return assetSPUnderlyingMetricsVO;
+	}
+}

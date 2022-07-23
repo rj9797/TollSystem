@@ -1,0 +1,148 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+public class AssetRedemptionDetailsVO {
+
+	private BigDecimal id;
+	private Date redemptionDate;
+	private BigDecimal _redemptionCurrencyAppId;
+	private BigDecimal redemptionPrice;
+	private Date earlyRedemptionDate;
+	private BigDecimal earlyRedemptionPrice;
+	private BigDecimal _redemptionFrequencyAppId;
+	private int scheduleFlag;
+	
+	private String redemptionCurrencyAppConfigName;
+	private String redemptionFrequencyAppConfigName;
+	private String interestCurrencyAppConfigName;
+	private String interestFrequencyAppConfigName;
+	
+	
+	private BigDecimal _thirdPartyProcessorId1;
+	private BigDecimal _thirdPartyProcessorId2;
+	private int hasError;
+	private List<ErrorVO> errors;
+	private List<AssetRedemptionScheduleVO> assetRedemptionSchedule;
+	
+	
+	public BigDecimal getId() {
+		return id;
+	}
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+	public Date getRedemptionDate() {
+		return redemptionDate;
+	}
+	public void setRedemptionDate(Date redemptionDate) {
+		this.redemptionDate = redemptionDate;
+	}
+	public BigDecimal get_redemptionCurrencyAppId() {
+		return _redemptionCurrencyAppId;
+	}
+	public void set_redemptionCurrencyAppId(BigDecimal _redemptionCurrencyAppId) {
+		this._redemptionCurrencyAppId = _redemptionCurrencyAppId;
+	}
+	public BigDecimal getRedemptionPrice() {
+		return redemptionPrice;
+	}
+	public void setRedemptionPrice(BigDecimal redemptionPrice) {
+		this.redemptionPrice = redemptionPrice;
+	}
+	public Date getEarlyRedemptionDate() {
+		return earlyRedemptionDate;
+	}
+	public void setEarlyRedemptionDate(Date earlyRedemptionDate) {
+		this.earlyRedemptionDate = earlyRedemptionDate;
+	}
+	public BigDecimal getEarlyRedemptionPrice() {
+		return earlyRedemptionPrice;
+	}
+	public void setEarlyRedemptionPrice(BigDecimal earlyRedemptionPrice) {
+		this.earlyRedemptionPrice = earlyRedemptionPrice;
+	}
+	public BigDecimal get_redemptionFrequencyAppId() {
+		return _redemptionFrequencyAppId;
+	}
+	public void set_redemptionFrequencyAppId(BigDecimal _redemptionFrequencyAppId) {
+		this._redemptionFrequencyAppId = _redemptionFrequencyAppId;
+	}
+	public int getScheduleFlag() {
+		return scheduleFlag;
+	}
+	public void setScheduleFlag(int scheduleFlag) {
+		this.scheduleFlag = scheduleFlag;
+	}
+	public String getRedemptionCurrencyAppConfigName() {
+		return redemptionCurrencyAppConfigName;
+	}
+	public void setRedemptionCurrencyAppConfigName(String redemptionCurrencyAppConfigName) {
+		this.redemptionCurrencyAppConfigName = redemptionCurrencyAppConfigName;
+	}
+	public String getRedemptionFrequencyAppConfigName() {
+		return redemptionFrequencyAppConfigName;
+	}
+	public void setRedemptionFrequencyAppConfigName(String redemptionFrequencyAppConfigName) {
+		this.redemptionFrequencyAppConfigName = redemptionFrequencyAppConfigName;
+	}
+	public String getInterestCurrencyAppConfigName() {
+		return interestCurrencyAppConfigName;
+	}
+	public void setInterestCurrencyAppConfigName(String interestCurrencyAppConfigName) {
+		this.interestCurrencyAppConfigName = interestCurrencyAppConfigName;
+	}
+	public String getInterestFrequencyAppConfigName() {
+		return interestFrequencyAppConfigName;
+	}
+	public void setInterestFrequencyAppConfigName(String interestFrequencyAppConfigName) {
+		this.interestFrequencyAppConfigName = interestFrequencyAppConfigName;
+	}
+	
+	public BigDecimal get_thirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+	public void set_thirdPartyProcessorId1(BigDecimal _thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = _thirdPartyProcessorId1;
+	}
+	public BigDecimal get_thirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+	public void set_thirdPartyProcessorId2(BigDecimal _thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = _thirdPartyProcessorId2;
+	}
+	public int getHasError() {
+		return hasError;
+	}
+	public void setHasError(int hasError) {
+		this.hasError = hasError;
+	}
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+	public List<AssetRedemptionScheduleVO> getAssetRedemptionSchedule() {
+		return assetRedemptionSchedule;
+	}
+	public void setAssetRedemptionSchedule(List<AssetRedemptionScheduleVO> assetRedemptionSchedule) {
+		this.assetRedemptionSchedule = assetRedemptionSchedule;
+	}
+	@Override
+	public String toString() {
+		return "AssetRedemptionDetailsVO [id=" + id + ", redemptionDate=" + redemptionDate
+				+ ", _redemptionCurrencyAppId=" + _redemptionCurrencyAppId + ", redemptionPrice=" + redemptionPrice
+				+ ", earlyRedemptionDate=" + earlyRedemptionDate + ", earlyRedemptionPrice=" + earlyRedemptionPrice
+				+ ", _redemptionFrequencyAppId=" + _redemptionFrequencyAppId + ", scheduleFlag=" + scheduleFlag
+				+ ", redemptionCurrencyAppConfigName=" + redemptionCurrencyAppConfigName
+				+ ", redemptionFrequencyAppConfigName=" + redemptionFrequencyAppConfigName
+				+ ", interestCurrencyAppConfigName=" + interestCurrencyAppConfigName
+				+ ", interestFrequencyAppConfigName=" + interestFrequencyAppConfigName 
+				+ ", _thirdPartyProcessorId1=" + _thirdPartyProcessorId1 + ", _thirdPartyProcessorId2="
+				+ _thirdPartyProcessorId2 + ", hasError=" + hasError + ", errors=" + errors
+				+ ", assetRedemptionSchedule=" + assetRedemptionSchedule + "]";
+	}
+}

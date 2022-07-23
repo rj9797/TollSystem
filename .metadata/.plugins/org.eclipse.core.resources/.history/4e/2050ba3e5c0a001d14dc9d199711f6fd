@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "pageNumber": {
+      "type": "integer"
+    },
+    "tenantCode": {
+      "type": "string"
+    },
+    "tenantId": {
+      "type": "integer"
+    },
+    "searchRequest": {
+      "type": "object",
+      "properties": {
+        "searchIn": {
+          "type": "integer"
+        },
+        "searchInText": {
+          "anyOf": [
+				{
+					"type": "string"
+				},
+				{
+					"type": "null"
+				}
+			]
+        },
+        "textSearch": {
+          "type": "array",
+          "items": [
+            {
+              "type": "object",
+              "properties": {
+                "aliasName": {
+                  "type": "string"
+                },
+                "aliasDataType": {
+                  "type": "string"
+                },
+                "logicalOperator": {
+                  "type": "string"
+                },
+                "values": {
+                  "type": "array",
+                  "items": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "comparatorOperator": {
+                          "type": "string"
+                        },
+                        "actualFieldValue": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "comparatorOperator",
+                        "actualFieldValue"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "comparatorOperator": {
+                          "type": "string"
+                        },
+                        "actualFieldValue": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "comparatorOperator",
+                        "actualFieldValue"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "aliasName",
+                "aliasDataType",
+                "logicalOperator",
+                "values"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "searchIn",
+        "searchInText",
+        "textSearch"
+      ]
+    }
+  },
+  "required": [
+    "pageNumber",
+    "tenantCode",
+    "tenantId",
+    "searchRequest"
+  ]
+}

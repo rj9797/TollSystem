@@ -1,0 +1,106 @@
+package com.klayx.asset.rowmapper;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Component;
+
+import com.klayx.asset.model.AssetVO;
+
+@Component
+public class AssetMasterRowMapper implements RowMapper<AssetVO> {
+
+	@Override
+	public AssetVO mapRow(ResultSet rs, int rowNum) throws SQLException {
+		AssetVO assetVO = new AssetVO();
+		assetVO.setId(rs.getBigDecimal("id"));
+		assetVO.setIsin(rs.getString("ISIN"));
+		assetVO.setName(rs.getString("Name"));
+		assetVO.setAssetID1(rs.getString("Asset_id_1"));
+		assetVO.setAssetID2(rs.getString("Asset_id_2"));
+		assetVO.setAssetID3(rs.getString("Asset_id_3"));
+		assetVO.setAssetID4(rs.getString("Asset_id_4"));
+		assetVO.setAssetID5(rs.getString("Asset_id_5"));
+		assetVO.setDescription1(rs.getString("Description_1"));
+		assetVO.setDescription2(rs.getString("Description_2"));
+		assetVO.setDescription3(rs.getString("Description_3"));
+		assetVO.set_categoryAppId(rs.getBigDecimal("Category_id"));
+		assetVO.set_subcategory1AppId(rs.getBigDecimal("SubCategory_1_id"));
+		assetVO.set_subcategory2AppId(rs.getBigDecimal("SubCategory_2_id"));
+		assetVO.set_subcategory3AppId(rs.getBigDecimal("SubCategory_3_id"));
+		assetVO.set_subcategory4AppId(rs.getBigDecimal("SubCategory_4_id"));
+		assetVO.set_subcategory5AppId(rs.getBigDecimal("SubCategory_5_id"));
+		assetVO.set_sectorAppId(rs.getBigDecimal("Sector_id"));
+		assetVO.set_regionAppId(rs.getBigDecimal("Region_id"));
+		assetVO.set_countryAppId(rs.getBigDecimal("Country_id"));
+		assetVO.set_stockExchangeAppId(rs.getBigDecimal("Stock_Exchange_id"));
+		assetVO.set_rateTypeAppId(rs.getBigDecimal("Rate_Type_id"));
+		assetVO.setRate(rs.getDouble("Rate_perc"));
+		assetVO.set_currencyAppId(rs.getBigDecimal("Currency_id"));
+		assetVO.setDivisor(rs.getBigDecimal("Divisor"));
+		assetVO.setDenomination(rs.getBigDecimal("Denomination"));
+		assetVO.set_optionStyleAppId(rs.getBigDecimal("Option_Style_id"));
+		assetVO.set_optionDirectionAppId(rs.getBigDecimal("Option_Direction_id"));
+		assetVO.setStrikePrice(rs.getBigDecimal("strike_price_amt"));
+		assetVO.set_strikePriceCurrencyAppId(rs.getBigDecimal("strike_price_currency_id"));
+		assetVO.setContractSize(rs.getInt("contract_size_cnt"));
+		assetVO.set_firstLegCurrencyAppId(rs.getBigDecimal("first_leg_currency_id"));
+		assetVO.setFirstLegAmount(rs.getBigDecimal("First_leg_amt"));
+		assetVO.set_secondLegCurrencyAppId(rs.getBigDecimal("second_leg_currency_id"));
+		assetVO.setSecondLegAmount(rs.getBigDecimal("Second_leg_amt"));
+		assetVO.set_originatingCurrencyAppId(rs.getBigDecimal("originating_currency_id"));
+		assetVO.set_targetCurrencyAppId(rs.getBigDecimal("target_currency_id"));
+		assetVO.setIssueDate(rs.getTimestamp("Issue_Date"));
+		assetVO.set_issuerAppId(rs.getBigDecimal("issuer_id"));
+		assetVO.setTradeDate(rs.getTimestamp("Trade_Date"));
+		assetVO.setRedemptionDate(rs.getTimestamp("redemption_date"));
+		
+		assetVO.setExpiryDate(rs.getTimestamp("expiry_date"));
+		assetVO.setMaturityDate(rs.getTimestamp("Maturity_Date"));
+		assetVO.setRedemptionDate(rs.getTimestamp("redemption_date"));
+		assetVO.setIntrinsicVsMarkFlag(rs.getInt("is_intrinsic_equals_mark"));
+		assetVO.setEffectiveFromDate(rs.getTimestamp("eff_from_date"));
+		assetVO.setEffectiveToDate(rs.getTimestamp("eff_to_date"));
+		assetVO.set_statusAppId(rs.getBigDecimal("status_id"));
+
+		assetVO.setCategoryAppConfigName(rs.getString("category_config_name"));
+		assetVO.setSubcategory1AppConfigName(rs.getString("subcategory_1_config_name"));
+		assetVO.setSubcategory2AppConfigName(rs.getString("subcategory_2_config_name"));
+		assetVO.setSubcategory3AppConfigName(rs.getString("subcategory_3_config_name"));
+		assetVO.setSubcategory4AppConfigName(rs.getString("subcategory_4_config_name"));
+		assetVO.setSubcategory5AppConfigName(rs.getString("subcategory_5_config_name"));
+		assetVO.setSectorAppConfigName(rs.getString("sector_config_name"));
+		assetVO.setRegionAppConfigName(rs.getString("region_config_name"));
+
+		assetVO.setCountryAppConfigName(rs.getString("country_config_name"));
+		assetVO.setStockExchangeAppConfigName(rs.getString("stock_exchange_config_name"));
+		assetVO.setRateTypeAppConfigName(rs.getString("rate_type_config_name"));
+		assetVO.setCurrencyAppConfigName(rs.getString("currency_config_name"));
+		assetVO.setOptionStyleAppConfigName(rs.getString("option_style_config_name"));
+		assetVO.setOptionDirectionAppConfigName(rs.getString("option_direction_config_name"));
+		assetVO.setStrikePriceCurrencyAppConfigName(rs.getString("strike_price_currency_config_name"));
+		assetVO.setFirstLegCurrencyAppConfigName(rs.getString("first_leg_currency_config_name"));
+
+		assetVO.setSecondLegCurrencyAppConfigName(rs.getString("second_leg_currency_config_name"));
+		assetVO.setOriginatingCurrencyAppConfigName(rs.getString("originating_currency_config_name"));
+		assetVO.setTargetCurrencyAppConfigName(rs.getString("target_currency_config_name"));
+		assetVO.setIssuerConfigName(rs.getString("issuer_config_name"));
+		assetVO.setStatusAppConfigName(rs.getString("status_config_name"));
+		assetVO.setInterestPracticeAppConfigName(rs.getString("interest_practice_config_name"));
+		assetVO.setInterestCurrencyAppConfigName(rs.getString("interest_currency_config_name"));
+		assetVO.setInterestFrequencyAppConfigName(rs.getString("interest_frequency_config_name"));
+
+		assetVO.setRedemptionCurrencyAppConfigName(rs.getString("redemption_currency_config_name"));
+		assetVO.setRedemptionFrequencyAppConfigName(rs.getString("redemption_frequency_config_name"));
+		assetVO.set_productRiskAppId(rs.getBigDecimal("product_risk_app_id"));
+		assetVO.setProductRiskAppConfigName(rs.getString("product_risk_app_config_name"));
+		assetVO.setInvestmentHorizon(rs.getDouble("investment_horizon"));
+		assetVO.set_liquidityAppId(rs.getBigDecimal("liquidity_app_id"));
+		assetVO.setLiquidityAppConfigName(rs.getString("liquidity_app_config_name"));
+		assetVO.setIsActive(rs.getInt("is_active"));
+
+		return assetVO;
+	}
+
+}

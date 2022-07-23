@@ -1,0 +1,11 @@
+package com.klayx.asset.dao;
+
+import java.util.List;
+
+
+import com.klayx.asset.model.AssetReturnsVO;
+
+public interface IAssetReturnsDAO {
+	public void addAssetReturnsList(String tenantCode, List<AssetReturnsVO> successVOs,
+			String accessToken) throws Exception;
+}

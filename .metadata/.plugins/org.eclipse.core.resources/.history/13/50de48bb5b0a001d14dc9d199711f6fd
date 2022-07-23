@@ -1,0 +1,21 @@
+package com.klayx.asset.dao;
+
+import java.util.List;
+
+import org.json.JSONObject;
+
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.FailedAssetVO;
+
+public interface IgenerateErrorReport
+{
+    /**
+     *
+     * @return An map which has keys now that keys are database names and values are in jsonString but we gonna
+     * convert it to string now that jsonString has  has @property val now that property is an array which gonna
+     * hold the datas
+     */
+    public JSONObject report(String date);
+    public List<FailedAssetVO> failedAsset(String refrenceDate,String tenantCode) throws Exception;
+    public List<AssetVO> getNotClassifiedAssets(String tenantCode) throws Exception;
+}

@@ -1,0 +1,70 @@
+package com.toll.demo.controller;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.google.gson.JsonObject;
+
+@RestController
+public class TollController {
+
+	
+	@PostMapping(value = "/tollSystem")
+	public ResponseEntity<String> tollSystem(@RequestBody String json,
+			HttpServletRequest request) throws Exception {
+		
+		System.out.println("called");
+		
+		try {
+			SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");  
+		    Date date = new Date();  
+		    System.out.println(date.getHours());
+		    System.out.println(json);
+		    
+			int value=assetService.tollSystem(date, json,"username");
+			if(value==0) {
+				return ResponseEntity.status(HttpStatus.OK).body("success");
+			}else if(value==1) {
+				return ResponseEntity.status(HttpStatus.OK).body("wallet is running low on balance. FAILED");
+			}
+		}catch(Exception ex) {
+			ex.printStackTrace();
+			throw ex;
+		}
+		
+		
+		return ResponseEntity.status(HttpStatus.OK).body("");
+		 
+	}
+
+	
+	@PostMapping(value = "/getTotal")
+	public ResponseEntity<String> getTotal(@RequestBody String json,
+			HttpServletRequest request) throws Exception {
+		if (log.isDebugEnabled()) {
+			log.debug("entering");
+		}
+		System.out.println("called total");
+		
+		try {
+			Map<String,Integer> map=assetService.getTotal();
+			JsonObject jsonObj=new JsonObject();
+			jsonObj.addProperty("Total vehicles passed", map.get("totalVehiclesPassed"));
+			jsonObj.addProperty("Total amount collected", map.get("totalAmountCollected"));
+			return ResponseEntity.status(HttpStatus.OK).body(jsonObj.toString());
+		}catch(Exception ex) {
+			ex.printStackTrace();
+			throw ex;
+		}
+	}
+
+}

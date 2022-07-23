@@ -1,0 +1,22 @@
+package com.klayx.asset.model;
+
+import java.util.Date;
+import java.util.List;
+
+public class AssetCompositeRequestByInfoByIdVO {
+	List<AssetRequestVO> requestAsset;
+	Date requestDate;
+	public List<AssetRequestVO> getRequestAsset() {
+		return requestAsset;
+	}
+	public void setRequestAsset(List<AssetRequestVO> requestAsset) {
+		this.requestAsset = requestAsset;
+	}
+	public Date getRequestDate() {
+		return requestDate;
+	}
+	public void setRequestDate(Date requestDate) {
+		this.requestDate = requestDate;
+	}			
+	
+}

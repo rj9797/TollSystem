@@ -1,0 +1,23 @@
+package com.klayx.asset.model;
+
+import java.util.Date;
+import java.util.List;
+
+public class ExchangeRateServiceRequestByInfoVO {
+
+	List<AssetRequestVO> requestExchangeRate;
+	Date requestDate;
+	public List<AssetRequestVO> getRequestExchangeRate() {
+		return requestExchangeRate;
+	}
+	public void setRequestExchangeRate(List<AssetRequestVO> requestExchangeRate) {
+		this.requestExchangeRate = requestExchangeRate;
+	}
+	public Date getRequestDate() {
+		return requestDate;
+	}
+	public void setRequestDate(Date requestDate) {
+		this.requestDate = requestDate;
+	}
+	
+}

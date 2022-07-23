@@ -1,0 +1,276 @@
+package com.klayx.asset.dao.impl;
+
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementSetter;
+import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.stereotype.Repository;
+
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IgenerateErrorReport;
+import com.klayx.asset.datasourcemanager.DataSourceManager;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.FailedAssetVO;
+import com.klayx.asset.rowmapper.AssetMasterRowMapper;
+import com.klayx.asset.rowmapper.FailedAssetRowMapper;
+import com.klayx.asset.rowmapper.UnderlyingAssetRowMapper;
+
+
+@Repository("generatedErrorReport")
+@PropertySource({ "classpath:${DBSQLFILE}.properties" })
+public class GenerateErrorReport implements IgenerateErrorReport
+{
+	Logger log=LogManager.getLogger(GenerateErrorReport.class);
+	
+    @Autowired
+    DataSourceManager dataSourceManager;
+
+    private JdbcTemplate jdbcTemplate;
+    
+    @Value("${FAILEDASSET}")
+    private String failedAsset;
+    
+    @Value("${NOTCLASSIFIEDASSETS}")
+    private String notClassifiedAssets;
+
+   // private NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    /**
+     *
+     *  @param date :  an date now lets figure out later
+     *
+     * @return An map which has keys now that keys are database names and values are in jsonString but we gonna
+     * convert it to string now that jsonString has  has @property val now that property is an array which gonna
+     * hold the datas
+     *
+     * @Database  : klayassetstaging
+     */
+    @Override
+    public JSONObject report(String date)
+    {
+        // custom implementation
+        String[] arr=new String[]
+                {
+                      "stg_asset_key_fig",
+                      "stg_asset_master",
+                      "stg_asset_price",
+                      "stg_asset_redeem",
+                      "stg_asset_underlying",
+                      "stg_asset_valuation_schedule",
+                      "stg_exchange_rate",
+                      "stg_sp_for_review",
+                      "stg_sp_schedule"
+                };
+
+        String prefix="select * from ";
+        String suffix=" where (process_flag=0 or  process_flag=-2) and ";
+
+        String fillLastFix="(TO_CHAR(created_date, 'yyyy-mm-dd')<='"+date+"' )";
+        // # current date
+        //fillLastFix="(TO_CHAR(created_date, 'yyyy-mm-dd')<=TO_CHAR(now(), 'yyyy-mm-dd') )";
+        fillLastFix="(TO_CHAR(created_date, 'yyyy-mm-dd')=TO_CHAR(now(), 'yyyy-mm-dd') )";
+
+        // custom implementation
+
+
+        // Put into arrays so that no need to execute separate ones
+        ArrayList<String> first=new ArrayList<>();
+        // start wit 2 because 1 has no data
+        // first lets do for one then all later on
+
+
+        // for debugging
+        for(int i=0;i<arr.length;i++)
+        {
+            String query=prefix+arr[i]+suffix+fillLastFix;
+            //(" See this query : "+query);
+            first.add(query);
+        }
+        // for debugging
+        List<JSONObject> reports=new ArrayList<>();
+        for(int i=0;i<first.size();i++)
+        {
+
+            // for debugging
+            final  int temp=i;
+            // for debuggong
+
+            // tenant code will be from token but now its needed for testing perspoective
+            jdbcTemplate=dataSourceManager.refreshCustomJdbc("t4k9",null);
+            JSONObject report=jdbcTemplate.query(first.get(i), new ResultSetExtractor<JSONObject>() {
+                @Override
+                public JSONObject extractData(ResultSet resultSet) throws SQLException, DataAccessException {
+
+                    // for debugging
+
+                    //List<generateReport> innerReport=new ArrayList<>();
+                    List<JSONObject> data=new ArrayList<>();
+                    ResultSet holder=resultSet;
+
+                    ResultSetMetaData metadata = resultSet.getMetaData();
+                    int columnCount = metadata.getColumnCount();
+                    List<String> columnList=new ArrayList<>();
+
+                    for(int j=1;j<=columnCount;j++)
+                    {
+                        columnList.add(metadata.getColumnName(j));
+                    }
+
+                    //(" column size : "+columnList.size());
+                    // display the column
+                    //("------------- start ----------------");
+                    //(" See this columns of table ");
+                    //(" --------fetching all datas ");
+                    int counter_1=0;
+                    //int counter_123=0;
+                    while(resultSet.next())
+                    {
+                        JSONObject p=new JSONObject();
+                        counter_1++;
+                        //counter_123++;
+                        int counter_123=0;
+                        String x="";
+                        for(int j=0;j<columnList.size();j++)
+                        {
+                            counter_123++;
+                            // this one for ensure that we got data
+                            if(j==0)
+                            {
+                                x=x+" "+counter_1+")  "+columnList.get(j)+" : "+resultSet.getString(columnList.get(j));
+                            }
+                            else
+                            {
+                                x=x+" , "+columnList.get(j)+" : "+resultSet.getString(columnList.get(j));
+                            }
+                            // this one for ensure that we got data
+
+
+                            // put in our list
+                            if(resultSet.getString(columnList.get(j))==null || resultSet.getString(columnList.get(j)).isEmpty() || resultSet.getString(columnList.get(j)).isBlank())
+                            {
+                                //p.put(columnList.get(j)+"_"+counter_123,"");
+                                p.put(columnList.get(j),"");
+                            }
+                            else
+                            {
+                                // for debugging
+                                //(" Key : "+columnList.get(j)+" val : "+resultSet.getString(columnList.get(j)));
+                                // for debugggin
+                                //p.put(columnList.get(j),resultSet.getString(columnList.get(j)));
+                                //p.put(columnList.get(j)+"_"+counter_123,resultSet.getString(columnList.get(j)));
+                                p.put(columnList.get(j),resultSet.getString(columnList.get(j)));
+                                // for debugging
+                                //(" object after added property ("+columnList.get(j)+") updateed json :   "+p);
+                                // for debugging
+                            }
+                        }
+                        //(" "+x);
+                        // for debugging
+                        //(" See this individual obj : "+p);
+                        // for debugging
+                        data.add(p);
+                    }
+                    //("----------------------------------------");
+
+                    // for debugging
+
+
+                    // Now it is consider that data is available more than one
+                    // get indivdual datas
+                    // for debugging
+                    //(" See this arr : "+data+"  , size : "+data.size());
+                    // for debugging
+
+                    // merge with some extra info
+                    JSONObject object=new JSONObject();
+                    String arr[]=first.get(temp).split(" ");
+                    // we want index 4 but according to 0 index based -1
+                    object.put("nameOfTable",arr[4-1]);
+                    object.put("nameOfDatabase","klayassetstageing");
+                    object.put("data",data);
+                    // for debugging # addons
+                    object.put("orderBy",columnList);
+                    // for debugging # addons
+                    return object;
+                }
+            });
+            // If report is not null and its size is greater than or equal to 1 then add to our list
+            if(report!=null)
+            {
+                reports.add(report);
+            }
+        }
+
+        // put some extra info and bind
+        JSONObject object=new JSONObject();
+        object.put("moduleName","AssetMaster");
+        object.put("data",reports);
+
+        // for debugging
+        //(" See this data final : "+object);
+        // for debugging
+        return object;
+
+        // -------------------
+
+        // Now lets checkin whether its null or some data is there after processing
+        // either response can be null or fillup with data so no occurence of size()==0 or <=0
+
+    }
+
+	@Override
+	public List<FailedAssetVO> failedAsset(String refrenceDate,String tenantCode) throws Exception {
+		if(log.isDebugEnabled())
+			log.debug("Entering");
+		List<FailedAssetVO> failedAssetVOs=new ArrayList<>();
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			failedAssetVOs=jdbcTemplate.query(failedAsset,new PreparedStatementSetter() {
+				@Override
+				public void setValues(PreparedStatement ps) throws SQLException {
+					try {
+						ps.setDate(1, AssetUtil.DateFormater(AssetUtil.stringToDate(refrenceDate)));
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+			},new FailedAssetRowMapper());
+			
+		}catch (Exception e) {
+			log.fatal("Error in failed asset dao"+e.getMessage());
+			e.printStackTrace();
+		}
+		return failedAssetVOs;
+	}
+	
+	
+	@Override
+	public List<AssetVO> getNotClassifiedAssets(String tenantCode) throws Exception {
+		if(log.isDebugEnabled())
+			log.debug("Entering");
+		String nc = "Not Classified";
+		List<AssetVO> notClassifiedAssetVos=new ArrayList<>();
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomJdbc(tenantCode, null);
+			notClassifiedAssetVos = jdbcTemplate.query(notClassifiedAssets,new AssetMasterRowMapper());
+		}catch (Exception e) {
+			log.fatal("Error in not classified asset dao",e);
+			throw e;
+		}
+		if(log.isDebugEnabled())
+			log.debug("LEaving");
+		return notClassifiedAssetVos;
+	}
+}

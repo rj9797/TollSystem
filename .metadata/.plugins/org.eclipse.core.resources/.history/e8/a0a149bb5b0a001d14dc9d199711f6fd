@@ -1,0 +1,39 @@
+package com.klayx.asset.dao;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+
+import com.google.gson.JsonObject;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.ExchangeRateVO;
+import com.klayx.asset.model.FailedVO;
+
+public interface IExchangeRateDAO {
+
+	public void addExchangeRates(String tenantCode, List<ExchangeRateVO> request, List<JsonObject> totalVOs,
+			String accessToken) throws Exception;
+
+	public void addExchangeRate(String tenantCode, List<ExchangeRateVO> exchangeRateRequestV) throws Exception;
+
+	public void updateExchangeRate(String tenantCode, List<ExchangeRateVO> exchangeRateRequestVO) throws Exception;
+
+	public List<ExchangeRateVO> getExchangeRate(String tenantcode, AssetRequestVO request);
+
+	public List<ExchangeRateVO> getExchangeRateByInfo(String tenantCode, List<AssetGetRequestVO> reqParam,
+			Date referenceDate) throws Exception;
+
+	public List<ExchangeRateVO> getExchangeRateByInfoByDate(String tenantCode, List<AssetGetRequestVO> request)
+			throws Exception;
+
+	public Map<String, ExchangeRateVO> getExchangeRateInfoForIntermediateCurrency(String tenantCode,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, List<String> intermediateCurrencyList, Date referenceDate)
+			throws Exception;
+
+	public List<String> getIntermediateCurrencyList(String tenantCode) throws Exception;
+
+	public Map<String, ExchangeRateVO> getExchangeRateInfoByDateForIntermediateCurrency(String tenantCode,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, List<String> intermediateCurrencyList) throws Exception;
+}

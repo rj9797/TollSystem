@@ -1,0 +1,145 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+public class UnderlyingAssetsVO {
+
+	private BigDecimal id;
+	private String underlyingAssetIsin;
+	private String ISIN;
+	private BigDecimal underlyingAssetId;
+	private BigDecimal parentAssetId;
+	private BigDecimal initialLevel;
+
+	private BigDecimal _thirdPartyProcessorId1;
+	private BigDecimal _thirdPartyProcessorId2;
+	
+	private BigDecimal assetCurrencyAppId;
+	private String assetCurrencyAppConfigName;
+	private BigDecimal _underlyingAssetCurrencyAppId;
+	private String underlyingAssetCurrencyAppConfigName;
+	private String underlyingAssetName;
+	private int hasError;
+	private List<ErrorVO> errors;
+	private String uniqueKey;
+	private String userName;
+	
+	
+	
+	public String getUserName() {
+		return userName;
+	}
+	public void setUserName(String userName) {
+		this.userName = userName;
+	}
+	public BigDecimal getId() {
+		return id;
+	}
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+	public String getUnderlyingAssetIsin() {
+		return underlyingAssetIsin;
+	}
+	public void setUnderlyingAssetIsin(String underlyingAssetIsin) {
+		this.underlyingAssetIsin = underlyingAssetIsin;
+	}
+	public String getISIN() {
+		return ISIN;
+	}
+	public void setISIN(String iSIN) {
+		ISIN = iSIN;
+	}
+	public BigDecimal getUnderlyingAssetId() {
+		return underlyingAssetId;
+	}
+	public void setUnderlyingAssetId(BigDecimal underlyingAssetId) {
+		this.underlyingAssetId = underlyingAssetId;
+	}
+	public BigDecimal getParentAssetId() {
+		return parentAssetId;
+	}
+	public void setParentAssetId(BigDecimal parentAssetId) {
+		this.parentAssetId = parentAssetId;
+	}
+	public BigDecimal getInitialLevel() {
+		return initialLevel;
+	}
+	public void setInitialLevel(BigDecimal initialLevel) {
+		this.initialLevel = initialLevel;
+	}
+	public BigDecimal get_thirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+	public void set_thirdPartyProcessorId1(BigDecimal _thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = _thirdPartyProcessorId1;
+	}
+	public BigDecimal get_thirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+	public void set_thirdPartyProcessorId2(BigDecimal _thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = _thirdPartyProcessorId2;
+	}
+	public BigDecimal getAssetCurrencyAppId() {
+		return assetCurrencyAppId;
+	}
+	public void setAssetCurrencyAppId(BigDecimal assetCurrencyAppId) {
+		this.assetCurrencyAppId = assetCurrencyAppId;
+	}
+	public String getAssetCurrencyAppConfigName() {
+		return assetCurrencyAppConfigName;
+	}
+	public void setAssetCurrencyAppConfigName(String assetCurrencyAppConfigName) {
+		this.assetCurrencyAppConfigName = assetCurrencyAppConfigName;
+	}
+	public BigDecimal get_underlyingAssetCurrencyAppId() {
+		return _underlyingAssetCurrencyAppId;
+	}
+	public void set_underlyingAssetCurrencyAppId(BigDecimal _underlyingAssetCurrencyAppId) {
+		this._underlyingAssetCurrencyAppId = _underlyingAssetCurrencyAppId;
+	}
+	public String getUnderlyingAssetCurrencyAppConfigName() {
+		return underlyingAssetCurrencyAppConfigName;
+	}
+	public void setUnderlyingAssetCurrencyAppConfigName(String underlyingAssetCurrencyAppConfigName) {
+		this.underlyingAssetCurrencyAppConfigName = underlyingAssetCurrencyAppConfigName;
+	}
+	public String getUnderlyingAssetName() {
+		return underlyingAssetName;
+	}
+	public void setUnderlyingAssetName(String underlyingAssetName) {
+		this.underlyingAssetName = underlyingAssetName;
+	}
+	public int getHasError() {
+		return hasError;
+	}
+	public void setHasError(int hasError) {
+		this.hasError = hasError;
+	}
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+	public String getUniqueKey() {
+		return uniqueKey;
+	}
+	public void setUniqueKey(String uniqueKey) {
+		this.uniqueKey = uniqueKey;
+	}
+	@Override
+	public String toString() {
+		return "UnderlyingAssetsVO [id=" + id + ", underlyingAssetIsin=" + underlyingAssetIsin + ", ISIN=" + ISIN
+				+ ", underlyingAssetId=" + underlyingAssetId + ", parentAssetId=" + parentAssetId + ", initialLevel="
+				+ initialLevel + ", _thirdPartyProcessorId1=" + _thirdPartyProcessorId1 + ", _thirdPartyProcessorId2="
+				+ _thirdPartyProcessorId2 + ", assetCurrencyAppId=" + assetCurrencyAppId
+				+ ", assetCurrencyAppConfigName=" + assetCurrencyAppConfigName + ", _underlyingAssetCurrencyAppId="
+				+ _underlyingAssetCurrencyAppId + ", underlyingAssetCurrencyAppConfigName="
+				+ underlyingAssetCurrencyAppConfigName + ", underlyingAssetName=" + underlyingAssetName + ", hasError="
+				+ hasError + ", errors=" + errors + ", uniqueKey=" + uniqueKey + ", userName=" + userName + "]";
+	}
+	
+
+}

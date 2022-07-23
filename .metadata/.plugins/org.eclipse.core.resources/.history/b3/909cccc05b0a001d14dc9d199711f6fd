@@ -1,0 +1,1240 @@
+package com.klayx.asset.excel;
+
+import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
+import java.text.DateFormat;
+import java.text.NumberFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Currency;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.stereotype.Component;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.FieldConfigurationVO;
+import com.klayx.asset.model.SearchDateFieldValuesVO;
+import com.klayx.asset.model.SearchDateVO;
+import com.klayx.asset.model.SearchNumberFieldValuesVO;
+import com.klayx.asset.model.SearchNumberVO;
+import com.klayx.asset.model.SearchResultDataVO;
+import com.klayx.asset.model.SearchTextFieldValuesVO;
+import com.klayx.asset.model.SearchTextVO;
+import com.klayx.asset.model.SortFieldVO;
+import com.klayx.asset.model.UniverseStockDetailsByBrokerVO;
+
+//import net.bytebuddy.asm.Advice.This;
+@Component
+public class ExcelDownload {
+	private static final Logger log = LogManager.getLogger(ExcelDownload.class);
+	private Locale locale = null;
+	private String languageResourceBundleUrl = null;
+	private final static String LIQUIDITY = "ACM232";
+	private final static String LIABILITY = "ACM231";
+
+	private JsonObject tenantBasicInformation;
+	private JsonObject clientBasicInformation;
+	private String dataCurrency = "USD";
+	SimpleDateFormat formatter = new SimpleDateFormat(AssetConstants.DATE_FORMAT);
+
+	public void setLanguageResourceBundleUrl(String languageResourceBundleUrl) {
+		this.languageResourceBundleUrl = languageResourceBundleUrl;
+	}
+
+	public void setLocale(String localeID) {
+		log.debug("incomming in localeID =>" + localeID);
+		log.debug("before in localeID =>" + this.locale);
+		if (localeID != null && !localeID.equals("") && localeID.contains("-")) {
+			String array[] = localeID.split("-");
+			if (array.length > 1) {
+				if (array.length == 2)
+					this.locale = new Locale(array[0], array[1]);
+				// this.locale = new
+				// Locale.Builder().setLocale(locale).setLanguage(array[0]).setRegion(array[1]).build();
+				else {
+					this.locale = new Locale(array[0], array[1], array[2]);
+				}
+			}
+		}
+		log.debug("after in localeID =>" + this.locale);
+	}
+
+	private Locale getLocale(String localeID) {
+		log.debug("incomming in localeID =>" + localeID);
+		log.debug("before in localeID =>" + this.locale);
+		Locale res = null;
+		if (localeID != null && !localeID.equals("") && localeID.contains("-")) {
+			String array[] = localeID.split("-");
+			if (array.length > 1) {
+				if (array.length == 2)
+					res = new Locale(array[0], array[1]);
+				// this.locale = new
+				// Locale.Builder().setLocale(locale).setLanguage(array[0]).setRegion(array[1]).build();
+				else {
+					res = new Locale(array[0], array[1], array[2]);
+				}
+			}
+		}
+		log.debug("after in localeID =>" + res);
+		return res;
+	}
+
+	// cell style for table middle rows @param Sheet sheet ref
+	private CellStyle getDefaultCellStyle(Sheet sheet, XSSFWorkbook workbook) {
+		CellStyle cellStyle = sheet.getWorkbook().createCellStyle();
+		short white = IndexedColors.WHITE.index;
+		cellStyle.setFillForegroundColor(white);
+		cellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		// cellStyle.setFont(this.headerFont);
+		cellStyle.setBorderBottom(BorderStyle.THIN);
+		cellStyle.setBorderTop(BorderStyle.THIN);
+		cellStyle.setBorderRight(BorderStyle.THIN);
+		cellStyle.setBorderLeft(BorderStyle.THIN);
+
+		XSSFFont defaultFont = workbook.createFont();
+		defaultFont.setFontName("Arial");
+		cellStyle.setFont(defaultFont);
+
+		return cellStyle;
+	}
+
+	public byte[] generateUniversalSearchResult(JsonObject cacheInfo, String localeID,
+			List<SearchResultDataVO> response, String request) {
+
+		byte[] res = null;
+		try {
+//		Locale locale=this.getLocale(localeID);
+			List<String> brokerList = new ArrayList<String>();
+			List<String> brokerConfigNameList = new ArrayList<String>();
+			
+			Map<BigDecimal, Map<String, UniverseStockDetailsByBrokerVO>> assetWiseUniversalStockMap = new HashMap();
+			String systemCurr=this.getSystemCurrency(cacheInfo);
+			setConfigValues(brokerList, brokerConfigNameList, response, cacheInfo);
+			setAssetWiseUniversalStockMap(assetWiseUniversalStockMap, response);
+			setBrokerAppConfigName(response, cacheInfo);
+			XSSFWorkbook workbook;
+			workbook = new XSSFWorkbook();
+			XSSFFont defaultFont = workbook.createFont();
+			defaultFont.setFontName("Arial");
+
+			Sheet filterSheet = workbook.createSheet("Search_Filter");
+			Sheet resultSheet = workbook.createSheet("Search_Result");
+			
+			generateSearchFilterSheet(filterSheet, request,workbook,cacheInfo);
+			
+			generateSearchResultSheet(resultSheet, response, workbook, brokerList, brokerConfigNameList,
+					assetWiseUniversalStockMap,systemCurr);
+			
+
+			res = this.getByteArrayOutputStream(workbook);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return res;
+
+	}
+
+	private void generateSearchFilterSheet(Sheet sheet, String request,XSSFWorkbook workbook,JsonObject cacheInfo) {
+		List<String> filterLabels = new ArrayList<>();
+		List<String> filterValues = new ArrayList<>();
+		List<String> sortLabels = new ArrayList<>();
+		List<String> sortValues = new ArrayList<>();
+		filterLabels = getFilterLabels(request);
+		filterValues = getFilterValues(request,cacheInfo);
+		sortLabels=getSortFields(request,cacheInfo);
+		sortValues=getSortValues(request);
+		
+		//creating sheet 
+		Row row = null;
+		int cellnum = 1;
+		Cell cell = null;
+		int rowNum = 0;
+		log.debug("entering");
+		
+		
+		//filter
+		//filter header
+		row = sheet.createRow(rowNum++);
+		int firstCol = 0;
+		
+		cell = row.createCell(firstCol++);
+		cell.setCellStyle(this.getHeaderCellStyle(sheet, workbook));
+		cell.setCellValue("Filter");
+		
+		firstCol=0;
+		row = sheet.createRow(rowNum++);
+		cell = row.createCell(firstCol++);
+		cell.setCellStyle(this.getRandomHeaderCellStyle(sheet, workbook));
+		cell.setCellValue("Fields");
+		
+		cell = row.createCell(firstCol);
+		cell.setCellStyle(this.getRandomHeaderCellStyle(sheet, workbook));
+		cell.setCellValue("Values");	
+		
+		
+		//filters data
+		for(int i =0;i<filterLabels.size();i++) {
+			row = sheet.createRow(rowNum++);
+			cellnum = 0;
+			//label
+			cell = row.createCell(cellnum++);
+			cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+			cell.setCellValue(filterLabels.get(i));
+			
+			//value
+			cell = row.createCell(cellnum++);
+			cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+			cell.setCellValue(filterValues.get(i));
+		}
+		
+		//creating extra row for gap between filter and sort
+		row = sheet.createRow(rowNum++);
+		
+		//sort
+		//sort header
+		row = sheet.createRow(rowNum++);
+		firstCol = 0;
+		cell = row.createCell(firstCol++);
+		cell.setCellStyle(this.getHeaderCellStyle(sheet, workbook));
+		cell.setCellValue("Sort");
+		
+		row = sheet.createRow(rowNum++);
+		firstCol = 0;
+		cell = row.createCell(firstCol++);
+		cell.setCellStyle(this.getRandomHeaderCellStyle(sheet, workbook));
+		cell.setCellValue("Fields");
+		
+		cell = row.createCell(firstCol);
+		cell.setCellStyle(this.getRandomHeaderCellStyle(sheet, workbook));
+		cell.setCellValue("Values");
+		
+
+		//sort data
+		for(int i =0;i<sortLabels.size();i++) {
+			row = sheet.createRow(rowNum++);
+			cellnum = 0;
+			//label
+			cell = row.createCell(cellnum++);
+			cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+			cell.setCellValue(sortLabels.get(i));
+			
+			//value
+			cell = row.createCell(cellnum++);
+			cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+			cell.setCellValue(sortValues.get(i));
+		}
+	}
+
+	private List<String> getFilterLabels(String request) {
+		List<String> res = new ArrayList<String>();
+		try {
+			AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+			HashMap<String, String> labelMap = getFieldToLabelMap();
+			HashMap<String, FieldConfigurationVO> fieldConfigurationMap= getFieldConfigurationMap();
+			HashMap<Integer,String> requestFieldMap = new HashMap<Integer,String>();
+			List<Integer> orderList=new ArrayList<>();
+			if (assetRequestVO.getSearchRequest().getDateSearch() != null
+					&& assetRequestVO.getSearchRequest().getDateSearch().size() > 0) {
+				List<SearchDateVO> dateSearch = assetRequestVO.getSearchRequest().getDateSearch();
+				for (SearchDateVO dateObj : dateSearch) {
+					orderList.add(fieldConfigurationMap.get(dateObj.getAliasName()).getDisplayOrder());
+					requestFieldMap.put(fieldConfigurationMap.get(dateObj.getAliasName()).getDisplayOrder(),labelMap.get(dateObj.getAliasName()));
+//					 res.add(labelMap.get(dateObj.getAliasName()));
+				}
+			}
+			if (assetRequestVO.getSearchRequest().getTextSearch() != null
+					&& assetRequestVO.getSearchRequest().getTextSearch().size() > 0) {
+				List<SearchTextVO> textSearch = assetRequestVO.getSearchRequest().getTextSearch();
+				for (SearchTextVO textObj : textSearch) {
+
+					orderList.add(fieldConfigurationMap.get(textObj.getAliasName()).getDisplayOrder());
+					requestFieldMap.put(fieldConfigurationMap.get(textObj.getAliasName()).getDisplayOrder(),labelMap.get(textObj.getAliasName()));
+					
+//					res.add(labelMap.get(textObj.getAliasName()));
+				}
+			}
+			if (assetRequestVO.getSearchRequest().getNumberSearch() != null
+					&& assetRequestVO.getSearchRequest().getNumberSearch().size() > 0) {
+				List<SearchNumberVO> numberSearch = assetRequestVO.getSearchRequest().getNumberSearch();
+				for (SearchNumberVO numberObj : numberSearch) {
+
+					orderList.add(fieldConfigurationMap.get(numberObj.getAliasName()).getDisplayOrder());
+					requestFieldMap.put(fieldConfigurationMap.get(numberObj.getAliasName()).getDisplayOrder(),labelMap.get(numberObj.getAliasName()));
+//					res.add(labelMap.get(numberObj.getAliasName()));
+				}
+			}
+		//sorting the list and generating result list	
+			Collections.sort(orderList);
+			orderList.forEach(x->{
+				res.add(requestFieldMap.get(x));
+			});
+			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return res;
+	}
+
+	private HashMap<String, String> getFieldToLabelMap() {
+		HashMap<String, String> map = new HashMap<>();
+		map.put("asOfDate", "As Of Date");
+		map.put("isin", "ISIN");
+		map.put("countryConfigName", "Country");
+		map.put("regionConfigName", "Region");
+		map.put("gicsSectorConfigName", "Gics Sector");
+		map.put("currencyConfigName", "Currency");
+		map.put("technicalOversold", "Technical Oversold");
+		map.put("klayRecommended", "Klay Recommended");
+		map.put("internalModelsConfigName", "Internal Models");
+		map.put("marketCapRange", "Market Cap Range (Min,Max)");
+		map.put("minimumUpsidePotential", "Minimum Upside Potential (Min,Max)");
+		map.put("numberOfAnalysts", "Number Of Analyst (Min,Max)");
+		map.put("percentageBuys", "Percentage Buys (Min,Max)");
+		map.put("percentageSells", "Percentage Sells (Min,Max)");
+		map.put("oneMonth", "1m (Min,Max)");
+		map.put("oneYear", "1y (Min,Max)");
+		map.put("trailPB", "Trail P/B (Min,Max)");
+		map.put("tMFwdPE", "12M Fwd P/E (Min,Max)");
+		map.put("fDayRSI", "14d RSI (Min,Max)");
+		map.put("boll", "Boll (Min,Max)");
+		map.put("buyRecomByBrokers", "Buy Recommendation By Brokers (Min,Max)");
+		map.put("neuRecomByBrokers", "Neutral Recommendation By Brokers (Min,Max)");
+		map.put("sellRecomByBrokers", "Sell Recommendation By Brokers (Min,Max)");
+		map.put("newCoverageByXBrokers", "New Coverage By X Brokers (Min,Max)");
+		map.put("newCoverageBUYWithXBrokers", "New Coverage-Buy By Brokers (Min,Max)");
+		map.put("newCoverageSELLWithXBrokers", "New Coverage-Sell By Brokers (Min,Max)");
+		map.put("newCoverageNEUTRALWithXBrokers", "New Coverage Neutral By Brokers (Min,Max)");
+		map.put("compareRatingFilter", "Rating Status Filter Date (Min,Max)");
+		map.put("changedRatingByXBrokers", "Changed Rating By X Brokers (Min,Max)");
+		map.put("changedToBuyWithXBrokers", "Changed To-Buy By Brokers (Min,Max)");
+		map.put("changedToSellWithXBrokers", "Changed To-Sell By Brokers (Min,Max)");
+		map.put("changedToNeutralWithXBrokers", "Changed To-Neutral By Brokers (Min,Max)");
+		map.put("changedToSuspendedWithXBrokers", "Changed To-Suspended By Brokers (Min,Max)");
+		map.put("sameRatingByXBrokers", "Same Rating By X Brokers (Min,Max)");
+		map.put("sameRatingBuyWithXBrokers", "Same Rating-Buy By Brokers (Min,Max)");
+		map.put("sameRatingSellWithXBrokers", "Same Rating-Sell By Brokers (Min,Max)");
+		map.put("sameRatingNeutralWithXBrokers", "Same Rating-Neutral By Brokers (Min,Max)");
+		map.put("sameRatingSUSPENDEDWithXBrokers", "Same Rating-Suspended By Brokers (Min,Max)");
+		map.put("sameRatingNEVERRATEDWithXBrokers", "Same Rating-Neverrated By Brokers (Min,Max)");
+		return map;
+	}
+
+	private HashMap<String, HashMap<String, String>> getCacheInfoMap(HashSet<String> configTypes,
+			JsonObject cacheInfo) {
+		HashMap<String, HashMap<String, String>> res = new HashMap<String, HashMap<String, String>>();
+		JsonArray appconfigs = cacheInfo.get("appConfig").getAsJsonArray();
+		for (JsonElement appconfig : appconfigs) {
+			JsonObject cacheObj = appconfig.getAsJsonObject();
+			
+			// setting region config value
+			if (configTypes.contains(cacheObj.get("configType").getAsString())) {
+				HashMap<String, String> valueMap = new HashMap<String, String>();
+
+				JsonArray configValueList = cacheObj.get("configValueList").getAsJsonArray();
+				for (JsonElement configvalueJE : configValueList) {
+					JsonObject configvalueJO = configvalueJE.getAsJsonObject();
+					valueMap.put(configvalueJO.get("configName").getAsString(),
+							configvalueJO.get("configValue").getAsString());
+				}
+				res.put(cacheObj.get("configType").getAsString(), valueMap);
+			}
+		}
+		return res;
+	}
+
+	private List<String> getFilterValues(String request, JsonObject cacheInfo) {
+		HashMap<String, FieldConfigurationVO> fieldConfMap = getFieldConfigurationMap();
+		HashSet<String> configTypes=new HashSet<>();
+		
+		fieldConfMap.forEach((k,v)->{
+			configTypes.add(v.getConfigType());
+		});
+		
+		HashMap<String, HashMap<String, String>> appConfigMap=getCacheInfoMap(configTypes,cacheInfo);
+		
+		List<String> res = new ArrayList<>();
+		try {
+			AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+			HashMap<String, FieldConfigurationVO> fieldConfigurationMap= getFieldConfigurationMap();
+			HashMap<Integer,String> requestFieldMap = new HashMap<Integer,String>();
+			List<Integer> orderList=new ArrayList<>();
+			
+			if (assetRequestVO.getSearchRequest().getDateSearch() != null
+					&& assetRequestVO.getSearchRequest().getDateSearch().size() > 0) {
+				List<SearchDateVO> dateSearch = assetRequestVO.getSearchRequest().getDateSearch();
+				for (SearchDateVO dateObj : dateSearch) {
+					String key = dateObj.getAliasName();
+					List<SearchDateFieldValuesVO> values= dateObj.getValues();
+					String dates="";
+					for(int i=0;i<values.size();i++) {
+						SearchDateFieldValuesVO sdfv=values.get(i);
+						if(i+1<values.size())
+						dates+=sdfv.getActualFieldValue()+" ,";
+						else
+							dates+=sdfv.getActualFieldValue();
+					}
+					
+					orderList.add(fieldConfigurationMap.get(dateObj.getAliasName()).getDisplayOrder());
+					requestFieldMap.put(fieldConfigurationMap.get(dateObj.getAliasName()).getDisplayOrder(),dates);
+				}
+			}
+			if (assetRequestVO.getSearchRequest().getTextSearch() != null
+					&& assetRequestVO.getSearchRequest().getTextSearch().size() > 0) {
+				List<SearchTextVO> textSearch = assetRequestVO.getSearchRequest().getTextSearch();
+				
+				for (SearchTextVO textObj : textSearch) {
+					String key = textObj.getAliasName();
+					String configType=fieldConfMap.get(key).getConfigType();
+					StringBuilder text=new StringBuilder("");
+					List<SearchTextFieldValuesVO> values= textObj.getValues();
+					//for acm related values								
+					if(configType!=null) {						
+						HashMap<String,String> configValueMap=appConfigMap.get(configType);
+						for(int i=0;i<values.size();i++) {
+							SearchTextFieldValuesVO stfv=values.get(i); 
+							if(stfv.getActualFieldValue()!=null) {
+							
+								if(i+1<values.size())
+								text.append(configValueMap.get( stfv.getActualFieldValue())+" ,");
+								else
+									text.append(configValueMap.get( stfv.getActualFieldValue()));
+							 }	 
+						}
+					}
+					//for non acm related values
+					else {
+						for(int i=0;i<values.size();i++) {
+							SearchTextFieldValuesVO stfv=values.get(i); 
+							if(stfv.getActualFieldValue()!=null) {
+								if(i+1<values.size())
+								text.append(stfv.getActualFieldValue()+" ,");
+								else
+									text.append(stfv.getActualFieldValue());
+							}
+						}
+					}
+					orderList.add(fieldConfigurationMap.get(textObj.getAliasName()).getDisplayOrder());
+					requestFieldMap.put(fieldConfigurationMap.get(textObj.getAliasName()).getDisplayOrder(),text.toString());	
+				}
+				
+			}
+			if (assetRequestVO.getSearchRequest().getNumberSearch() != null
+					&& assetRequestVO.getSearchRequest().getNumberSearch().size() > 0) {
+				List<SearchNumberVO> numberSearch = assetRequestVO.getSearchRequest().getNumberSearch();
+				for (SearchNumberVO numberObj : numberSearch) {
+					List<SearchNumberFieldValuesVO> values= numberObj.getValues();
+					String numbers="";
+					for(int i=0;i<values.size();i++) {
+						SearchNumberFieldValuesVO sdfv=values.get(i);
+						if(i+1<values.size()) {
+							if(numberObj.getAliasName().equals("technicalOversold")) {
+								String val=sdfv.getActualFieldValue().compareTo(new BigDecimal("1"))==0?"YES":"NO";
+								numbers+=val+" ,";
+							}else
+							numbers+=sdfv.getActualFieldValue()+" ,";
+							
+						}
+						
+						else {
+							if(numberObj.getAliasName().equals("technicalOversold")) {
+								String val=sdfv.getActualFieldValue().compareTo(new BigDecimal("1"))==0?"YES":"NO";
+								numbers+=val;
+							}else
+							numbers+=sdfv.getActualFieldValue();
+						} 
+					}
+					orderList.add(fieldConfigurationMap.get(numberObj.getAliasName()).getDisplayOrder());
+					requestFieldMap.put(fieldConfigurationMap.get(numberObj.getAliasName()).getDisplayOrder(),numbers);
+					
+				}
+			}
+			//sorting the list and generating result list	
+			Collections.sort(orderList);
+			orderList.forEach(x->{
+				res.add(requestFieldMap.get(x));
+			});
+			
+
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return res;
+	}
+
+	private HashMap<String, FieldConfigurationVO> getFieldConfigurationMap() {
+		HashMap<String, FieldConfigurationVO> map = new HashMap<String, FieldConfigurationVO>();
+		map.put("asOfDate", new FieldConfigurationVO(null, 1, 1));
+		map.put("isin", new FieldConfigurationVO(null, 1, 2));
+		map.put("countryConfigName", new FieldConfigurationVO("COUNTRY", 1, 3));
+		map.put("regionConfigName", new FieldConfigurationVO("REGION", 1, 4));
+		map.put("gicsSectorConfigName", new FieldConfigurationVO("GICS_SECTOR", 1, 5));
+		map.put("currencyConfigName", new FieldConfigurationVO(null, 1, 6));
+		map.put("technicalOversold", new FieldConfigurationVO("BOOLEAN_FLAG", 1, 7));
+		map.put("klayRecommended", new FieldConfigurationVO("BOOLEAN_FLAG", 1, 8));
+		map.put("internalModelsConfigName", new FieldConfigurationVO(null, 1, 9));
+		map.put("marketCapRange", new FieldConfigurationVO(null, 1, 10));
+		map.put("minimumUpsidePotential", new FieldConfigurationVO(null, 1, 011));
+		map.put("numberOfAnalysts", new FieldConfigurationVO(null, 1, 012));
+		map.put("percentageBuys", new FieldConfigurationVO(null, 1, 013));
+		map.put("percentageSells", new FieldConfigurationVO(null, 1, 014));
+		map.put("oneMonth", new FieldConfigurationVO(null, 1, 015));
+		map.put("oneYear", new FieldConfigurationVO(null, 1, 016));
+		map.put("trailPB", new FieldConfigurationVO(null, 1, 017));
+		map.put("tMFwdPE", new FieldConfigurationVO(null, 1, 18));
+		map.put("fDayRSI", new FieldConfigurationVO(null, 1, 19));
+		map.put("boll", new FieldConfigurationVO(null, 1, 20));
+		map.put("buyRecomByBrokers", new FieldConfigurationVO(null, 1, 021));
+		map.put("neuRecomByBrokers", new FieldConfigurationVO(null, 1, 022));
+		map.put("sellRecomByBrokers", new FieldConfigurationVO(null, 1, 023));
+		map.put("newCoverageByXBrokers", new FieldConfigurationVO(null, 1, 024));
+		map.put("newCoverageBUYWithXBrokers", new FieldConfigurationVO(null, 1, 025));
+		map.put("newCoverageSELLWithXBrokers", new FieldConfigurationVO(null, 1, 026));
+		map.put("newCoverageNEUTRALWithXBrokers", new FieldConfigurationVO(null, 1, 027));
+		map.put("compareRatingFilter", new FieldConfigurationVO(null, 1, 28));
+		map.put("changedRatingByXBrokers", new FieldConfigurationVO(null, 1, 29));
+		map.put("changedToBuyWithXBrokers", new FieldConfigurationVO(null, 1, 30));
+		map.put("changedToSellWithXBrokers", new FieldConfigurationVO(null, 1, 031));
+		map.put("changedToNeutralWithXBrokers", new FieldConfigurationVO(null, 1, 032));
+		map.put("changedToSuspendedWithXBrokers", new FieldConfigurationVO(null, 1, 033));
+		map.put("sameRatingByXBrokers", new FieldConfigurationVO(null, 1, 034));
+		map.put("sameRatingBuyWithXBrokers", new FieldConfigurationVO(null, 1, 035));
+		map.put("sameRatingSellWithXBrokers", new FieldConfigurationVO(null, 1, 036));
+		map.put("sameRatingNeutralWithXBrokers", new FieldConfigurationVO(null, 1, 037));
+		map.put("sameRatingSUSPENDEDWithXBrokers", new FieldConfigurationVO(null, 1, 38));
+		map.put("sameRatingNEVERRATEDWithXBrokers", new FieldConfigurationVO(null, 1, 39));
+		return map;
+	}
+
+	private void setAssetWiseUniversalStockMap(
+			Map<BigDecimal, Map<String, UniverseStockDetailsByBrokerVO>> assetWiseUniversalStockMap,
+			List<SearchResultDataVO> response) {
+
+		for (SearchResultDataVO dataVO : response) {
+			if (dataVO.getUniverseStockDetailsByBroker() != null
+					&& dataVO.getUniverseStockDetailsByBroker().size() > 0) {
+				Map<String, UniverseStockDetailsByBrokerVO> universalStockMap = new HashMap();
+				for (UniverseStockDetailsByBrokerVO universeStockDetailsByBrokerVO : dataVO
+						.getUniverseStockDetailsByBroker()) {
+					universalStockMap.put(universeStockDetailsByBrokerVO.getBrokerAppConfigName(),
+							universeStockDetailsByBrokerVO);
+				}
+				assetWiseUniversalStockMap.put(dataVO.getId(), universalStockMap);
+			}
+		}
+	}
+
+	// cell style for table headers @param Sheet sheet ref
+	private CellStyle getHeaderCellStyle(Sheet sheet, XSSFWorkbook workbook) {
+		CellStyle cellStyle = sheet.getWorkbook().createCellStyle();
+		short colorBlue = IndexedColors.DARK_BLUE.index;
+		XSSFFont headerFont = workbook.createFont();
+		headerFont.setFontName("Arial");
+		headerFont.setBold(true);
+		headerFont.setColor(IndexedColors.WHITE.index);
+		cellStyle.setFillForegroundColor(colorBlue);
+		cellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		cellStyle.setFont(headerFont);
+		cellStyle.setBorderBottom(BorderStyle.THIN);
+		cellStyle.setBorderTop(BorderStyle.THIN);
+		cellStyle.setBorderRight(BorderStyle.THIN);
+		cellStyle.setBorderLeft(BorderStyle.THIN);
+		return cellStyle;
+	}
+
+	private CellStyle getRandomHeaderCellStyle(Sheet sheet, XSSFWorkbook workbook) {
+		CellStyle cellStyle = sheet.getWorkbook().createCellStyle();
+		int random = (int) (Math.random() * (3 - 1 + 1) + 1);
+		short colorBlue = random == 1 ? IndexedColors.BLUE_GREY.index
+				: random == 2 ? IndexedColors.GOLD.index : IndexedColors.GREY_40_PERCENT.index;
+		XSSFFont headerFont = workbook.createFont();
+		headerFont.setFontName("Arial");
+		headerFont.setBold(true);
+		headerFont.setColor(IndexedColors.WHITE.index);
+		cellStyle.setFillForegroundColor(colorBlue);
+		cellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+		cellStyle.setFont(headerFont);
+		cellStyle.setBorderBottom(BorderStyle.THIN);
+		cellStyle.setBorderTop(BorderStyle.THIN);
+		cellStyle.setBorderRight(BorderStyle.THIN);
+		cellStyle.setBorderLeft(BorderStyle.THIN);
+		return cellStyle;
+	}
+
+	public byte[] getByteArrayOutputStream(XSSFWorkbook workbook) throws Exception {
+		log.debug("entering");
+		ByteArrayOutputStream stream = new ByteArrayOutputStream();
+
+		try {
+			stream = new ByteArrayOutputStream();
+			workbook.write(stream);
+			workbook.close();
+
+		} catch (Exception e) {
+			log.fatal("error while getByteArrayOutputStream", e);
+			e.printStackTrace();
+			log.debug(e.getMessage());
+			log.debug(e.fillInStackTrace());
+			log.debug(e.getCause());
+			log.debug(e.getStackTrace());
+			throw e;
+		}
+		log.debug("leaving");
+		return stream.toByteArray();
+	}
+
+	// generate Search result grid @params Sheet sheet,List<SearchResultDataVO>
+	// response,XSSFWorkbook workbook
+	private void generateSearchResultSheet(Sheet sheet, List<SearchResultDataVO> response, XSSFWorkbook workbook,
+			List<String> brokerList, List<String> brokerConfigNameList,
+			Map<BigDecimal, Map<String, UniverseStockDetailsByBrokerVO>> assetWiseUniversalStockMap,String systemCurrency) throws Exception {
+		// header row
+		Row row = null;
+		int cellnum = 1;
+		Cell cell = null;
+		int rowNum = 0;
+		log.debug("entering");
+
+		List<String> mainHeaders = new ArrayList<String>(
+				Arrays.asList("", "Consensus", "Rating", "Target Prices", "Performance", "Financial", "Technicals"));
+		int[] mergeWidth = new int[] { 12, 5, brokerList.size(), brokerList.size(), 9, 6, 2 };
+		List<String> headers = new ArrayList<String>(Arrays.asList("ISIN", "Company", "Currency", "Market Cap (US$)",
+				"Price", "Region", "Country", "Sector", "Recommended", "Super Select", "Signal", "Over sold",
+				"# Analyst", "Buy Rating", "Sell Rating", "Average Price Target", "Upside to Price Target"));
+		List<String> headers2 = new ArrayList<String>(
+				Arrays.asList("1d", "1w", "1m", "3m", "6m", "1y", "2y", "3y", "5y", "Trail P/B", "12M Fwd P/E",
+						"12M Fwd ROE", "12M Fwd EV/ EBITDA", "12M Fwd Div Yld", "1y vol", "14d RSI", "20d Boll"));
+		// adding rating and target price
+		headers.addAll(brokerList);
+		headers.addAll(brokerList);
+		// adding remaining headers
+		headers.addAll(headers2);
+		try {
+			row = sheet.createRow(rowNum++);
+			int firstCol = 0;
+			for (int i = 0; i < mainHeaders.size(); i++) {
+				cell = row.createCell(firstCol);
+				cell.setCellStyle(this.getRandomHeaderCellStyle(sheet, workbook));
+				cell.setCellValue(mainHeaders.get(i));
+				sheet.addMergedRegion(
+						new CellRangeAddress(rowNum - 1, rowNum - 1, firstCol, firstCol + mergeWidth[i]-1));
+				firstCol += mergeWidth[i];
+			}
+			row = sheet.createRow(rowNum++);
+			for (int i = 0; i < headers.size(); i++) {
+				cell = row.createCell(i);
+				cell.setCellStyle(this.getHeaderCellStyle(sheet, workbook));
+				cell.setCellValue(headers.get(i));
+			}
+
+			// Data row
+			for (SearchResultDataVO resultDataVO : response) {
+				row = sheet.createRow(rowNum++);
+				cellnum = 0;
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getIsin());
+
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getCompany());
+
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getCurrencyAppConfigName());
+
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getMarketCap() != null ? resultDataVO.getMarketCap().toString() : null);
+				this.currencyStyle(cell,systemCurrency);
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getPrice() == null ? null : resultDataVO.getPrice().toString());
+				this.currencyStyle(cell,resultDataVO.getCurrencyAppConfigName());
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getRegion());
+
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getCountry());
+
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getSector());
+
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getKlayOfferingModelAttributeConfigName());
+
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getSuperSelectModelAttributeConfigName());
+
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getSignalModelAttributeConfigName());
+
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getOverSold());
+
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getAnalystCount());
+				//number style
+				this.numberStyleFormatter(cell);
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getBuyAnalystCount());
+				//percentage style
+				this.percentageStyleFormatter(cell);
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getSellAnalystCount());
+				//percentage style
+				this.percentageStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getAveragePriceTarget() == null ? null
+						: resultDataVO.getAveragePriceTarget().toString());
+				this.currencyStyle(cell,resultDataVO.getCurrencyAppConfigName());
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getUpsideToPriceTarget() == null ? null
+						: resultDataVO.getUpsideToPriceTarget().toString());
+				//percentage style
+				this.percentageStyleFormatter(cell);
+				
+				// adding broker rating
+				for (String broker : brokerConfigNameList) {
+					cell = row.createCell(cellnum++);
+					cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+					UniverseStockDetailsByBrokerVO universalStockObj = assetWiseUniversalStockMap
+							.get(resultDataVO.getId()).get(broker);
+					cell.setCellValue(universalStockObj != null ? universalStockObj.getBrokerRatingConfigName() : null);
+				}
+				// adding target price
+				for (String broker : brokerConfigNameList) {
+					cell = row.createCell(cellnum++);
+					cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+					UniverseStockDetailsByBrokerVO universalStockObj = assetWiseUniversalStockMap
+							.get(resultDataVO.getId()).get(broker);
+					cell.setCellValue(universalStockObj != null && universalStockObj.getTargetPriceAmt() != null
+							? universalStockObj.getTargetPriceAmt().toString()
+							: null);
+					this.currencyStyle(cell,resultDataVO.getCurrencyAppConfigName());
+				}
+
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getPriceChange1DPerc());
+				//percentage style
+				this.percentageStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getPriceChange1WPerc());
+				//percentage style
+				this.percentageStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getPriceChange1MPerc());
+				//percentage style
+				this.percentageStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getPriceChange3MPerc());
+				//percentage style
+				this.percentageStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getPriceChange6MPerc());
+				//percentage style
+				this.percentageStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getPriceChange1YPerc());
+				//percentage style
+				this.percentageStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getPriceChange2YPerc());
+				//percentage style
+				this.percentageStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getPriceChange3YPerc());
+				//percentage style
+				this.percentageStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getPriceChange5YPerc());
+				//percentage style
+				this.percentageStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getTrailingPriceToBookNbr() == null ? null
+						: resultDataVO.getTrailingPriceToBookNbr().toString());
+
+				//number style
+				this.numberStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getForwardPE12MNbr() == null ? null
+						: resultDataVO.getForwardPE12MNbr().toString());
+
+				//number style
+				this.numberStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getForwardROE12MPerc());
+				//number style
+				this.numberStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getForwardEVToEbitda12MNbr() == null ? null
+						: resultDataVO.getForwardEVToEbitda12MNbr().toString());
+				//number style
+				this.numberStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getForwardDivYield12MPerc());
+				//percentage style
+				this.percentageStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getVolatility1YPer());
+				//number style
+				this.numberStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getRelativeStrengthIndex14DNbr() == null ? null
+						: resultDataVO.getRelativeStrengthIndex14DNbr().toString());
+				//number style
+				this.numberStyleFormatter(cell);
+				
+				cell = row.createCell(cellnum++);
+				cell.setCellStyle(this.getDefaultCellStyle(sheet, workbook));
+				cell.setCellValue(resultDataVO.getBollBonds20DNbr() == null ? null
+						: resultDataVO.getBollBonds20DNbr().toString());
+				//number style
+				this.numberStyleFormatter(cell);
+				
+			}
+		} catch (Exception e) {
+			log.fatal("error while generateInputPortfolioSheet", e);
+			e.printStackTrace();
+			log.debug(e.getMessage());
+			log.debug(e.fillInStackTrace());
+			log.debug(e.getCause());
+			log.debug(e.getStackTrace());
+			throw e;
+		}
+		log.debug("leaving");
+	}
+
+	private void setConfigValues(List<String> brokerList, List<String> brokerConfigNameList,
+			List<SearchResultDataVO> response, JsonObject cacheInfo) {
+		JsonArray appconfigs = cacheInfo.get("appConfig").getAsJsonArray();
+		for (SearchResultDataVO searchResultDataVO : response) {
+			for (JsonElement appconfig : appconfigs) {
+				JsonObject cacheObj = appconfig.getAsJsonObject();
+				// setting region config value
+				if (cacheObj.get("configType").getAsString().equals("REGION")) {
+					JsonArray configValueList = cacheObj.get("configValueList").getAsJsonArray();
+					for (JsonElement configvalueJE : configValueList) {
+						JsonObject configvalueJO = configvalueJE.getAsJsonObject();
+						if (configvalueJO.get("configName").getAsString().equals(searchResultDataVO.getRegion())) {
+							searchResultDataVO.setRegion(configvalueJO.get("configValue").getAsString());
+							break;
+						}
+					}
+				}
+				// setting country config value
+				else if (cacheObj.get("configType").getAsString().equals("COUNTRY")) {
+					JsonArray configValueList = cacheObj.get("configValueList").getAsJsonArray();
+					for (JsonElement configvalueJE : configValueList) {
+						JsonObject configvalueJO = configvalueJE.getAsJsonObject();
+						if (configvalueJO.get("configName").getAsString().equals(searchResultDataVO.getCountry())) {
+							searchResultDataVO.setCountry(configvalueJO.get("configValue").getAsString());
+							break;
+						}
+					}
+				}
+				// setting sector config value
+				else if (cacheObj.get("configType").getAsString().equals("GICS_SECTOR")) {
+					JsonArray configValueList = cacheObj.get("configValueList").getAsJsonArray();
+					for (JsonElement configvalueJE : configValueList) {
+						JsonObject configvalueJO = configvalueJE.getAsJsonObject();
+						if (configvalueJO.get("configName").getAsString().equals(searchResultDataVO.getSector())) {
+							searchResultDataVO.setSector(configvalueJO.get("configValue").getAsString());
+							break;
+						}
+					}
+				}
+				// setting superSelectModelAttributeConfigName ,signalModelAttributeConfigName ,
+				// klayOfferingModelAttributeConfigName config value
+				else if (cacheObj.get("configType").getAsString().equals("BOOLEAN_FLAG")) {
+					JsonArray configValueList = cacheObj.get("configValueList").getAsJsonArray();
+					for (JsonElement configvalueJE : configValueList) {
+						JsonObject configvalueJO = configvalueJE.getAsJsonObject();
+						if (configvalueJO.get("configName").getAsString()
+								.equals(searchResultDataVO.getSuperSelectModelAttributeConfigName())) {
+							searchResultDataVO.setSuperSelectModelAttributeConfigName(
+									configvalueJO.get("configValue").getAsString());
+						}
+						if (configvalueJO.get("configName").getAsString()
+								.equals(searchResultDataVO.getSignalModelAttributeConfigName())) {
+							searchResultDataVO
+									.setSignalModelAttributeConfigName(configvalueJO.get("configValue").getAsString());
+						}
+						if (configvalueJO.get("configName").getAsString()
+								.equals(searchResultDataVO.getKlayOfferingModelAttributeConfigName())) {
+							searchResultDataVO.setKlayOfferingModelAttributeConfigName(
+									configvalueJO.get("configValue").getAsString());
+						}
+					}
+				} else if (cacheObj.get("configType").getAsString().equals("BROKER") && brokerList.size() == 0) {
+					JsonArray configValueList = cacheObj.get("configValueList").getAsJsonArray();
+					for (JsonElement configvalueJE : configValueList) {
+						JsonObject configvalueJO = configvalueJE.getAsJsonObject();
+						brokerList.add(configvalueJO.get("configValue").getAsString());
+						brokerConfigNameList.add(configvalueJO.get("configName").getAsString());
+					}
+				}
+
+			}
+		}
+	}
+
+	private void setBrokerAppConfigName(List<SearchResultDataVO> response, JsonObject cacheInfo) {
+
+		Map<String, String> brokerConfigTypeMap = new HashMap<>();
+		// broker config types constants
+		brokerConfigTypeMap.put("ACM1940", "MS_RATING"); // ms
+		brokerConfigTypeMap.put("ACM1941", "GS_RATING"); // gs
+		brokerConfigTypeMap.put("ACM1942", "UBS_RATING"); // ubs
+		brokerConfigTypeMap.put("ACM1943", "UBS_CIO_RATING"); // usbcio
+		brokerConfigTypeMap.put("ACM1944", "JB_RATING"); // jb
+		brokerConfigTypeMap.put("ACM1945", "SG_RATING"); // sg
+
+		Map<String, Map<String, String>> configTypeMap = new HashMap();
+		JsonArray appconfigs = cacheInfo.get("appConfig").getAsJsonArray();
+		for (SearchResultDataVO searchResultDataVO : response) {
+			for (JsonElement appconfig : appconfigs) {
+				JsonObject cacheObj = appconfig.getAsJsonObject();
+				// setting region config value
+				if (cacheObj.get("configType").getAsString().equals("MS_RATING")) {
+					JsonArray configValueList = cacheObj.get("configValueList").getAsJsonArray();
+					Map<String, String> cacheMap = new HashMap<>();
+
+					for (JsonElement configvalueJE : configValueList) {
+						JsonObject configvalueJO = configvalueJE.getAsJsonObject();
+						cacheMap.put(configvalueJO.get("configName").getAsString(),
+								configvalueJO.get("configValue").getAsString());
+					}
+					configTypeMap.put("MS_RATING", cacheMap);
+				} else if (cacheObj.get("configType").getAsString().equals("GS_RATING")) {
+					JsonArray configValueList = cacheObj.get("configValueList").getAsJsonArray();
+					Map<String, String> cacheMap = new HashMap<>();
+
+					for (JsonElement configvalueJE : configValueList) {
+						JsonObject configvalueJO = configvalueJE.getAsJsonObject();
+						cacheMap.put(configvalueJO.get("configName").getAsString(),
+								configvalueJO.get("configValue").getAsString());
+					}
+					configTypeMap.put("GS_RATING", cacheMap);
+				} else if (cacheObj.get("configType").getAsString().equals("SG_RATING")) {
+					JsonArray configValueList = cacheObj.get("configValueList").getAsJsonArray();
+					Map<String, String> cacheMap = new HashMap<>();
+
+					for (JsonElement configvalueJE : configValueList) {
+						JsonObject configvalueJO = configvalueJE.getAsJsonObject();
+						cacheMap.put(configvalueJO.get("configName").getAsString(),
+								configvalueJO.get("configValue").getAsString());
+					}
+					configTypeMap.put("SG_RATING", cacheMap);
+				} else if (cacheObj.get("configType").getAsString().equals("JB_RATING")) {
+					JsonArray configValueList = cacheObj.get("configValueList").getAsJsonArray();
+					Map<String, String> cacheMap = new HashMap<>();
+
+					for (JsonElement configvalueJE : configValueList) {
+						JsonObject configvalueJO = configvalueJE.getAsJsonObject();
+						cacheMap.put(configvalueJO.get("configName").getAsString(),
+								configvalueJO.get("configValue").getAsString());
+					}
+					configTypeMap.put("JB_RATING", cacheMap);
+				} else if (cacheObj.get("configType").getAsString().equals("UBS_CIO_RATING")) {
+					JsonArray configValueList = cacheObj.get("configValueList").getAsJsonArray();
+					Map<String, String> cacheMap = new HashMap<>();
+
+					for (JsonElement configvalueJE : configValueList) {
+						JsonObject configvalueJO = configvalueJE.getAsJsonObject();
+						cacheMap.put(configvalueJO.get("configName").getAsString(),
+								configvalueJO.get("configValue").getAsString());
+					}
+					configTypeMap.put("UBS_CIO_RATING", cacheMap);
+				} else if (cacheObj.get("configType").getAsString().equals("UBS_RATING")) {
+					JsonArray configValueList = cacheObj.get("configValueList").getAsJsonArray();
+					Map<String, String> cacheMap = new HashMap<>();
+
+					for (JsonElement configvalueJE : configValueList) {
+						JsonObject configvalueJO = configvalueJE.getAsJsonObject();
+						cacheMap.put(configvalueJO.get("configName").getAsString(),
+								configvalueJO.get("configValue").getAsString());
+					}
+					configTypeMap.put("UBS_RATING", cacheMap);
+				}
+			}
+		}
+		for (SearchResultDataVO dataVO : response) {
+			if (dataVO.getUniverseStockDetailsByBroker() != null
+					&& dataVO.getUniverseStockDetailsByBroker().size() > 0) {
+				for (UniverseStockDetailsByBrokerVO brokerVO : dataVO.getUniverseStockDetailsByBroker()) {
+					String configType = brokerConfigTypeMap.get(brokerVO.getBrokerAppConfigName());
+					if (configType != null) {
+						brokerVO.setBrokerRatingConfigName(
+								configTypeMap.get(configType).get(brokerVO.getBrokerRatingConfigName()));
+					}
+				}
+			}
+		}
+	}
+	private List<String> getSortValues(String request) {
+		List<String> res = new ArrayList<>();
+			AssetRequestVO assetRequestVO;
+			try {
+				assetRequestVO = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+				if (assetRequestVO.getSortRequest()!= null
+						) {
+					 List<SortFieldVO>  data= assetRequestVO.getSortRequest().getSortFieldList();
+					for (SortFieldVO obj : data) {
+						
+						res.add(""+obj.getPriority());
+					}
+				}
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		return res;
+	}
+	private List<String> getSortFields(String request,JsonObject cacheInfo) {
+		List<String> res = new ArrayList<>();
+			AssetRequestVO assetRequestVO;
+			try {
+				assetRequestVO = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+				HashSet<String> configTypes=new HashSet<>();
+				configTypes.add("USM_SORTING_FIELDS");
+				HashMap<String, HashMap<String, String>> appconfigTypesMap = getCacheInfoMap(configTypes, cacheInfo);
+				 HashMap<String, String> labelConfigValueMap=appconfigTypesMap.get("USM_SORTING_FIELDS");
+				
+				if (assetRequestVO.getSortRequest()!= null
+						) {
+					 List<SortFieldVO>  data= assetRequestVO.getSortRequest().getSortFieldList();
+					for (SortFieldVO obj : data) {
+						res.add(labelConfigValueMap.get(obj.getAliasName()));
+					}
+				}
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		return res;
+	}
+	private Locale getLocale() {
+		return this.locale;
+	}
+	// format currency using user locale
+		private String currencyFormatter(Number amount,String currency) throws Exception {
+			log.debug("entering");
+			if (amount == null) {
+				return null;
+			}
+			NumberFormat numberFormatter = null;
+
+			try {
+				numberFormatter = NumberFormat.getCurrencyInstance();
+				numberFormatter.setCurrency(Currency.getInstance(currency));
+				numberFormatter.setMaximumFractionDigits(2);
+				// return numberFormatter.format(amount);
+			} catch (Exception e) {
+				log.fatal("error while currencyFormatter", e);
+				e.printStackTrace();
+				log.debug(e.getMessage());
+				log.debug(e.fillInStackTrace());
+				log.debug(e.getCause());
+				log.debug(e.getStackTrace());
+				throw e;
+			}
+			log.debug("leaving");
+			return numberFormatter.format(amount);
+
+		}
+
+		private void currencyStyle(Cell cell,String reqCurrency) throws Exception {
+			log.debug("entering");
+			try {
+				CellStyle combined = cell.getSheet().getWorkbook().createCellStyle();
+				combined.cloneStyleFrom(cell.getCellStyle());
+				Currency currency = Currency.getInstance(reqCurrency);
+				String symbol = currency.getSymbol();
+
+				log.debug("symbol" + currency.getSymbol());
+				log.debug("currency.getCurrencyCode()" + currency.getCurrencyCode());
+				log.debug("this.dataCurrency" + this.dataCurrency);
+				// String format = "$$-en-US]#,##0.00;[Red][$$-en-US](#,##0.00)";
+
+				// NumberFormat fmt = NumberFormat.getInstance(this.getLocale());
+				// cell.
+
+				// String format = symbol+symbol+"-" + this.locale + "]#,##0.00;[Red][" +
+				// symbol+symbol+ "-" + this.locale +"](#,##0.00)";
+				// log.debug("Final format " + format);
+				// String format = "\"" + symbol + "\"#,##0.00
+				// \""+currency.getCurrencyCode()+"\"_);[Red](\"" + symbol + "\"#,##0.00
+				// \""+currency.getCurrencyCode()+"\")";
+				String format = "\"" + symbol + "\"#,##0.00 _);[Red](\"" + symbol + "\"#,##0.00 )";
+
+				// String format = "\"" + symbol + "\"#,##0.00_);[Red](\"" + symbol +
+				// "\"#,##0.00)";
+				// String format = "\"" + "$" + "#,##0.00 \"USD\"_);(" + "$" + "#,##0.00
+				// \"USD\")";
+				// "$#,##0.00 "USD"_);($#,##0.00 "USD")"
+				// String format = "$#,##0.00 \"USD\"_);($#,##0.00 \"USD\")";
+				combined.setDataFormat(cell.getSheet().getWorkbook().createDataFormat().getFormat(format));
+
+				cell.setCellStyle(combined);
+				log.debug("After applying format " + cell.getCellStyle().getDataFormatString());
+			} catch (Exception e) {
+				log.fatal("error while currencyStyle", e);
+				e.printStackTrace();
+				log.debug(e.getMessage());
+				log.debug(e.fillInStackTrace());
+				log.debug(e.getCause());
+				log.debug(e.getStackTrace());
+				throw e;
+			}
+			log.debug("leaving");
+		}
+
+		// cell style for Decimal format @param Cell cell r ef
+		private void percentageStyleFormatter(Cell cell) throws Exception {
+			log.debug("entering");
+			try {
+				CellStyle combined = cell.getSheet().getWorkbook().createCellStyle();
+				combined.cloneStyleFrom(cell.getCellStyle());
+				combined.setDataFormat(cell.getSheet().getWorkbook().createDataFormat().getFormat("0.00%;[Red](0.00%)"));
+				cell.setCellStyle(combined);
+			} catch (Exception e) {
+				log.fatal("error while percentageStyleFormatter", e);
+				e.printStackTrace();
+				log.debug(e.getMessage());
+				log.debug(e.fillInStackTrace());
+				log.debug(e.getCause());
+				log.debug(e.getStackTrace());
+				throw e;
+			}
+			log.debug("leaving");
+		}
+
+		// format date using user locale
+		private String dateFormatter(Date date) throws Exception {
+			log.debug("entering dateFormatter");
+			String formattedDate = null;
+			if (date == null) {
+				return null;
+			}
+			try {
+
+				DateFormat df = DateFormat.getDateInstance(DateFormat.SHORT, this.getLocale());
+				formattedDate = df.format(date);
+			} catch (Exception e) {
+				log.fatal("error while dateFormatter", e);
+				e.printStackTrace();
+				log.debug(e.getMessage());
+				log.debug(e.fillInStackTrace());
+				log.debug(e.getCause());
+				log.debug(e.getStackTrace());
+				throw e;
+			}
+			log.debug("leaving");
+			return formattedDate;
+		}
+		private void numberStyleFormatter(Cell cell) throws Exception {
+			log.debug("entering");
+			try {
+				CellStyle combined = cell.getSheet().getWorkbook().createCellStyle();
+				combined.cloneStyleFrom(cell.getCellStyle());
+				combined.setDataFormat(cell.getSheet().getWorkbook().createDataFormat().getFormat("0.00;[Red](0.00)"));
+				cell.setCellStyle(combined);
+			} catch (Exception e) {
+				log.fatal("error while percentageStyleFormatter", e);
+				e.printStackTrace();
+				log.debug(e.getMessage());
+				log.debug(e.fillInStackTrace());
+				log.debug(e.getCause());
+				log.debug(e.getStackTrace());
+				throw e;
+			}
+			log.debug("leaving");
+		}
+		private String getSystemCurrency(JsonObject cacheInfo) {
+			
+				JsonObject cacheObj=cacheInfo;
+				if(cacheObj.get("rules")!=null) {
+					JsonArray rules=cacheObj.get("rules").getAsJsonArray();
+					for(JsonElement ruleEl:rules) {
+						JsonObject ruleObj=ruleEl.getAsJsonObject();
+						if(ruleObj.get("ruleConfigType").getAsString().equals("SYSTEM_CURRENCY")) {
+							return ruleObj.get("ruleConfigValue").getAsString();
+						}
+					}
+				}
+			
+			return null;
+		}
+}

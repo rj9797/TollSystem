@@ -1,0 +1,31 @@
+package com.klayx.asset.dao;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.Date;
+import java.util.List;
+
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetSPUnderlyingMetricsVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.UnderlyingAssetsVO;
+
+public interface IAssetSPUnderlyingMetricsDAO {
+
+	BigDecimal getCurrentLevelAmount(String tenantCode,BigDecimal assetId);
+
+	BigDecimal getInitialLevelAmount(String tenantCode,BigDecimal assetId);
+
+	BigDecimal saveAssetSPUnderlyingMetrics(String tenantCode,AssetSPUnderlyingMetricsVO assetSPUnderlyingMetricsVO);
+
+	List<UnderlyingAssetsVO>  getUnderlyingAssetId(String tenantCode,BigDecimal assetId);
+
+	void setIsActive(String tenantCode,List<AssetVO> assetMasters);
+
+	List<AssetPriceVO> getAssetPrice(String tenantCode,List<AssetGetRequestVO> reqParam, Date computedDate) throws Exception;
+
+	public List<UnderlyingAssetsVO> getUnderlyingAssetMap(String tenantCode,BigDecimal assetId);
+	
+	public List<AssetPriceVO> getAssetPriceList(String tenantCode,BigDecimal assetId);
+}

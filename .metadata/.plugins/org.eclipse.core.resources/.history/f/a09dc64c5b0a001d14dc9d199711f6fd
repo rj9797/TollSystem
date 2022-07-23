@@ -1,0 +1,2626 @@
+package com.klayx.asset.controller;
+
+import java.io.ByteArrayInputStream;
+import java.sql.Time;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.common.AssetRequestValidator;
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.excel.ExcelDownload;
+import com.klayx.asset.model.AccessDetailVO;
+import com.klayx.asset.model.AssetAddRequestVO;
+import com.klayx.asset.model.AssetCompositeResponseVO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetReturnsVO;
+import com.klayx.asset.model.AssetSPMetricsVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.ErrorVO;
+import com.klayx.asset.model.ExchangeRateVO;
+import com.klayx.asset.model.FailedAssetVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.PreferredAssetGroupVO;
+import com.klayx.asset.model.ResponseVO;
+import com.klayx.asset.model.SearchRequestVO;
+import com.klayx.asset.model.SearchResultDataVO;
+import com.klayx.asset.model.UnderlyingAssetsVO;
+import com.klayx.asset.model.UniverseStockDetailsByBrokerVO;
+import com.klayx.asset.model.UniverseStockDetailsByTerminalVO;
+import com.klayx.asset.model.UniverseStockVO;
+import com.klayx.asset.service.IAssetKeyFigureService;
+import com.klayx.asset.service.IAssetPriceService;
+import com.klayx.asset.service.IAssetReturnsService;
+import com.klayx.asset.service.IAssetSPMetricsService;
+import com.klayx.asset.service.IAssetService;
+import com.klayx.asset.service.IExchangeRateService;
+import com.klayx.asset.service.IUniverseStockService;
+import com.klayx.asset.service.IassetreportdatService;
+
+@RestController
+@RequestMapping(AssetConstants.REQUESTMAPPING)
+public class AssetController {
+	Gson gson = new GsonBuilder().setPrettyPrinting().setDateFormat(AssetConstants.DATE_FORMAT).serializeNulls()
+			.create();
+	private static final Logger log = LogManager.getLogger(AssetController.class);
+
+	@Autowired
+	@Qualifier("assertreportdatServiceImpl")
+	private IassetreportdatService iassetreportdatService;
+
+	@Value("${MAINTAINANCE_CACHEINFO_URL}")
+	private String maintainanceCacheInfoUrl;
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETSERVICE)
+	private IAssetService assetService;
+
+	@Autowired
+	@Qualifier(AssetConstants.EXCHANGERATESERVICE)
+	private IExchangeRateService exchangeRateService;
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETKEYFIGURESERVICE)
+	private IAssetKeyFigureService assetKeyFigureService;
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETRETURNSSERVICE)
+	private IAssetReturnsService assetReturnsService;
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETPRICESERVICE)
+	private IAssetPriceService assetPriceService;
+
+	@Autowired
+	@Qualifier(AssetConstants.ASSETSPMATRICSSERVICE)
+	private IAssetSPMetricsService iAssetSPMetricsService;
+	
+	@Autowired
+	@Qualifier(AssetConstants.UNIVERSESTOCKSERVICE)
+	private IUniverseStockService universeStockService;
+
+	@Value("${RUNOUTPUTFILEFLAG}")
+	private Boolean runOutputFileFlag;
+
+	@PostMapping(value = "/assets")
+	public ResponseEntity<String> addAssets(@RequestBody String reqParam, HttpServletRequest httpServletRequest)
+			throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		String responseString = null;
+		try {
+			String tenantCode = null;
+			String accessToken = null;
+			AccessDetailVO accessDetailVO = new AccessDetailVO();
+			accessToken = httpServletRequest.getHeader("Authorization");
+			accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+			if (accessDetailVO.getTenantCode() != null) {
+				tenantCode = accessDetailVO.getTenantCode();
+			} else {
+				FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class));
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+						.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+			}
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(reqParam,
+					"./jsonschema/AssetAddRequest.json");
+
+			if (assetRequestErrors == null) {
+
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class);
+				JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+				assetRequestVO.set_tenantId(accessDetailVO.getTenantId());
+				assetRequestVO.setTenantCode(accessDetailVO.getTenantCode());
+				assetRequestVO.setUsername(accessDetailVO.getUsername());
+				assetRequestVO.setAccessToken(accessToken);
+				Map<String, Object> validationMap = AssetRequestValidator
+						.validateAssetAddRequest(gson.toJson(assetRequestVO));
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<AssetVO> successVOs = (List<AssetVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetVO>> failedVOs = (List<FailedVO<AssetVO>>) validationMap.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<JsonObject> totalVOs = (List<JsonObject>) validationMap.get("totalVOs");
+					boolean isInterfaceRequest = (boolean) validationMap.get("isInterfaceRequest");
+					if (successVOs != null && successVOs.size() > 0) {
+						assetService.addAssets(assetRequestVO.getTenantCode(), successVOs, failedVOs, totalVOs,
+								isInterfaceRequest, assetRequestVO);
+					}
+					if (isInterfaceRequest) {
+						responseString = AssetUtil.fromObjectToJSON(totalVOs);
+					} else {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					}
+
+				} else {
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorCode("404");
+					errorVO.setErrorMessage("Request object not correct!");
+					responseString = AssetUtil.fromObjectToJSON(errorVO);
+					return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(responseString);
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponseForAddAsset(reqParam, assetRequestErrors);
+			}
+		} catch (Exception exp) {
+			log.fatal("Error while add asset: ", exp);
+			exp.printStackTrace();
+			throw exp;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/assetsinfo")
+	public ResponseEntity<String> getAssets(@RequestBody String request) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		ResponseVO<AssetVO, AssetGetRequestVO> serviceResponse = null;
+		String responseString = null;
+		try {
+
+			List<String> response = AssetUtil.jsonSchemaValidator(request, "./jsonschema/AssetGetRequest.json");
+
+			if (response == null) {
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+				if (runOutputFileFlag == true) {
+					AssetUtil.logWritter("Req", "asset/assetsinfo", AssetUtil.fromObjectToJSON(assetRequestVO));
+				}
+
+				Map<String, Object> validationMap = AssetRequestValidator.validateAssetGetRequest(request,
+						assetRequestVO, "./jsonschema/assetsinfo.json");
+
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+							.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+
+					if (successVOs == null || successVOs.size() == 0) {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					} else {
+						// final result
+						Map<String, Object> responseMap = assetService.getAssets(successVOs, failedVOs, assetRequestVO);
+						@SuppressWarnings("unchecked")
+						List<AssetVO> finalSuccessVOs = (List<AssetVO>) responseMap.get("successVOs");
+						@SuppressWarnings("unchecked")
+						List<FailedVO<AssetGetRequestVO>> finalFailedVOs = (List<FailedVO<AssetGetRequestVO>>) responseMap
+								.get("failedVOs");
+						responseString = AssetUtil.getResponse(finalSuccessVOs, finalFailedVOs);
+					}
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponseForGet(request, response);
+			}
+		} catch (Exception exp) {
+			log.fatal("Error while getAssetsInfo", exp);
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		if (runOutputFileFlag == true) {
+			AssetUtil.logWritter("Res", "asset/assetsinfo", responseString);
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/structuredproductmetricsinfo")
+	public ResponseEntity<String> getStructureProductMertics(@RequestBody String requestVO) throws Exception {
+		String responseString = null;
+		try {
+			List<String> response = AssetUtil.jsonSchemaValidator(requestVO, "./jsonschema/AssetGetRequest.json");
+
+			if (response == null) {
+
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(requestVO, AssetRequestVO.class);
+				Map<String, Object> validationMap = AssetRequestValidator.validateAssetGetRequest(requestVO,
+						assetRequestVO, "./jsonschema/assetsinfo.json");
+
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+							.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+
+					if (successVOs == null || successVOs.size() == 0) {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					} else {
+						// final result
+						Map<String, Object> responseMap = iAssetSPMetricsService.getStructureProductMetrics(
+								assetRequestVO.getTenantCode(), successVOs, failedVOs, assetRequestVO);
+						@SuppressWarnings("unchecked")
+						List<AssetVO> finalSuccessVOs = (List<AssetVO>) responseMap.get("successVOs");
+						@SuppressWarnings("unchecked")
+						List<FailedVO<AssetGetRequestVO>> finalFailedVOs = (List<FailedVO<AssetGetRequestVO>>) responseMap
+								.get("failedVOs");
+						responseString = AssetUtil.getResponse(finalSuccessVOs, finalFailedVOs);
+					}
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponseForGet(requestVO, response);
+			}
+		} catch (Exception exception) {
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/structuredproductmetrics")
+	public ResponseEntity<String> addStructureProductMertics(@RequestBody String requestVO,HttpServletRequest httpServletRequest) throws Exception {
+		//if (log.fatal())
+			log.fatal("Entering");
+		String responseString = null;
+
+		try {
+			String tenantCode=null;
+			String accessToken = null;
+			AccessDetailVO accessDetailVO = new AccessDetailVO();
+			accessToken = httpServletRequest.getHeader("Authorization");
+			accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+			if (accessDetailVO.getTenantCode() != null) {
+				tenantCode = accessDetailVO.getTenantCode();
+			} else {
+				FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(requestVO, AssetRequestVO.class));
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+						.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+			}
+			AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(requestVO, AssetRequestVO.class);
+			assetRequestVO.set_tenantId(accessDetailVO.getTenantId());
+			assetRequestVO.setTenantCode(accessDetailVO.getTenantCode());
+			assetRequestVO.setUsername(accessDetailVO.getUsername());
+			Map<String, Object> validationMap = AssetRequestValidator.addAssetSPMetricsValidator(requestVO);
+			if (validationMap.size() > 0) {
+				@SuppressWarnings("unchecked")
+				List<AssetRequestVO> successVOs = (List<AssetRequestVO>) validationMap.get("successVOs");
+				@SuppressWarnings("unchecked")
+				List<FailedVO<AssetRequestVO>> failedVOs = (List<FailedVO<AssetRequestVO>>) validationMap
+						.get("failedVOs");
+				if (successVOs.size() > 0) {
+//					TODO for tenantCode
+					successVOs.get(0).setUsername(assetRequestVO.getUsername());
+					ResponseVO<AssetSPMetricsVO, AssetAddRequestVO> response = iAssetSPMetricsService
+							.addSPMertics(successVOs.get(0));
+					responseString = AssetUtil.getResponse(response.getSuccess(), response.getFailed());
+				} else {
+					responseString = AssetUtil.getResponse(successVOs, failedVOs);
+				}
+			}
+		} catch (Exception exp) {
+			log.fatal("Error while addStructureProductMertics : ", exp);
+			exp.printStackTrace();
+			throw exp;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(path = "/assetperformanceinfo")
+	public ResponseEntity<String> getAssetPerformanceInfo(@RequestBody String request) throws Exception {
+
+		String responseString = null;
+		try {
+			List<String> response = AssetUtil.jsonSchemaValidator(request, "./jsonschema/AssetGetRequest.json");
+
+			if (response == null) {
+				AssetRequestVO reqParam = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+				if (runOutputFileFlag == true) {
+					AssetUtil.logWritter("Req", "asset/assetperformanceinfo", AssetUtil.fromObjectToJSON(reqParam));
+				}
+				Map<String, Object> validationMap = AssetRequestValidator.validateAssetGetRequest(request, reqParam,
+						"./jsonschema/GetAssetPrice.json");
+
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+							.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+
+					if (successVOs == null || successVOs.size() == 0) {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					} else {
+						// final result
+						Map<String, Object> responseMap = assetService.getAssetPerformanceInfo(reqParam.getTenantCode(),
+								successVOs, failedVOs, reqParam);
+						@SuppressWarnings("unchecked")
+						List<AssetVO> finalSuccessVOs = (List<AssetVO>) responseMap.get("successVOs");
+						@SuppressWarnings("unchecked")
+						List<FailedVO<AssetGetRequestVO>> finalFailedVOs = (List<FailedVO<AssetGetRequestVO>>) responseMap
+								.get("failedVOs");
+						responseString = AssetUtil.getResponse(finalSuccessVOs, finalFailedVOs);
+					}
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponseForGet(request, response);
+			}
+		} catch (Exception e) {
+			log.fatal(e.getMessage());
+		}
+		if (runOutputFileFlag == true) {
+			AssetUtil.logWritter("Res", "asset/assetperformanceinfo", responseString);
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/assetskeyfigure")
+	public ResponseEntity<String> addAssetKeyFigures(@RequestBody String reqParam,
+			HttpServletRequest httpServletRequest) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		String responseString = null;
+		try {
+			String tenantCode = null;
+			String accessToken = null;
+			AccessDetailVO accessDetailVO = new AccessDetailVO();
+			accessToken = httpServletRequest.getHeader("Authorization");
+			accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+			if (accessDetailVO.getTenantCode() != null) {
+				tenantCode = accessDetailVO.getTenantCode();
+			} else {
+				FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class));
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+						.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+			}
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(reqParam,
+					"./jsonschema/AssetAddRequest.json");
+
+			if (assetRequestErrors == null) {
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class);
+				assetRequestVO.set_tenantId(accessDetailVO.getTenantId());
+				assetRequestVO.setTenantCode(accessDetailVO.getTenantCode());
+				assetRequestVO.setUsername(accessDetailVO.getUsername());
+				assetRequestVO.setAccessToken(accessToken);
+				Map<String, Object> validationMap = AssetRequestValidator
+						.addAssetKeyFigRequestValidator(gson.toJson(assetRequestVO));
+
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<AssetKeyFigureVO> successVOs = (List<AssetKeyFigureVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetKeyFigureVO>> failedVOs = (List<FailedVO<AssetKeyFigureVO>>) validationMap
+							.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<JsonObject> totalVOs = (List<JsonObject>) validationMap.get("totalVOs");
+					boolean isInterfaceRequest = (boolean) validationMap.get("isInterfaceRequest");
+					if (successVOs != null && successVOs.size() > 0) {
+						assetKeyFigureService.addAssetKeyFigures(successVOs, failedVOs, totalVOs, isInterfaceRequest,
+								assetRequestVO);
+					}
+					if (isInterfaceRequest) {
+						responseString = AssetUtil.fromObjectToJSON(totalVOs);
+					} else {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					}
+
+				} else {
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorCode("404");
+					errorVO.setErrorMessage("Request object not correct!");
+					responseString = AssetUtil.fromObjectToJSON(errorVO);
+					return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(responseString);
+
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponse(reqParam, assetRequestErrors, "assetKeyFigure");
+			}
+		} catch (Exception exp) {
+			log.fatal("Error while add exchangerate: ", exp);
+			exp.printStackTrace();
+			throw exp;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/assetskeyfigureinfobyids")
+	public ResponseEntity<String> getAssetsKeyFiguresById(@RequestBody String request) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		String responseString = null;
+		try {
+			AssetRequestVO entityRequestVO = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+			Map<String, Object> validationMap = AssetRequestValidator.validateAssetGetRequest(entityRequestVO);
+
+			if (validationMap.size() > 0) {
+				@SuppressWarnings("unchecked")
+				List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap.get("successVOs");
+				@SuppressWarnings("unchecked")
+				List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+						.get("failedVOs");
+				@SuppressWarnings("unchecked")
+				List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+
+				if (successVOs == null || successVOs.size() == 0) {
+					responseString = AssetUtil.getResponse(successVOs, failedVOs);
+				} else {
+					// final result
+					Map<String, Object> responseMap = assetKeyFigureService.getAssetsKeyFiguresById(
+							entityRequestVO.getTenantCode(), successVOs, failedVOs, entityRequestVO);
+					@SuppressWarnings("unchecked")
+					List<AssetVO> finalSuccessVOs = (List<AssetVO>) responseMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetGetRequestVO>> finalFailedVOs = (List<FailedVO<AssetGetRequestVO>>) responseMap
+							.get("failedVOs");
+					responseString = AssetUtil.getResponse(finalSuccessVOs, finalFailedVOs);
+				}
+			}
+
+		} catch (Exception exp) {
+			log.fatal("Error while add exchangerate: ", exp);
+			throw exp;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/assetskeyfigureinfo")
+	public ResponseEntity<String> getAssetsKeyFigures(@RequestBody String request) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		String responseString = null;
+		try {
+			List<String> response = AssetUtil.jsonSchemaValidator(request, "./jsonschema/AssetGetRequest.json");
+
+			if (response == null) {
+				AssetRequestVO entityRequestVO = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+				Map<String, Object> validationMap = AssetRequestValidator.validateAssetGetRequest(request,
+						entityRequestVO, "./jsonschema/GetAssetPrice.json");
+
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+							.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+
+					if (successVOs == null || successVOs.size() == 0) {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					} else {
+						// final result
+						Map<String, Object> responseMap = assetKeyFigureService.getAssetsKeyFigures(
+								entityRequestVO.getTenantCode(), successVOs, failedVOs, entityRequestVO);
+						@SuppressWarnings("unchecked")
+						List<AssetVO> finalSuccessVOs = (List<AssetVO>) responseMap.get("successVOs");
+						@SuppressWarnings("unchecked")
+						List<FailedVO<AssetGetRequestVO>> finalFailedVOs = (List<FailedVO<AssetGetRequestVO>>) responseMap
+								.get("failedVOs");
+						responseString = AssetUtil.getResponse(finalSuccessVOs, finalFailedVOs);
+					}
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponseForGet(request, response);
+			}
+		} catch (Exception exp) {
+			log.fatal("Error while add exchangerate : ", exp);
+			throw exp;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+//		if(//serviceResponse.getFailed()==null)
+//			return ResponseEntity.status(HttpStatus.OK).body(//serviceResponse);
+//		else
+//			return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT).body(//serviceResponse);
+
+	}
+
+	@PostMapping(value = "/assetsprice")
+	public ResponseEntity<String> addAssetPrice(@RequestBody String reqParam, HttpServletRequest httpServletRequest)
+			throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		String responseString = null;
+		try {
+			String tenantCode = null;
+			String accessToken = null;
+			AccessDetailVO accessDetailVO = new AccessDetailVO();
+			accessToken = httpServletRequest.getHeader("Authorization");
+			accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+			if (accessDetailVO.getTenantCode() != null) {
+				tenantCode = accessDetailVO.getTenantCode();
+			} else {
+				FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class));
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+						.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+			}
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(reqParam,
+					"./jsonschema/AssetAddRequest.json");
+
+			if (assetRequestErrors == null) {
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class);
+				assetRequestVO.set_tenantId(accessDetailVO.getTenantId());
+				assetRequestVO.setTenantCode(accessDetailVO.getTenantCode());
+				assetRequestVO.setUsername(accessDetailVO.getUsername());
+				assetRequestVO.setAccessToken(accessToken);
+				Map<String, Object> validationMap = AssetRequestValidator
+						.assetPriceAddRequestValidator(gson.toJson(assetRequestVO));
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<AssetPriceVO> successVOs = (List<AssetPriceVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetPriceVO>> failedVOs = (List<FailedVO<AssetPriceVO>>) validationMap
+							.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<JsonObject> totalVOs = (List<JsonObject>) validationMap.get("totalVOs");
+					boolean isInterfaceRequest = (boolean) validationMap.get("isInterfaceRequest");
+
+					if (successVOs != null && successVOs.size() > 0) {
+						assetPriceService.addAssetPrice(tenantCode, successVOs, failedVOs, totalVOs, isInterfaceRequest,
+								assetRequestVO);
+					}
+					if (isInterfaceRequest) {
+						responseString = AssetUtil.fromObjectToJSON(totalVOs);
+					} else {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					}
+
+				} else {
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorCode("404");
+					errorVO.setErrorMessage("Request object not correct!");
+					responseString = AssetUtil.fromObjectToJSON(errorVO);
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponse(reqParam, assetRequestErrors, "assetPrice");
+			}
+		} catch (Exception exp) {
+			log.fatal("Error while addAssetPrice : ", exp);
+			throw exp;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(path = "/priceinfo")
+	public ResponseEntity<String> getAssetsPrice(@RequestBody String reqParam) throws Exception {
+		ResponseVO<AssetPriceVO, AssetGetRequestVO> priceInfo = new ResponseVO<>();
+		String responseString = null;
+		try {
+			List<String> response = AssetUtil.jsonSchemaValidator(reqParam, "./jsonschema/AssetGetRequest.json");
+
+			if (response == null) {
+				AssetRequestVO entityRequestVO = AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class);
+				Map<String, Object> validationMap = AssetRequestValidator.validateAssetGetRequest(reqParam,
+						entityRequestVO, "./jsonschema/GetAssetPrice.json");
+
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+							.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+
+					if (successVOs == null || successVOs.size() == 0) {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					} else {
+						// final result
+						Map<String, Object> responseMap = assetPriceService
+								.getAssetPrice(entityRequestVO.getTenantCode(), successVOs, failedVOs, entityRequestVO);
+						@SuppressWarnings("unchecked")
+						List<AssetVO> finalSuccessVOs = (List<AssetVO>) responseMap.get("successVOs");
+						@SuppressWarnings("unchecked")
+						List<FailedVO<AssetGetRequestVO>> finalFailedVOs = (List<FailedVO<AssetGetRequestVO>>) responseMap
+								.get("failedVOs");
+						responseString = AssetUtil.getResponse(finalSuccessVOs, finalFailedVOs);
+					}
+				}
+
+			} else {
+				responseString = AssetUtil.getOuterStructureResponseForGet(reqParam, response);
+			}
+		} catch (Exception e) {
+			log.fatal(e.getMessage());
+			throw e;
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/assetsinactive")
+	public ResponseEntity<String> checkInactive(@RequestBody String reqParam) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+
+		String responseString = null;
+		try {
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(reqParam, "./jsonschema/AddSPMetrics.json");
+			if (assetRequestErrors == null) {
+				AssetRequestVO entityRequestVO = AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class);
+				responseString = assetService.assetsInactive(entityRequestVO);
+			} else {
+
+				for (String errors : assetRequestErrors) {
+					responseString += errors;
+				}
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(responseString);
+			}
+		} catch (Exception exp) {
+			log.fatal("Error while add Entity: ", exp);
+			exp.printStackTrace();
+			throw exp;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/exchangerateinfo")
+	public ResponseEntity<String> getExchangeRate(@RequestBody String reqParam) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		String responseString = null;
+		try {
+			List<String> response = AssetUtil.jsonSchemaValidator(reqParam, "./jsonschema/AssetGetRequest.json");
+			// AssetRequestVO assetRequestVO = = null;
+			if (response == null) {
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class);
+				if (runOutputFileFlag == true) {
+					AssetUtil.logWritter("Req", "asset/exchangerateinfo", AssetUtil.fromObjectToJSON(assetRequestVO));
+				}
+				Map<String, Object> validationMap = AssetRequestValidator.validateAssetGetRequest(reqParam,
+						assetRequestVO, "./jsonschema/GetExchangeRate.json");
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+							.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+
+					if (successVOs == null || successVOs.size() == 0) {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					} else {
+						// final result
+						Map<String, Object> responseMap = exchangeRateService
+								.getExchangeRate(assetRequestVO.getTenantCode(), successVOs, failedVOs, assetRequestVO);
+					
+						@SuppressWarnings("unchecked")
+						List<ExchangeRateVO> finalSuccessVOs = (List<ExchangeRateVO>) responseMap.get("successVOs");
+						@SuppressWarnings("unchecked")
+						List<FailedVO<AssetGetRequestVO>> finalFailedVOs = (List<FailedVO<AssetGetRequestVO>>) responseMap
+								.get("failedVOs");
+						responseString = AssetUtil.getResponse(finalSuccessVOs, finalFailedVOs);
+					}
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponseForGet(reqParam, response);
+			}
+		} catch (Exception exp) {
+			log.fatal("Error while add exchangerate: ", exp);
+			exp.printStackTrace();
+			// return null;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		if (runOutputFileFlag == true) {
+			AssetUtil.logWritter("Res", "asset/exchangerateinfo", responseString);
+		}
+		
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/exchangeratesinfobyid")
+	public ResponseEntity<String> getExchangeRateById(@RequestBody String reqParam) {
+
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		String responseString = null;
+		try {
+			AssetRequestVO entityRequestVO = AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class);
+			Map<String, Object> validationMap = AssetRequestValidator.validateAssetGetRequestForIds(entityRequestVO);
+
+			if (validationMap.size() > 0) {
+				@SuppressWarnings("unchecked")
+				List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap.get("successVOs");
+				@SuppressWarnings("unchecked")
+				List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+						.get("failedVOs");
+				@SuppressWarnings("unchecked")
+				List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+
+				if (successVOs == null || successVOs.size() == 0) {
+					responseString = AssetUtil.getResponse(successVOs, failedVOs);
+				} else {
+					// final result
+					Map<String, Object> responseMap = exchangeRateService.getExchangeRateById(
+							entityRequestVO.getTenantCode(), successVOs, failedVOs, entityRequestVO);
+					@SuppressWarnings("unchecked")
+					List<AssetVO> finalSuccessVOs = (List<AssetVO>) responseMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetGetRequestVO>> finalFailedVOs = (List<FailedVO<AssetGetRequestVO>>) responseMap
+							.get("failedVOs");
+					responseString = AssetUtil.getResponse(finalSuccessVOs, finalFailedVOs);
+				}
+			}
+
+		} catch (Exception exp) {
+			log.fatal("Error while add exchangerate");
+			// return null;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/exchangeRates")
+	public ResponseEntity<String> addExchangeRates(@RequestBody String reqParam, HttpServletRequest httpServletRequest)
+			throws Exception {
+
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		String responseString = null;
+		try {
+			String tenantCode = null;
+			String accessToken = null;
+			AccessDetailVO accessDetailVO = new AccessDetailVO();
+			accessToken = httpServletRequest.getHeader("Authorization");
+			accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+			if (accessDetailVO.getTenantCode() != null) {
+				tenantCode = accessDetailVO.getTenantCode();
+			} else {
+				FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class));
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+						.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+			}
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(reqParam,
+					"./jsonschema/AssetAddRequest.json");
+
+			if (assetRequestErrors == null) {
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class);
+				JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+				assetRequestVO.set_tenantId(accessDetailVO.getTenantId());
+				assetRequestVO.setTenantCode(accessDetailVO.getTenantCode());
+				assetRequestVO.setUsername(accessDetailVO.getUsername());
+				assetRequestVO.setAccessToken(accessToken);
+				Map<String, Object> validationMap = AssetRequestValidator
+						.validateExchangeRateAddRequest(gson.toJson(assetRequestVO));
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<ExchangeRateVO> successVOs = (List<ExchangeRateVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<ExchangeRateVO>> failedVOs = (List<FailedVO<ExchangeRateVO>>) validationMap
+							.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<JsonObject> totalVOs = (List<JsonObject>) validationMap.get("totalVOs");
+					boolean isInterfaceRequest = (boolean) validationMap.get("isInterfaceRequest");
+					if (successVOs != null && successVOs.size() > 0) {
+						exchangeRateService.addExchangeRates(assetRequestVO.getTenantCode(), successVOs, failedVOs,
+								totalVOs, isInterfaceRequest, assetRequestVO);
+					}
+					if (isInterfaceRequest) {
+						responseString = AssetUtil.fromObjectToJSON(totalVOs);
+					} else {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					}
+
+				} else {
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorCode("404");
+					errorVO.setErrorMessage("Request object not correct!");
+					responseString = AssetUtil.fromObjectToJSON(errorVO);
+					return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(responseString);
+
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponse(reqParam, assetRequestErrors, "exchangeRate");
+			}
+		} catch (Exception exp) {
+			log.fatal("Error while add exchangerate");
+			exp.printStackTrace();
+			throw exp;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/assetsreturns")
+	public ResponseEntity<String> addAssetReturns(@RequestBody String reqParam, HttpServletRequest httpServletRequest)
+			throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		String responseString = null;
+		try {
+			String tenantCode = null;
+			String accessToken = null;
+			AccessDetailVO accessDetailVO = new AccessDetailVO();
+			accessToken = httpServletRequest.getHeader("Authorization");
+			accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+			if (accessDetailVO.getTenantCode() != null) {
+				tenantCode = accessDetailVO.getTenantCode();
+			} else {
+				FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class));
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+						.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+			}
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(reqParam,
+					"./jsonschema/AssetAddRequest.json");
+			
+			if (assetRequestErrors == null) {
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class);
+				JsonObject jsonObject = gson.fromJson(reqParam, JsonObject.class);
+				assetRequestVO.set_tenantId(accessDetailVO.getTenantId());
+				assetRequestVO.setTenantCode(accessDetailVO.getTenantCode());
+				assetRequestVO.setUsername(accessDetailVO.getUsername());
+				assetRequestVO.setAccessToken(accessToken);
+				Map<String, Object> validationMap = AssetRequestValidator
+						.addAssetReturnValidator(gson.toJson(assetRequestVO));
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<AssetReturnsVO> successVOs = (List<AssetReturnsVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetReturnsVO>> failedVOs = (List<FailedVO<AssetReturnsVO>>) validationMap
+							.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<JsonObject> totalVOs = (List<JsonObject>) validationMap.get("totalVOs");
+					boolean isInterfaceRequest = (boolean) validationMap.get("isInterfaceRequest");
+
+					if (successVOs != null && successVOs.size() > 0) {
+						assetReturnsService.addAssetReturns(assetRequestVO.getTenantCode(), successVOs, failedVOs,
+								totalVOs, isInterfaceRequest, assetRequestVO);
+					}
+					if (isInterfaceRequest) {
+						responseString = AssetUtil.fromObjectToJSON(totalVOs);
+					} else {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					}
+
+				} else {
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorCode("404");
+					errorVO.setErrorMessage("Request object not correct!");
+					responseString = AssetUtil.fromObjectToJSON(errorVO);
+					return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(responseString);
+
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponse(reqParam, assetRequestErrors, "assetReturns");
+			}
+		} catch (Exception exp) {
+			log.fatal("Error while add asset", exp);
+			throw exp;
+
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/compositeasset")
+	public ResponseEntity<String> compositeAsset(@RequestBody String assetCompositeRequest,
+			HttpServletRequest httpServletRequest) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		String finalresponseString = null;
+
+		try {
+			String tenantCode = null;
+			String accessToken = null;
+			AccessDetailVO accessDetailVO = new AccessDetailVO();
+			accessToken = httpServletRequest.getHeader("Authorization");
+			accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+			if (accessDetailVO.getTenantCode() != null) {
+				tenantCode = accessDetailVO.getTenantCode();
+			} else {
+				FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(assetCompositeRequest, AssetRequestVO.class));
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+						.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+			}
+			AssetRequestVO compositeRequestVO = AssetUtil.fromJSonToObject(assetCompositeRequest, AssetRequestVO.class);
+			HashMap<String, String> allRequestVOs = AssetUtil.filterRequests(compositeRequestVO, assetCompositeRequest);
+			AssetCompositeResponseVO compositevo = new AssetCompositeResponseVO();
+			String assetAddRequest = allRequestVOs.get("asset");
+			String assetReturnAddRequest = allRequestVOs.get("assetReturn");
+			String assetPriceRequest = allRequestVOs.get("assetPrice");
+			boolean isRequestInCorrect = false;
+			log.fatal("assetReturnAddRequest="+gson.toJson(assetReturnAddRequest));
+			String responseString = null;
+			/************************** Asset ********************************/
+
+			List<String> assetErrors = AssetUtil.jsonSchemaValidator(assetAddRequest,
+					"./jsonschema/AssetAddRequest.json");
+			AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(assetCompositeRequest, AssetRequestVO.class);
+			assetRequestVO.set_tenantId(accessDetailVO.getTenantId());
+			assetRequestVO.setTenantCode(accessDetailVO.getTenantCode());
+			assetRequestVO.setUsername(accessDetailVO.getUsername());
+			assetRequestVO.setAccessToken(accessToken);
+			JsonObject jsonObject = gson.fromJson(assetAddRequest, JsonObject.class);
+			if (assetErrors == null) {
+				AssetRequestVO entityRequestVO = AssetUtil.fromJSonToObject(assetAddRequest, AssetRequestVO.class);
+
+				Map<String, Object> validationMap1 = AssetRequestValidator.validateAssetAddRequest(assetAddRequest,
+						true,assetRequestVO);
+
+				if (validationMap1.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<AssetVO> successVOs = (List<AssetVO>) validationMap1.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetVO>> failedVOs = (List<FailedVO<AssetVO>>) validationMap1.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<JsonObject> totalVOs = (List<JsonObject>) validationMap1.get("totalVOs");
+
+					boolean isInterfaceRequest = (boolean) validationMap1.get("isInterfaceRequest");
+
+					if (successVOs != null && successVOs.size() > 0) {
+						assetService.addAssets(assetRequestVO.getTenantCode(), successVOs, failedVOs, totalVOs,
+								isInterfaceRequest, assetRequestVO);
+					}
+
+					// compositevo.setAssetVOs(AssetUtil.fromJSonList(totalVOs.toString(),
+					// AssetVO.class));
+					compositevo.setAssetVOs(totalVOs);
+
+//						if (isInterfaceRequest) {
+//							responseString = AssetUtil.fromObjectToJSON(totalVOs);
+//						} else {
+//							responseString = AssetUtil.getResponse(successVOs, failedVOs);
+//						}
+
+				}
+
+			} else {
+				isRequestInCorrect = true;
+				responseString = AssetUtil.getOuterStructureResponseForAddAsset(assetAddRequest, assetErrors);
+			}
+
+			/************************** Asset Returns ********************************/
+			if (!isRequestInCorrect) {
+				List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(assetReturnAddRequest,
+						"./jsonschema/AssetAddRequest.json");
+
+				if (assetRequestErrors == null) {
+					AssetRequestVO assetReturnRequestVO = AssetUtil.fromJSonToObject(assetReturnAddRequest,
+							AssetRequestVO.class);
+					assetReturnRequestVO.set_tenantId(assetRequestVO.get_tenantId());
+					assetReturnRequestVO.setUsername(accessDetailVO.getUsername());
+					assetReturnRequestVO.setAccessToken(accessToken);
+					// Map<String, Object> validationMap =
+					// AssetRequestValidator.validateAssetReturns(entityRequestVO);
+					Map<String, Object> validationMap2 = AssetRequestValidator
+							.addAssetReturnValidator(gson.toJson(assetReturnRequestVO));
+
+					if (validationMap2.size() > 0) {
+						@SuppressWarnings("unchecked")
+						List<AssetReturnsVO> successVOs = (List<AssetReturnsVO>) validationMap2.get("successVOs");
+						@SuppressWarnings("unchecked")
+						List<FailedVO<AssetReturnsVO>> failedVOs = (List<FailedVO<AssetReturnsVO>>) validationMap2
+								.get("failedVOs");
+						@SuppressWarnings("unchecked")
+						List<JsonObject> totalVOs = (List<JsonObject>) validationMap2.get("totalVOs");
+						boolean isInterfaceRequest = (boolean) validationMap2.get("isInterfaceRequest");
+
+						if (successVOs != null && successVOs.size() > 0) {
+							assetReturnsService.addAssetReturns(assetReturnRequestVO.getTenantCode(), successVOs,
+									failedVOs, totalVOs, isInterfaceRequest, assetReturnRequestVO);
+						}
+						// compositevo.setAssetReturnVOs(AssetUtil.fromJSonList(totalVOs.toString(),
+						// AssetReturnsVO.class));
+						compositevo.setAssetReturnVOs(totalVOs);
+
+//						if (isInterfaceRequest) {
+//							responseString = AssetUtil.fromObjectToJSON(compositevo);
+//						} else {
+//							responseString = AssetUtil.getResponse(successVOs, failedVOs);
+//						}
+
+					}
+				} else {
+					isRequestInCorrect = true;
+					responseString = AssetRequestValidator.getAssetReturnsOuterStructureResponse(assetReturnAddRequest,
+							assetRequestErrors, "assetreturns");
+				}
+			}
+
+			/************************** Asset Price ********************************/
+
+			if (!isRequestInCorrect) {
+				List<String> assetPriceErrors = AssetUtil.jsonSchemaValidator(assetPriceRequest,
+						"./jsonschema/AssetAddRequest.json");
+
+				if (assetPriceErrors == null) {
+					AssetRequestVO assetPriceVO = (AssetRequestVO) AssetUtil.fromJSonToObject(assetPriceRequest,
+							AssetRequestVO.class);
+					assetPriceVO.set_tenantId(assetRequestVO.get_tenantId());
+					assetPriceVO.setUsername(accessDetailVO.getUsername());
+					assetPriceVO.setAccessToken(accessToken);
+					// Map<String, Object> validationMap =
+					// AssetRequestValidator.validateAssetPriceAddRequest(passetvo);
+					Map<String, Object> validationMap3 = AssetRequestValidator
+							.assetPriceAddRequestValidator(gson.toJson(assetPriceVO));
+					if (validationMap3.size() > 0) {
+						@SuppressWarnings("unchecked")
+						List<AssetPriceVO> successVOs = (List<AssetPriceVO>) validationMap3.get("successVOs");
+						@SuppressWarnings("unchecked")
+						List<FailedVO<AssetPriceVO>> failedVOs = (List<FailedVO<AssetPriceVO>>) validationMap3
+								.get("failedVOs");
+						@SuppressWarnings("unchecked")
+						List<JsonObject> totalVOs = (List<JsonObject>) validationMap3.get("totalVOs");
+						boolean isInterfaceRequest = (boolean) validationMap3.get("isInterfaceRequest");
+
+						if (successVOs != null && successVOs.size() > 0) {
+							assetPriceService.addAssetPrice(assetPriceVO.getTenantCode(), successVOs, failedVOs,
+									totalVOs, isInterfaceRequest, assetPriceVO);
+						}
+
+						// compositevo.setAssetPriceVOs(AssetUtil.fromJSonList(totalVOs.toString(),
+						// AssetPriceVO.class));
+						compositevo.setAssetPriceVOs(totalVOs);
+
+//						if (isInterfaceRequest) {
+//							responseString = AssetUtil.fromObjectToJSON(compositevo);
+//						} else {
+//							responseString = AssetUtil.getResponse(successVOs, failedVOs);
+//						}
+
+					}
+				} else {
+					isRequestInCorrect = true;
+					responseString = AssetRequestValidator.getAssetPriceOuterStructureResponse(assetPriceRequest,
+							assetPriceErrors, "assetprice");
+				}
+			}
+			finalresponseString = gson.toJson(compositevo);
+
+			if (compositevo == null) {
+				ErrorVO errorVO = new ErrorVO();
+				errorVO.setErrorCode("404");
+				errorVO.setErrorMessage("Request object not correct!");
+				finalresponseString = AssetUtil.fromObjectToJSON(errorVO);
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(finalresponseString);
+			}
+		} catch (Exception exp) {
+			exp.printStackTrace();
+			log.fatal("Error while add asset: ", exp);
+			throw exp;
+
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+		return ResponseEntity.status(HttpStatus.OK).body(finalresponseString);
+	}
+
+	@PostMapping("/searchasset")
+	public ResponseEntity<String> getAssetSearchInResponse(@RequestBody String request) throws Exception {
+
+		ResponseVO<SearchResultDataVO, SearchRequestVO> response = null;
+		String responseString = null;
+		List<FailedVO<SearchRequestVO>> failedVOs = new ArrayList<FailedVO<SearchRequestVO>>();
+		try {
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(request, "./jsonschema/SearchAsset.json");
+
+			if (assetRequestErrors == null) {
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+				response = assetService.getAssetSearchInResponse(assetRequestVO);
+				responseString = AssetUtil.fromObjectToJSON(response);
+			} else {
+				JsonObject jsonObject = gson.fromJson(request, JsonObject.class);
+				JsonObject searchRequest = jsonObject.get("searchRequest").getAsJsonObject();
+				FailedVO<SearchRequestVO> failedVO = new FailedVO<SearchRequestVO>();
+				// failedVO.setIdentityDetails(entityRequestVO.getSearchRequest());
+				failedVO.setIdentityDetailsAsString(
+						(JsonObject) AssetUtil.convertToObject(searchRequest.toString(), JsonObject.class));
+				failedVO.setTenantCode(jsonObject.getAsJsonObject().get("tenantCode") != null
+						? jsonObject.getAsJsonObject().get("tenantCode").getAsString()
+						: null);
+				failedVO.set_tenantId(jsonObject.getAsJsonObject().get("tenantId") != null
+						? jsonObject.getAsJsonObject().get("tenantId").getAsBigDecimal()
+						: null);
+				response = new ResponseVO<SearchResultDataVO, SearchRequestVO>();
+				List<ErrorVO> errors = new ArrayList<ErrorVO>();
+				for (int i = 0; i < assetRequestErrors.size(); i++) {
+					ErrorVO error = new ErrorVO();
+					error.setErrorCode("JSAST999");
+					error.setErrorMessage(AssetUtil.formatErrorMessage(assetRequestErrors.get(i)));
+					errors.add(error);
+					log.fatal(assetRequestErrors.get(i));
+				}
+				failedVO.setErrors(errors);
+				failedVOs.add(failedVO);
+				responseString = AssetUtil.getResponse(null, failedVOs);
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			log.fatal("Error occurred in getAssetSearchInResponse: " + ex);
+			throw ex;
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/deleteAsset")
+	public ResponseEntity<ResponseVO> deleteActiveAsset(@RequestBody String jsonString) {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		AssetRequestVO assetRequestVO = null;
+		List<ErrorVO> errorVOs = new ArrayList<>();
+		ResponseVO responseVO = new ResponseVO();
+		try {
+			assetRequestVO = AssetUtil.fromJSonToObject(jsonString, AssetRequestVO.class);
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(jsonString,
+					"./jsonschema/DeleteAsset.json");
+			if (assetRequestErrors == null) {
+				responseVO = assetService.deleteActiveAssetService(assetRequestVO.getTenantCode());
+			} else {
+				List<JsonObject> totalVOs = new ArrayList<>();
+				List<AssetRequestVO> successVOs = new ArrayList<>();
+				List<FailedVO<AssetRequestVO>> failedVOs = new ArrayList<>();
+
+				for (String error : assetRequestErrors) {
+					ErrorVO e1 = new ErrorVO();
+					e1.setErrorCode("JSAST999");
+					// e1.setErrorMessage((AssetUtil.fromObjectToJSON(error)));
+					errorVOs.add(e1);
+					log.fatal((AssetUtil.fromObjectToJSON(error)));
+				}
+				FailedVO<AssetRequestVO> failedVO = new FailedVO<>();
+				failedVO.setErrors(errorVOs);
+				failedVO.setIdentityDetails(assetRequestVO);
+				failedVOs.add(failedVO);
+				responseVO.setFailed(failedVOs);
+
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(responseVO);
+			}
+		} catch (Exception exp) {
+			log.fatal("Error while delete Asset");
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(responseVO);
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+		return ResponseEntity.status(HttpStatus.OK).body(responseVO);
+
+	}
+
+	@PostMapping("/languageresourcebundle")
+	public ResponseEntity<String> getLanguageResourceBundle(@RequestBody String jsonString) throws Exception {
+
+		String resourceBundle = null;
+		try {
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(jsonString,
+					"./jsonschema/LanguageBundle.json");
+			if (assetRequestErrors == null) {
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(jsonString, AssetRequestVO.class);
+				resourceBundle = assetService.getLanguageResourceBundle(assetRequestVO.getLanguageCode());
+			} else {
+				for (String errors : assetRequestErrors) {
+					resourceBundle += errors;
+				}
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(resourceBundle);
+			}
+		} catch (Exception ex) {
+			log.fatal("Error occurred in getLanguageResourceBundle: " + ex);
+			ErrorVO errorVO = new ErrorVO();
+			errorVO.setErrorCode("404");
+			errorVO.setErrorMessage("Language Resource Bundle file is not available");
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(AssetUtil.fromObjectToJSON(errorVO));
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(resourceBundle);
+	}
+
+	@PostMapping(path = "/assetperformanceinfomap")
+	public ResponseEntity<String> getAssetPerformanceInfomap(@RequestBody String request) throws Exception {
+		String responseString = null;
+		try {
+			AssetRequestVO reqParam = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+			if (runOutputFileFlag == true) {
+				AssetUtil.logWritter("Req", "asset/assetperformanceinfomap", AssetUtil.fromObjectToJSON(reqParam));
+			}
+
+			Map<String, Object> validationMap = AssetRequestValidator.validateAssetGetRequest(reqParam);
+
+			if (validationMap.size() > 0) {
+				@SuppressWarnings("unchecked")
+				List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap.get("successVOs");
+				@SuppressWarnings("unchecked")
+				List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+						.get("failedVOs");
+				@SuppressWarnings("unchecked")
+				List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+
+				if (successVOs == null || successVOs.size() == 0) {
+					responseString = AssetUtil.getResponse(successVOs, failedVOs);
+				} else {
+					// final result
+					Map<String, Object> responseMap = assetService.getAssetPerformanceInfoMap(reqParam.getTenantCode(),
+							successVOs, failedVOs, reqParam);
+					@SuppressWarnings("unchecked")
+					HashMap<String, AssetVO> finalSuccessVOMap = (HashMap<String, AssetVO>) responseMap
+							.get("successVOMap");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetGetRequestVO>> finalFailedVOs = (List<FailedVO<AssetGetRequestVO>>) responseMap
+							.get("failedVOs");
+					responseString = AssetUtil.getResponseMap(finalSuccessVOMap, finalFailedVOs);
+				}
+			}
+
+		} catch (Exception e) {
+			log.fatal("Error in getAssetPerformanceInfomap: ", e);
+			throw e;
+		}
+		if (runOutputFileFlag == true) {
+			AssetUtil.logWritter("Res", "asset/assetperformanceinfomap", responseString);
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/assetsinfomap")
+	public ResponseEntity<String> getAssetsMap(@RequestBody String request) {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		ResponseVO<AssetVO, AssetGetRequestVO> serviceResponse = null;
+		String responseString = null;
+		try {
+
+			List<String> response = AssetUtil.jsonSchemaValidator(request, "./jsonschema/AssetGetRequest.json");
+
+			if (response == null) {
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+				Map<String, Object> validationMap = AssetRequestValidator.validateAssetGetRequest(request,
+						assetRequestVO, "./jsonschema/assetsinfo.json");
+
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+							.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+
+					if (successVOs == null || successVOs.size() == 0) {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					} else {
+						// final result
+						Map<String, Object> responseMap = assetService.getAssetsMap(assetRequestVO.getTenantCode(),
+								successVOs, failedVOs, assetRequestVO);
+						@SuppressWarnings("unchecked")
+						HashMap<String, AssetVO> finalSuccessVOs = (HashMap<String, AssetVO>) responseMap
+								.get("successVOs");
+						@SuppressWarnings("unchecked")
+						List<FailedVO<AssetGetRequestVO>> finalFailedVOs = (List<FailedVO<AssetGetRequestVO>>) responseMap
+								.get("failedVOs");
+						responseString = AssetUtil.getResponseMap(finalSuccessVOs, finalFailedVOs);
+					}
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponseForGet(request, response);
+			}
+		} catch (Exception exp) {
+			log.fatal("Error while getAssetsInfo", exp);
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	@PostMapping(value = "/exchangerateinfobydate")
+	public ResponseEntity<String> getExchangeRateInfoByDate(@RequestBody String reqParam) throws Exception {
+
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		String responseString = null;
+		try {
+
+			List<String> response = AssetUtil.jsonSchemaValidator(reqParam, "./jsonschema/AssetGetRequest.json");
+
+			if (response == null) {
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(reqParam, AssetRequestVO.class);
+				Map<String, Object> validationMap = AssetRequestValidator.validateAssetGetRequest(reqParam,
+						assetRequestVO, "./jsonschema/GetExchangeRateInfoByDate.json");
+
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+							.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+
+					if (successVOs == null || successVOs.size() == 0) {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					} else {
+						// final result
+						Map<String, Object> responseMap = exchangeRateService.getExchangeRateInfoByDate(
+								assetRequestVO.getTenantCode(), successVOs, failedVOs, assetRequestVO);
+						@SuppressWarnings("unchecked")
+						List<ExchangeRateVO> finalSuccessVOs = (List<ExchangeRateVO>) responseMap.get("successVOs");
+						@SuppressWarnings("unchecked")
+						List<FailedVO<AssetGetRequestVO>> finalFailedVOs = (List<FailedVO<AssetGetRequestVO>>) responseMap
+								.get("failedVOs");
+						responseString = AssetUtil.getResponse(finalSuccessVOs, finalFailedVOs);
+					}
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponseForGet(reqParam, response);
+			}
+		} catch (Exception exp) {
+			log.fatal("Error while getExchangeRateInfoByDate: ", exp);
+			throw exp;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+
+	// for debugging
+	// for tempk let sat its does not have any body
+	@PostMapping(value = "/generateerrorreport")
+	public ResponseEntity<String> generateErrorReport(@RequestBody String jsonString) throws Exception {
+		// for debugging
+		// (" See this json string : "+jsonString);
+		String date = "";
+		JsonObject obj = null;
+		try {
+			obj = AssetUtil.fromJSonToObject(jsonString, JsonObject.class);
+		} catch (Exception err) {
+			// (" Error while extracting date ");
+			err.printStackTrace();
+		}
+
+		if (obj != null && obj.get("Date") != null && obj.get("Date").getAsString() != null) {
+			date = obj.get("Date").getAsString();
+			// (" See this date : "+date);
+		} else {
+			// (" date not found See leftover string : "+jsonString);
+		}
+
+		// (" working ");
+		// for debugging
+
+		// No usage of date till now
+		JSONObject holder = iassetreportdatService.reportService(date);
+		return ResponseEntity.status(HttpStatus.OK).body(holder.toString());
+	}
+	
+	@PostMapping("universestocks")
+	public ResponseEntity<String> addUniverseStocks(@RequestBody String jsonRequest, HttpServletRequest httpServletRequest) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		
+		String responseString = null;
+		
+		try {
+			
+			String tenantCode = null;
+			String accessToken = null;
+			AccessDetailVO accessDetailVO = new AccessDetailVO();
+			accessToken = httpServletRequest.getHeader("Authorization");
+			accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+			if (accessDetailVO.getTenantCode() != null) {
+				tenantCode = accessDetailVO.getTenantCode();
+			} else {
+				FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(jsonRequest, AssetRequestVO.class));
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+						.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+			}
+			
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(jsonRequest,"./jsonschema/AssetAddRequest.json");
+			
+			if (assetRequestErrors == null) {
+
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(jsonRequest, AssetRequestVO.class);
+				//JsonObject jsonObject = gson.fromJson(jsonRequest, JsonObject.class);
+				assetRequestVO.set_tenantId(accessDetailVO.getTenantId());
+				assetRequestVO.setTenantCode(accessDetailVO.getTenantCode());
+				assetRequestVO.setUsername(accessDetailVO.getUsername());
+				Map<String, Object> validationMap = AssetRequestValidator.validateUniverseStockAddRequest(jsonRequest, assetRequestVO);
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<UniverseStockVO> successVOs = (List<UniverseStockVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<UniverseStockVO>> failedVOs = (List<FailedVO<UniverseStockVO>>) validationMap.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<JsonObject> totalVOs = (List<JsonObject>) validationMap.get("totalVOs");
+					boolean isInterfaceRequest = (boolean) validationMap.get("isInterfaceRequest");
+					if (successVOs != null && successVOs.size() > 0) {
+						universeStockService.addUniverseStocks(assetRequestVO.getTenantCode(), successVOs, failedVOs, totalVOs,
+								isInterfaceRequest, assetRequestVO, httpServletRequest,accessDetailVO);
+					}
+					if (isInterfaceRequest) {
+						responseString = AssetUtil.fromObjectToJSON(totalVOs);
+					} else {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					}
+
+				} else {
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorCode("404");
+					errorVO.setErrorMessage("Request object not correct!");
+					responseString = AssetUtil.fromObjectToJSON(errorVO);
+					return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(responseString);
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponse(jsonRequest, assetRequestErrors,"universeStock");
+			}
+	
+		}catch(Exception ex) {
+			log.fatal("Error in addUniverseStocks: ",ex);
+			throw ex;
+		}
+		
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+		
+	}
+
+	
+	@PostMapping(value="universestockdetailsbyterminal")
+	public ResponseEntity<String> universeStockDetailsByTerminal(@RequestBody String reqString,HttpServletRequest httpServletRequest) throws Exception{
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		
+		String responseString = null;
+		try {
+			String tenantCode = null;
+			String accessToken = null;
+			AccessDetailVO accessDetailVO = new AccessDetailVO();
+			accessToken = httpServletRequest.getHeader("Authorization");
+			accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+			if (accessDetailVO.getTenantCode() != null) {
+				tenantCode = accessDetailVO.getTenantCode();
+			} else {
+				FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(reqString, AssetRequestVO.class));
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+						.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+			}
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(reqString,"./jsonschema/AssetAddRequest.json");
+			if(assetRequestErrors==null) {
+			
+				AssetRequestVO assetRequestVO=AssetUtil.fromJSonToObject(reqString, AssetRequestVO.class);
+				assetRequestVO.set_tenantId(accessDetailVO.getTenantId());
+				assetRequestVO.setTenantCode(accessDetailVO.getTenantCode());
+				assetRequestVO.setUsername(accessDetailVO.getUsername());	
+			
+				JsonObject jsonObject = gson.fromJson(reqString, JsonObject.class);
+				
+//				assetRequestVO.set_tenantId(jsonObject.get("_tenantId")!=null ? jsonObject.get("_tenantId").getAsBigDecimal()
+//						: null);
+//				assetRequestVO.setTenantCode(jsonObject.get("tenantCode").getAsString());
+				Map<String, Object> validationMap = AssetRequestValidator.validateUniverseStockByTerminal(reqString,assetRequestVO);
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<UniverseStockDetailsByTerminalVO> successVOs = (List<UniverseStockDetailsByTerminalVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<UniverseStockDetailsByTerminalVO>> failedVOs = (List<FailedVO<UniverseStockDetailsByTerminalVO>>) validationMap
+							.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<JsonObject> totalVOs = (List<JsonObject>) validationMap.get("totalVOs");
+					
+					boolean isInterfaceRequest = (boolean) validationMap.get("isInterfaceRequest");
+					if (successVOs != null && successVOs.size() > 0) {
+						universeStockService.addUniverseStockDetailByTerminal(successVOs, failedVOs, totalVOs,isInterfaceRequest, assetRequestVO);
+						
+					}
+					if (isInterfaceRequest) {
+						responseString = AssetUtil.fromObjectToJSON(totalVOs);					
+					} else {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					}
+
+				} else {
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorCode("404");
+					errorVO.setErrorMessage("Request object not correct!");
+					responseString = AssetUtil.fromObjectToJSON(errorVO);
+					return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(responseString);
+
+				}
+			}
+			
+		}catch(Exception e) {
+			log.fatal("EXCEPTION in universe stock detail by terminal : ",e);
+			throw e;
+			
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+	
+	@PostMapping(value="/fialedAsset")
+	public ResponseEntity<String> failedAsset(@RequestBody String requestString) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		List<FailedAssetVO> fialAssetVOs=new ArrayList<>();
+		ResponseVO responseVO=new ResponseVO<>();
+		String tenantCode=null;
+		String refrenceDate=null;
+		try {
+			JsonObject jsonObject=AssetUtil.fromJSonToObject(requestString, JsonObject.class);
+			tenantCode=jsonObject.get("tenantCode").getAsString();
+			refrenceDate=jsonObject.get("refrenceDate").getAsString();
+			fialAssetVOs=iassetreportdatService.failedAsset(refrenceDate,tenantCode);
+			responseVO.setSuccess(fialAssetVOs);
+			responseVO.setTotalRecords(fialAssetVOs.size());
+		}catch (Exception e) {
+			log.fatal("Error in failed asset"+e.getMessage());
+			e.printStackTrace();
+		}
+		log.debug("Leaving");
+		return ResponseEntity.status(HttpStatus.OK).body(AssetUtil.fromObjectToJSON(responseVO));
+	}
+
+
+	@PostMapping(value="/assetunderlying")
+public ResponseEntity<String> assetUnderlying(@RequestBody String jsonString,HttpServletRequest httpServletRequest) throws Exception{
+if (log.isDebugEnabled())
+log.debug("Entering");
+String responseString = null;
+try {
+String tenantCode=null;
+String accessToken = null;
+AccessDetailVO accessDetailVO = new AccessDetailVO();
+accessToken = httpServletRequest.getHeader("Authorization");
+accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+if (accessDetailVO.getTenantCode() != null) {
+tenantCode = accessDetailVO.getTenantCode();
+} else {
+FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(jsonString, AssetRequestVO.class));
+return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+}
+
+List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(jsonString,"./jsonschema/AssetAddRequest.json");
+if(assetRequestErrors==null) {
+AssetRequestVO assetRequestVO=AssetUtil.fromJSonToObject(jsonString, AssetRequestVO.class);
+assetRequestVO.setTenantCode(accessDetailVO.getTenantCode());
+assetRequestVO.setUsername(accessDetailVO.getUsername());
+assetRequestVO.setAccessToken(accessToken);
+
+Map<String, Object> validationMap = AssetRequestValidator.validateAssetUnderLying(jsonString,assetRequestVO);
+
+if (validationMap.size() > 0) {
+@SuppressWarnings("unchecked")
+List<UnderlyingAssetsVO> successVOs = (List<UnderlyingAssetsVO>) validationMap.get("successVOs");
+@SuppressWarnings("unchecked")
+List<FailedVO<UnderlyingAssetsVO>> failedVOs = (List<FailedVO<UnderlyingAssetsVO>>) validationMap
+.get("failedVOs");
+@SuppressWarnings("unchecked")
+List<JsonObject> totalVOs = (List<JsonObject>) validationMap.get("totalVOs");
+
+boolean isInterfaceRequest=true;
+if (successVOs != null && successVOs.size() > 0) {
+assetService.addAssetUnderlying(tenantCode,successVOs, failedVOs, totalVOs, assetRequestVO);
+}
+if (isInterfaceRequest) {
+responseString = AssetUtil.fromObjectToJSON(totalVOs);
+} else {
+responseString = AssetUtil.getResponse(successVOs, failedVOs);
+}
+
+}
+else {
+ErrorVO errorVO = new ErrorVO();
+errorVO.setErrorCode("404");
+errorVO.setErrorMessage("Request object not correct!");
+responseString = AssetUtil.fromObjectToJSON(errorVO);
+return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(responseString);
+
+}
+}
+}catch (Exception e) {
+log.fatal("Error in asset controller -Asset Underlying ",e);
+throw e;
+}
+return ResponseEntity.status(HttpStatus.OK).body(responseString);
+}
+
+	/**
+	 *
+	 * @param jsonString  : req
+	 * @param accessToken : token for auth
+	 * @return
+	 * @throws Exception
+	 */
+	@PostMapping(value = "/brokerratinghistory")
+	public ResponseEntity<String> getBrokerRatingHistory(@RequestBody String jsonString
+			, @RequestHeader(value = "Authorization") String accessToken) throws Exception
+	{
+		AccessDetailVO accessDetailVO=AssetUtil.getAccessTokenDetails(accessToken);
+		String tenantCode=accessDetailVO.getTenantCode();
+		if(tenantCode==null)
+		{
+			List<FailedVO<AssetRequestVO>> failedAttachment=new ArrayList<>();
+			AssetRequestVO requestFailure=new AssetRequestVO();
+			AssetRequestVO req=null;
+			try
+			{
+				req=AssetUtil.fromJSonToObject(jsonString,AssetRequestVO.class);
+			}
+			catch(Exception err)
+			{
+				req=null;
+			}
+			requestFailure.setAssetGetRequest(req.getAssetGetRequest());
+			FailedVO<AssetRequestVO> attachment=new FailedVO<>();
+			attachment.setIdentityDetails(requestFailure);
+			List<ErrorVO> errorVOS=new ArrayList<>();
+			errorVOS.add(AssetUtil.getError("JSPORT999"));
+			attachment.setErrors(errorVOS);
+			failedAttachment.add(attachment);
+			String response=AssetUtil.getResponse(null,failedAttachment);
+			return ResponseEntity.status(HttpStatus.OK).body(response);
+		}
+		List<String> responseValidation = AssetUtil.jsonSchemaValidator(jsonString,
+				"./jsonschema/AssetGetRequest.json");
+		String responseString=null;
+		if (responseValidation == null)
+		{
+			AssetRequestVO assetRequestVO = null;
+			assetRequestVO = AssetUtil.fromJSonToObject(jsonString, AssetRequestVO.class);
+			if (runOutputFileFlag == true) {
+				AssetUtil.logWritter("Req", "asset/brokerratinghistory",
+						AssetUtil.fromObjectToJSON(assetRequestVO));
+			}
+			Map<String, Object> validationMap=null;
+			try
+			{
+				validationMap = AssetRequestValidator.getBrokerRatingHistoryValidated(jsonString);
+			}
+			catch(Exception err)
+			{
+				err.printStackTrace();
+			}
+			assetRequestVO = (AssetRequestVO) AssetUtil.convertToObject(jsonString,
+					AssetRequestVO.class);
+			assetRequestVO.setTenantCode(tenantCode);
+
+			if ( validationMap!=null && validationMap.size() > 0)
+			{
+				@SuppressWarnings("unchecked")
+				List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap.get("successVOs");
+				@SuppressWarnings("unchecked")
+				List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+						.get("failedVOs");
+				@SuppressWarnings("unchecked")
+				List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+
+				// track the success
+				if (successVOs == null || successVOs.size() == 0)
+				{
+					responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					return ResponseEntity.status(HttpStatus.OK).body(responseString);
+				}
+				else if (failedVOs != null && failedVOs.size() >= 1)
+				{
+					responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					return ResponseEntity.status(HttpStatus.OK).body(responseString);
+				}
+			}
+		}
+		else {
+			AssetRequestVO portfolioRequestVOErrors = (AssetRequestVO) AssetUtil.convertToObject(jsonString,
+					AssetRequestVO.class);
+			List<FailedVO<AssetGetRequestVO>> failedVOs = new ArrayList<>();
+			List<ErrorVO> errorVOs = new ArrayList<>();
+			JsonObject jsonObject = gson.fromJson(jsonString, JsonObject.class);
+			for (String error : responseValidation) {
+				ErrorVO e1 = new ErrorVO();
+				e1.setErrorCode("400");
+				e1.setErrorMessage(error);
+				errorVOs.add(e1);
+			}
+			for (AssetGetRequestVO singleRecord : portfolioRequestVOErrors.getAssetGetRequest()) {
+				FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+				failedVO.setErrors(errorVOs);
+				failedVO.setIdentityDetails(singleRecord);
+				failedVOs.add(failedVO);
+			}
+			responseString = AssetUtil.getResponse(null, failedVOs);
+			return ResponseEntity.status(HttpStatus.OK).body(responseString);
+		}
+		AssetRequestVO req=AssetUtil.fromJSonToObject(jsonString,AssetRequestVO.class);
+		String response=null;
+		try
+		{
+			response=universeStockService.getBrokerRatingHistory(req.getAssetGetRequest(),tenantCode,req.getReferenceDate());
+		}
+		catch(Exception err)
+		{
+			log.fatal(err);
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(response);
+	}
+	
+	@PostMapping("universestockdetailsbybroker")
+	public ResponseEntity<String> addUniverseStockDetailsByBroker(@RequestBody String jsonRequest, HttpServletRequest httpServletRequest) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		
+		String responseString = null;
+		
+		try {
+			
+			String tenantCode = null;
+			String accessToken = null;
+			AccessDetailVO accessDetailVO = new AccessDetailVO();
+			accessToken = httpServletRequest.getHeader("Authorization");
+			accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+			if (accessDetailVO.getTenantCode() != null) {
+				tenantCode = accessDetailVO.getTenantCode();
+			} else {
+				FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(jsonRequest, AssetRequestVO.class));
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+						.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+			}
+			
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(jsonRequest,"./jsonschema/AssetAddRequest.json");
+			
+			if (assetRequestErrors == null) {
+
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(jsonRequest, AssetRequestVO.class);
+				assetRequestVO.set_tenantId(accessDetailVO.getTenantId());
+				assetRequestVO.setTenantCode(accessDetailVO.getTenantCode());
+				assetRequestVO.setUsername(accessDetailVO.getUsername());
+				Map<String, Object> validationMap = AssetRequestValidator.validateUniverseStockDetailsByBrokerAddRequest(jsonRequest, assetRequestVO);
+				if (validationMap.size() > 0) {
+					@SuppressWarnings("unchecked")
+					List<UniverseStockDetailsByBrokerVO> successVOs = (List<UniverseStockDetailsByBrokerVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<UniverseStockDetailsByBrokerVO>> failedVOs = (List<FailedVO<UniverseStockDetailsByBrokerVO>>) validationMap.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<JsonObject> totalVOs = (List<JsonObject>) validationMap.get("totalVOs");
+					boolean isInterfaceRequest = (boolean) validationMap.get("isInterfaceRequest");
+					if (successVOs != null && successVOs.size() > 0) {
+						universeStockService.addUniverseStockDetailsByBroker(assetRequestVO.getTenantCode(), successVOs, failedVOs, totalVOs,
+								isInterfaceRequest, assetRequestVO, httpServletRequest);
+					}
+					if (isInterfaceRequest) {
+						responseString = AssetUtil.fromObjectToJSON(totalVOs);
+					} else {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					}
+
+				} else {
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorCode("404");
+					errorVO.setErrorMessage("Request object not correct!");
+					responseString = AssetUtil.fromObjectToJSON(errorVO);
+					return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(responseString);
+				}
+			} else {
+				responseString = AssetUtil.getOuterStructureResponse(jsonRequest, assetRequestErrors,"universeStockDetailsByBroker");
+			}
+	
+		}catch(Exception ex) {
+			log.fatal("Error in addUniverseStockDetailsByBroker: ",ex);
+			throw ex;
+		}
+		
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);	
+	}
+	
+	@PostMapping("compositeuniversestock")
+	public ResponseEntity<String> compositeUniverseStock(@RequestBody String jsonRequest, HttpServletRequest httpServletRequest) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		
+		String responseString = null;
+		
+		try {
+			String tenantCode = null;
+			String accessToken = null;
+			AccessDetailVO accessDetailVO = new AccessDetailVO();
+			accessToken = httpServletRequest.getHeader("Authorization");
+			accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+			if (accessDetailVO.getTenantCode() != null) {
+				tenantCode = accessDetailVO.getTenantCode();
+			} else {
+				FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(jsonRequest, AssetRequestVO.class));
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+						.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+			}
+
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(jsonRequest, AssetRequestVO.class);
+				
+				HashMap<String, String> allRequestVOs = AssetUtil.filterCompositeUniverseRequests(assetRequestVO, jsonRequest);
+				AssetCompositeResponseVO compositevo = new AssetCompositeResponseVO();
+				
+				String universeStockRequest = allRequestVOs.get("universeStock");
+				String universeStockDetailsByBrokerRequest = allRequestVOs.get("universeStockDetailsByBroker");
+				boolean isRequestInCorrect = false;
+				
+				/************************************ Universe Stock ************************************************/
+				if(universeStockRequest!=null) {
+					List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(universeStockRequest,"./jsonschema/AssetAddRequest.json");
+					
+					if (assetRequestErrors == null) {
+						
+						AssetRequestVO universeStockRequestVO = AssetUtil.fromJSonToObject(universeStockRequest, AssetRequestVO.class);
+						universeStockRequestVO.set_tenantId(accessDetailVO.getTenantId());
+						universeStockRequestVO.setTenantCode(accessDetailVO.getTenantCode());
+						universeStockRequestVO.setUsername(accessDetailVO.getUsername());
+
+						Map<String, Object> validationMap = AssetRequestValidator.validateUniverseStockAddRequest(universeStockRequest, universeStockRequestVO);
+						if (validationMap.size() > 0) {
+							@SuppressWarnings("unchecked")
+							List<UniverseStockVO> successVOs = (List<UniverseStockVO>) validationMap.get("successVOs");
+							@SuppressWarnings("unchecked")
+							List<FailedVO<UniverseStockVO>> failedVOs = (List<FailedVO<UniverseStockVO>>) validationMap.get("failedVOs");
+							@SuppressWarnings("unchecked")
+							List<JsonObject> totalVOs = (List<JsonObject>) validationMap.get("totalVOs");
+							boolean isInterfaceRequest = (boolean) validationMap.get("isInterfaceRequest");
+							if (successVOs != null && successVOs.size() > 0) {
+								universeStockService.addUniverseStocks(assetRequestVO.getTenantCode(), successVOs, failedVOs, totalVOs,
+										isInterfaceRequest, universeStockRequestVO, httpServletRequest,accessDetailVO);
+							}
+							
+							compositevo.setUniverseStockVOs(totalVOs);
+							
+						} 
+					} else {
+						isRequestInCorrect = true;
+						responseString = AssetUtil.getOuterStructureResponse(jsonRequest, assetRequestErrors,"universeStock");
+					}
+				}
+				
+				
+				/************************** Universe Stock Details By Broker ********************************/
+				if (!isRequestInCorrect) {
+					List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(universeStockDetailsByBrokerRequest,"./jsonschema/AssetAddRequest.json");
+					
+					if (assetRequestErrors == null) {
+
+						AssetRequestVO universeStockDetailsByBrokerVO = AssetUtil.fromJSonToObject(universeStockDetailsByBrokerRequest, AssetRequestVO.class);
+						universeStockDetailsByBrokerVO.set_tenantId(accessDetailVO.getTenantId());
+						universeStockDetailsByBrokerVO.setTenantCode(accessDetailVO.getTenantCode());
+						universeStockDetailsByBrokerVO.setUsername(accessDetailVO.getUsername());
+						Map<String, Object> validationMap = AssetRequestValidator.validateUniverseStockDetailsByBrokerAddRequest(universeStockDetailsByBrokerRequest, universeStockDetailsByBrokerVO);
+						if (validationMap.size() > 0) {
+							@SuppressWarnings("unchecked")
+							List<UniverseStockDetailsByBrokerVO> successVOs = (List<UniverseStockDetailsByBrokerVO>) validationMap.get("successVOs");
+							@SuppressWarnings("unchecked")
+							List<FailedVO<UniverseStockDetailsByBrokerVO>> failedVOs = (List<FailedVO<UniverseStockDetailsByBrokerVO>>) validationMap.get("failedVOs");
+							@SuppressWarnings("unchecked")
+							List<JsonObject> totalVOs = (List<JsonObject>) validationMap.get("totalVOs");
+							boolean isInterfaceRequest = (boolean) validationMap.get("isInterfaceRequest");
+							if (successVOs != null && successVOs.size() > 0) {
+								universeStockService.addUniverseStockDetailsByBroker(assetRequestVO.getTenantCode(), successVOs, failedVOs, totalVOs,
+										isInterfaceRequest, universeStockDetailsByBrokerVO, httpServletRequest);
+							}
+							
+							compositevo.setUniverseStockDetailsByBrokerVOs(totalVOs);
+						} 
+
+					} else {
+						responseString = AssetUtil.getOuterStructureResponse(jsonRequest, assetRequestErrors,"universeStockDetailsByBroker");
+					}
+				}
+				
+				responseString = gson.toJson(compositevo);
+
+		}catch(Exception ex) {
+			ex.printStackTrace();
+			log.fatal("Error in addUniverseStockDetailsByBroker: ",ex);
+			throw ex;
+		}
+		
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);	
+	}
+	
+	@PostMapping("/searchuniversestock")
+	public ResponseEntity<String> getUniverseStockSearchInResponse(@RequestBody String request,HttpServletRequest httpServletRequest) throws Exception {
+
+		ResponseVO<SearchResultDataVO, SearchRequestVO> response = null;
+		String responseString = null;
+		List<FailedVO<SearchRequestVO>> failedVOs = new ArrayList<FailedVO<SearchRequestVO>>();
+		try {
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(request, "./jsonschema/SearchUniverseStock.json");
+
+			if (assetRequestErrors == null) {
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+
+				response = universeStockService.getUniverseStockSearchInResponse(assetRequestVO,httpServletRequest);
+				
+				responseString = AssetUtil.fromObjectToJSON(response);
+			} else {
+				JsonObject jsonObject = gson.fromJson(request, JsonObject.class);
+				JsonObject searchRequest = jsonObject.get("searchRequest").getAsJsonObject();
+				FailedVO<SearchRequestVO> failedVO = new FailedVO<SearchRequestVO>();
+				// failedVO.setIdentityDetails(entityRequestVO.getSearchRequest());
+				failedVO.setIdentityDetailsAsString(
+						(JsonObject) AssetUtil.convertToObject(searchRequest.toString(), JsonObject.class));
+				failedVO.setTenantCode(jsonObject.getAsJsonObject().get("tenantCode") != null
+						? jsonObject.getAsJsonObject().get("tenantCode").getAsString()
+						: null);
+				failedVO.set_tenantId(jsonObject.getAsJsonObject().get("tenantId") != null
+						? jsonObject.getAsJsonObject().get("tenantId").getAsBigDecimal()
+						: null);
+				response = new ResponseVO<SearchResultDataVO, SearchRequestVO>();
+				List<ErrorVO> errors = new ArrayList<ErrorVO>();
+				for (int i = 0; i < assetRequestErrors.size(); i++) {
+					ErrorVO error = new ErrorVO();
+					error.setErrorCode("JSAST999");
+					error.setErrorMessage(AssetUtil.formatErrorMessage(assetRequestErrors.get(i)));
+					errors.add(error);
+					log.fatal(assetRequestErrors.get(i));
+				}
+				failedVO.setErrors(errors);
+				failedVOs.add(failedVO);
+				responseString = AssetUtil.getResponse(null, failedVOs);
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			log.fatal("Error occurred in getAssetSearchInResponse: " + ex);
+			throw ex;
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+	
+//	@PostMapping("/downloadsearchuniversestock")
+//	public ResponseEntity<String> downloadUniverseStockSearchInResponse(@RequestBody String request) throws Exception {
+//
+//		ResponseVO<SearchResultDataVO, SearchRequestVO> response = null;
+//		String responseString = null;
+//		List<FailedVO<SearchRequestVO>> failedVOs = new ArrayList<FailedVO<SearchRequestVO>>();
+//		try {
+//			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(request, "./jsonschema/SearchUniverseStock.json");
+//
+//			if (assetRequestErrors == null) {
+//				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+//
+//				response = universeStockService.getUniverseStockSearchInResponse(assetRequestVO);
+//				
+//				responseString = AssetUtil.fromObjectToJSON(response);
+//			} else {
+//				JsonObject jsonObject = gson.fromJson(request, JsonObject.class);
+//				JsonObject searchRequest = jsonObject.get("searchRequest").getAsJsonObject();
+//				FailedVO<SearchRequestVO> failedVO = new FailedVO<SearchRequestVO>();
+//				// failedVO.setIdentityDetails(entityRequestVO.getSearchRequest());
+//				failedVO.setIdentityDetailsAsString(
+//						(JsonObject) AssetUtil.convertToObject(searchRequest.toString(), JsonObject.class));
+//				failedVO.setTenantCode(jsonObject.getAsJsonObject().get("tenantCode") != null
+//						? jsonObject.getAsJsonObject().get("tenantCode").getAsString()
+//						: null);
+//				failedVO.set_tenantId(jsonObject.getAsJsonObject().get("tenantId") != null
+//						? jsonObject.getAsJsonObject().get("tenantId").getAsBigDecimal()
+//						: null);
+//				response = new ResponseVO<SearchResultDataVO, SearchRequestVO>();
+//				List<ErrorVO> errors = new ArrayList<ErrorVO>();
+//				for (int i = 0; i < assetRequestErrors.size(); i++) {
+//					ErrorVO error = new ErrorVO();
+//					error.setErrorCode("JSAST999");
+//					error.setErrorMessage(AssetUtil.formatErrorMessage(assetRequestErrors.get(i)));
+//					errors.add(error);
+//					log.fatal(assetRequestErrors.get(i));
+//				}
+//				failedVO.setErrors(errors);
+//				failedVOs.add(failedVO);
+//				responseString = AssetUtil.getResponse(null, failedVOs);
+//			}
+//		} catch (Exception ex) {
+//			ex.printStackTrace();
+//			log.fatal("Error occurred in getAssetSearchInResponse: " + ex);
+//			throw ex;
+//		}
+//		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+//	}
+
+	
+	@RequestMapping(path = "/downloadsearchuniversestock", method = RequestMethod.POST, produces = org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE)
+	public ResponseEntity<Object> downloadUniverseStockSearchInResponse(@RequestBody String request, HttpServletRequest httpServletRequest) throws Exception {
+
+		ResponseVO<SearchResultDataVO, SearchRequestVO> response = null;
+		String responseString = null;
+		List<FailedVO<SearchRequestVO>> failedVOs = new ArrayList<FailedVO<SearchRequestVO>>();
+		try {
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(request, "./jsonschema/SearchUniverseStock.json");
+
+			if (assetRequestErrors == null) {
+				AssetRequestVO assetRequestVO = AssetUtil.fromJSonToObject(request, AssetRequestVO.class);
+				String accessToken = null;
+				AccessDetailVO accessDetailVO = new AccessDetailVO();
+				accessToken = httpServletRequest.getHeader("Authorization");
+				accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+				assetRequestVO.setIsDownload(1);
+				response = universeStockService.getUniverseStockSearchInResponse(assetRequestVO,httpServletRequest);
+				responseString = AssetUtil.fromObjectToJSON(response);
+				
+				String reqString = "{\r\n"
+						+ "	\"maintenanceGetRequest\": {\r\n"
+						+ "		\"cacheAttributes\": [{\r\n"
+						+ "			\"attributeKey\": \"CURRENT_DATE\"\r\n"
+						+ "		}],\r\n"
+						+ "		\"configTypes\": [\r\n"
+						+ "			\"CATEGORY\",\r\n"
+						+ "			\"ALLOCATION_GROUP_BY\",\r\n"
+						+ "			\"SUBCATEGORY_1\",\r\n"
+						+ "			\"SUBCATEGORY_2\",\r\n"
+						+ "			\"SUBCATEGORY_3\",\r\n"
+						+ "			\"RISK_PROFILE\",\r\n"
+						+ "			\"CURRENCY\",\r\n"
+						+ "			\"DEVIATION_RULE_TYPE\",\r\n"
+						+ "			\"COUNTRY\",\r\n"
+						+ "			\"INVESTMENT_PROFILE\",\r\n"
+						+ "			\"BROKER\",\r\n"
+						+ "			\"REGION\",\r\n"
+						+ "			\"GICS_SECTOR\",\r\n"
+						+ "			\"BOOLEAN_FLAG\",\r\n"
+						+ "			\"REGION_GROUP\",\r\n"
+						+ "			\"SG_RATING\",\r\n"
+						+ "			\"GS_RATING\",\r\n"
+						+ "			\"JB_RATING\",\r\n"
+						+ "			\"UBS_CIO_RATING\",\r\n"
+						+ "			\"UBS_RATING\",\r\n"
+						+ "			\"MS_RATING\",\r\n"
+						+ "			\"DOCUMENT_REFERENCE_TYPE\",\r\n"
+						+ "			\"USM_SORTING_FIELDS\"\r\n"
+						+ "		],\r\n"
+						+ "		\"rules\": [\r\n"
+						+ "			\"SYSTEM_CURRENCY\"\r\n"
+						+ "		]\r\n"
+						+ "	}\r\n"
+						+ "}";
+				
+				String respString = AssetUtil.syncHttpCall(reqString, maintainanceCacheInfoUrl,
+						accessToken);
+				
+				JsonObject responseVO = AssetUtil.fromJSonToObject(respString,
+						JsonObject.class);
+				JsonObject cacheInfoVO = null ;
+				if(responseVO.get("success")!=null) {
+					cacheInfoVO=responseVO.getAsJsonArray("success").get(0).getAsJsonObject();
+				}
+				ExcelDownload ex=new ExcelDownload();
+				byte[] data =ex.generateUniversalSearchResult(cacheInfoVO, "", response.getSuccess(),request);
+				log.debug("error while getByteArrayOutputStream+1");
+				HttpHeaders headers = new HttpHeaders();
+				log.debug("error while getByteArrayOutputStream+2");
+				headers.add("Content-Description", "File Transfer");
+				log.debug("error while getByteArrayOutputStream+3");
+				headers.add("Content-Disposition", "attachment; filename=PortfolioSummary.xlsx");
+				headers.add("Content-Transfer-Encoding", "binary");
+				headers.add("Connection", "Keep-Alive");
+				headers.setContentType(org.springframework.http.MediaType.parseMediaType(
+						"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+				log.debug("error while getByteArrayOutputStream+4");
+				InputStreamResource isr = new InputStreamResource(new ByteArrayInputStream(data));
+				log.debug("error while getByteArrayOutputStream+5");
+				return ResponseEntity.ok().contentLength(data.length).headers(headers).body(isr);
+			} else {
+				JsonObject jsonObject = gson.fromJson(request, JsonObject.class);
+				JsonObject searchRequest = jsonObject.get("searchRequest").getAsJsonObject();
+				FailedVO<SearchRequestVO> failedVO = new FailedVO<SearchRequestVO>();
+				// failedVO.setIdentityDetails(entityRequestVO.getSearchRequest());
+				failedVO.setIdentityDetailsAsString(
+						(JsonObject) AssetUtil.convertToObject(searchRequest.toString(), JsonObject.class));
+				failedVO.setTenantCode(jsonObject.getAsJsonObject().get("tenantCode") != null
+						? jsonObject.getAsJsonObject().get("tenantCode").getAsString()
+						: null);
+				failedVO.set_tenantId(jsonObject.getAsJsonObject().get("tenantId") != null
+						? jsonObject.getAsJsonObject().get("tenantId").getAsBigDecimal()
+						: null);
+				response = new ResponseVO<SearchResultDataVO, SearchRequestVO>();
+				List<ErrorVO> errors = new ArrayList<ErrorVO>();
+				for (int i = 0; i < assetRequestErrors.size(); i++) {
+					ErrorVO error = new ErrorVO();
+					error.setErrorCode("JSAST999");
+					error.setErrorMessage(AssetUtil.formatErrorMessage(assetRequestErrors.get(i)));
+					errors.add(error);
+					log.fatal(assetRequestErrors.get(i));
+				}
+				failedVO.setErrors(errors);
+				failedVOs.add(failedVO);
+				responseString = AssetUtil.getResponse(null, failedVOs);
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			log.fatal("Error occurred in getAssetSearchInResponse: " + ex);
+			throw ex;
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+	}
+	
+	@PostMapping(value="/notclassifiedassets")
+	public ResponseEntity<String> getNotClassifiedAssets(@RequestBody String requestString, HttpServletRequest httpServletRequest) throws Exception {
+		if (log.isDebugEnabled())
+			log.debug("Entering");
+		List<AssetVO> finalAssetVOs=new ArrayList<>();
+		ResponseVO responseVO=new ResponseVO<>();
+		String tenantCode=null;
+		try {
+			
+			String accessToken = null;
+			AccessDetailVO accessDetailVO = new AccessDetailVO();
+			accessToken = httpServletRequest.getHeader("Authorization");
+			accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+			if (accessDetailVO.getTenantCode() != null) {
+				tenantCode = accessDetailVO.getTenantCode();
+			} else {
+				FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(requestString, AssetRequestVO.class));
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+						.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+			}
+			JsonObject jsonObject=AssetUtil.fromJSonToObject(requestString, JsonObject.class);
+			finalAssetVOs=iassetreportdatService.getNotClassifiedAssets(tenantCode,accessToken);
+			responseVO.setSuccess(finalAssetVOs);
+			responseVO.setTotalRecords(finalAssetVOs.size());
+		}catch (Exception e) {
+			log.fatal("Error in not classified asset",e);
+			throw e;
+		}
+		if (log.isDebugEnabled())
+			log.debug("Leaving");
+		return ResponseEntity.status(HttpStatus.OK).body(AssetUtil.fromObjectToJSON(responseVO));
+	}
+	
+	@PostMapping(value = "/preferredassetsinfo")
+	public ResponseEntity<String>  preferredassetsinfo(@RequestBody String jsonString,final HttpServletRequest request) throws Exception
+	{
+		
+		if(log.isDebugEnabled())
+		{
+			log.debug("entering");
+		}
+		String responseString = null;
+		String tenantCode=null;
+		String accessToken = request.getHeader("Authorization");
+		AccessDetailVO accessDetailVO=new AccessDetailVO();
+		accessDetailVO=AssetUtil.getAccessTokenDetails(accessToken);
+		if(accessDetailVO.getTenantCode()!=null)
+		{
+			tenantCode=accessDetailVO.getTenantCode();
+		}
+		else
+		{
+			FailedVO<AssetRequestVO> failedVO=AssetUtil.tenantCodeError();
+			failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(jsonString, AssetRequestVO.class));
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+		}
+
+		// for debugging
+		// for debugging
+
+		List<String> responseValidation = AssetUtil.jsonSchemaValidator(jsonString,
+				"./jsonschema/PreferredAssets.json");
+		if (responseValidation == null)
+		{
+			AssetRequestVO assetRequestVO=null;
+			try
+			{
+				assetRequestVO= AssetUtil.fromJSonToObject(jsonString,
+						AssetRequestVO.class);
+			}
+			catch(Exception err)
+			{
+				log.fatal(" err : ",err);
+				throw err;
+			}
+			if (runOutputFileFlag == true)
+			{
+				AssetUtil.logWritter("Req", "portfolio/feemasterinfo",
+						AssetUtil.fromObjectToJSON(assetRequestVO));
+			}
+			Map<String, Object> validationMap=null;
+			try
+			{
+				validationMap = AssetRequestValidator.preferredassetsValidationbyinfo(jsonString);
+			}
+			catch(Exception err)
+			{
+				err.printStackTrace();
+			}
+			assetRequestVO = (AssetRequestVO) AssetUtil.convertToObject(jsonString,
+					AssetRequestVO.class);
+			assetRequestVO.setTenantCode(tenantCode);
+			assetRequestVO.setAccessToken(accessToken);
+
+			if (validationMap.size() > 0)
+			{
+				@SuppressWarnings("unchecked")
+				List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap
+						.get("successVOs");
+				@SuppressWarnings("unchecked")
+				List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+						.get("failedVOs");
+				@SuppressWarnings("unchecked")
+				List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+				// track the success
+				if (successVOs == null || successVOs.size() == 0)
+				{
+					responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					return ResponseEntity.status(HttpStatus.OK).body(responseString);
+				}
+				else if(failedVOs!=null && failedVOs.size()>=1)
+				{
+					responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					return ResponseEntity.status(HttpStatus.OK).body(responseString);
+				}
+			}
+		}
+		else
+		{
+			AssetRequestVO portfolioRequestVOErrors = (AssetRequestVO) AssetUtil
+					.convertToObject(jsonString, AssetRequestVO.class);
+			List<FailedVO<AssetGetRequestVO>> failedVOs = new ArrayList<>();
+			List<ErrorVO> errorVOs = new ArrayList<>();
+			JsonObject jsonObject = gson.fromJson(jsonString, JsonObject.class);
+			for (String error : responseValidation)
+			{
+				ErrorVO e1 = new ErrorVO();
+				e1.setErrorCode("400");
+				e1.setErrorMessage(error);
+				errorVOs.add(e1);
+			}
+			for (AssetGetRequestVO singleRecord : portfolioRequestVOErrors.getAssetGetRequest())
+			{
+				FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+				failedVO.setErrors(errorVOs);
+				failedVO.setIdentityDetails(singleRecord);
+				failedVOs.add(failedVO);
+			}
+			responseString = AssetUtil.getResponse(null, failedVOs);
+			return ResponseEntity.status(HttpStatus.OK).body(responseString);
+		}
+		AssetRequestVO req=null;
+		String response=null;
+		try
+		{
+			req=AssetUtil.fromJSonToObject(jsonString,AssetRequestVO.class);
+			
+			Date date=req.getReferenceDate();
+			String dateInRequest=null;
+			if(date!=null)
+			{
+				dateInRequest=date.toString();
+			}
+			
+			response=assetService.getpreferredassetsinfo(req.getAssetGetRequest(),tenantCode, dateInRequest);
+		}
+		catch(Exception err)
+		{
+			log.fatal("error while fetching the preferred aaset group info in preferredassetsinfo API ",err);
+
+			return  ResponseEntity.status(HttpStatus.OK).body(response.toString());
+		}
+		if(log.isDebugEnabled())
+		{
+			log.debug("leaving");
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(response);
+	}
+	
+	@PostMapping(value = "/preferredassetsbycode")
+	public ResponseEntity<String>  preferredassetsbycode(@RequestBody String jsonString,final HttpServletRequest request) throws Exception
+	{
+		log.fatal("Inside preferredassetsbycode");
+		if(log.isDebugEnabled())
+		{
+			log.debug("entering");
+		}
+		String responseString = null;
+		String tenantCode=null;
+		String accessToken = request.getHeader("Authorization");
+		AccessDetailVO accessDetailVO=new AccessDetailVO();
+		accessDetailVO=AssetUtil.getAccessTokenDetails(accessToken);
+		if(accessDetailVO.getTenantCode()!=null)
+		{
+			tenantCode=accessDetailVO.getTenantCode();
+		}
+		else
+		{
+			FailedVO<AssetRequestVO> failedVO=AssetUtil.tenantCodeError();
+			failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(jsonString, AssetRequestVO.class));
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+		}
+		List<String> responseValidation = AssetUtil.jsonSchemaValidator(jsonString,
+				"./jsonschema/PreferredAssets.json");
+		log.fatal("assetRequestVO = = Null -------------- : "+responseValidation);
+		if (responseValidation == null)
+		{
+			AssetRequestVO assetRequestVO=null;
+			try
+			{
+				
+				assetRequestVO= AssetUtil.fromJSonToObject(jsonString,
+						AssetRequestVO.class);
+				
+			}
+			catch(Exception err)
+			{
+				log.fatal(" err : ",err);
+				throw err;
+			}
+			if (runOutputFileFlag == true)
+			{
+				AssetUtil.logWritter("Req", "portfolio/feemasterinfo",
+						AssetUtil.fromObjectToJSON(assetRequestVO));
+			}
+			Map<String, Object> validationMap=null;
+			try
+			{
+				validationMap = AssetRequestValidator.preferredassetsValidationbycode(
+						jsonString);
+			}
+			catch(Exception err)
+			{
+				err.printStackTrace();
+			}
+			assetRequestVO = (AssetRequestVO) AssetUtil.convertToObject(jsonString,
+					AssetRequestVO.class);
+			assetRequestVO.setTenantCode(tenantCode);
+			assetRequestVO.setAccessToken(accessToken);
+
+			if (validationMap.size() > 0)
+			{
+				@SuppressWarnings("unchecked")
+				List<AssetGetRequestVO> successVOs = (List<AssetGetRequestVO>) validationMap
+						.get("successVOs");
+				@SuppressWarnings("unchecked")
+				List<FailedVO<AssetGetRequestVO>> failedVOs = (List<FailedVO<AssetGetRequestVO>>) validationMap
+						.get("failedVOs");
+				@SuppressWarnings("unchecked")
+				List<AssetGetRequestVO> totalVOs = (List<AssetGetRequestVO>) validationMap.get("totalVOs");
+				log.fatal("successVOs----------"+successVOs);
+				// track the success
+				if (successVOs == null || successVOs.size() == 0)
+				{
+					responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					return ResponseEntity.status(HttpStatus.OK).body(responseString);
+				}
+				else if(failedVOs!=null && failedVOs.size()>=1)
+				{
+					responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					return ResponseEntity.status(HttpStatus.OK).body(responseString);
+				}
+			}
+		}
+		else
+		{
+			AssetRequestVO portfolioRequestVOErrors = (AssetRequestVO) AssetUtil
+					.convertToObject(jsonString, AssetRequestVO.class);
+			List<FailedVO<AssetGetRequestVO>> failedVOs = new ArrayList<>();
+			List<ErrorVO> errorVOs = new ArrayList<>();
+			JsonObject jsonObject = gson.fromJson(jsonString, JsonObject.class);
+			for (String error : responseValidation)
+			{
+				ErrorVO e1 = new ErrorVO();
+				e1.setErrorCode("400");
+				e1.setErrorMessage(error);
+				errorVOs.add(e1);
+			}
+			for (AssetGetRequestVO singleRecord : portfolioRequestVOErrors.getAssetGetRequest())
+			{
+				FailedVO<AssetGetRequestVO> failedVO = new FailedVO<>();
+				failedVO.setErrors(errorVOs);
+				failedVO.setIdentityDetails(singleRecord);
+				failedVOs.add(failedVO);
+			}
+			responseString = AssetUtil.getResponse(null, failedVOs);
+			return ResponseEntity.status(HttpStatus.OK).body(responseString);
+		}
+		AssetRequestVO req=null;
+		String response=null;
+		try
+		{
+			req=AssetUtil.fromJSonToObject(jsonString,AssetRequestVO.class);
+			
+			Date date=req.getReferenceDate();
+			String dateInRequest=null;
+			if(date!=null)
+			{
+				dateInRequest=date.toString();
+				
+			}
+			
+			response=assetService.getpreferredassetsinfo(req.getAssetGetRequest(),tenantCode,dateInRequest );
+		}
+		catch(Exception err)
+		{
+			log.fatal("error while fetching the preferred aaset group info in preferredassetsbycode API ",err);
+			return  ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response.toString());
+		}
+		if(log.isDebugEnabled())
+		{
+			log.debug("leaving");
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(response);
+	}
+
+
+	@PostMapping(value = "/addPreferredAssets")
+	public ResponseEntity<String> addPreferredAssets(@RequestBody String json,
+			HttpServletRequest request) throws Exception {
+		if (log.isDebugEnabled()) {
+			log.debug("entering");
+		}
+		String responseString = null;
+		AssetRequestVO assetRequestVO = null;
+		try {
+			String tenantCode = null;
+			String accessToken = null;
+			AccessDetailVO accessDetailVO = new AccessDetailVO();
+			accessToken = request.getHeader("Authorization");
+			accessDetailVO = AssetUtil.getAccessTokenDetails(accessToken);
+			if (accessDetailVO.getTenantCode() != null) {
+				tenantCode = accessDetailVO.getTenantCode();
+			} else {
+				FailedVO<AssetRequestVO> failedVO = AssetUtil.tenantCodeError();
+				failedVO.setIdentityDetails(AssetUtil.fromJSonToObject(json, AssetRequestVO.class));
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+						.body(AssetUtil.getResponse(null, new ArrayList<>((Arrays.asList(failedVO)))));
+			}
+
+			List<String> assetRequestErrors = AssetUtil.jsonSchemaValidator(json,
+					"./jsonschema/AssetAddRequest.json");
+			if (assetRequestErrors == null) {
+				assetRequestVO = AssetUtil.fromJSonToObject(json, AssetRequestVO.class);
+				JsonObject jsonObject = gson.fromJson(json, JsonObject.class);
+				assetRequestVO.set_tenantId(accessDetailVO.getTenantId());
+				assetRequestVO.setTenantCode(tenantCode);
+				assetRequestVO.setUsername(accessDetailVO.getUsername());
+				assetRequestVO.setAccessToken(accessToken);
+				Map<String, Object> validationMap = AssetRequestValidator
+						.addPreferredassetsValidation(json,assetRequestVO);
+				if (validationMap.size() > 0) {
+//				if (validationMap==null) {
+					@SuppressWarnings("unchecked")
+					List<PreferredAssetGroupVO> successVOs = (List<PreferredAssetGroupVO>) validationMap.get("successVOs");
+					@SuppressWarnings("unchecked")
+					List<FailedVO<PreferredAssetGroupVO>> failedVOs = (List<FailedVO<PreferredAssetGroupVO>>) validationMap.get("failedVOs");
+					@SuppressWarnings("unchecked")
+					List<JsonObject> totalVOs = (List<JsonObject>) validationMap.get("totalVOs");
+//					boolean isInterfaceRequest = (boolean) validationMap.get("isInterfaceRequest");
+					boolean isInterfaceRequest=true;
+					if (successVOs != null && successVOs.size() > 0) {
+						assetService.addPreferredAssets(successVOs, failedVOs, totalVOs, assetRequestVO,
+								isInterfaceRequest);
+						//calling service
+					}
+					if (isInterfaceRequest) {
+						responseString = AssetUtil.fromObjectToJSON(totalVOs);
+					} else {
+						responseString = AssetUtil.getResponse(successVOs, failedVOs);
+					}
+
+				} else {
+					ErrorVO errorVO = new ErrorVO();
+					errorVO.setErrorCode("JSPORT999");
+					errorVO.setErrorMessage("Request object not correct!");
+					responseString = AssetUtil.fromObjectToJSON(errorVO);
+					return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(responseString);
+
+				}
+			}else {
+				responseString = AssetUtil.getOuterStructureResponseForGet(json, assetRequestErrors);
+			}
+		}catch(Exception ex) {
+			log.fatal("Error: ",ex);
+			ex.printStackTrace();
+			throw ex;
+		}
+		
+		if (log.isDebugEnabled()) 
+			log.debug("Leaving");
+		
+		return ResponseEntity.status(HttpStatus.OK).body(responseString);
+		 
+	}
+	
+	
+	@PostMapping(value = "/tollSystem")
+	public ResponseEntity<String> tollSystem(@RequestBody String json,
+			HttpServletRequest request) throws Exception {
+		if (log.isDebugEnabled()) {
+			log.debug("entering");
+		}
+		System.out.println("called");
+		
+		try {
+			SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");  
+		    Date date = new Date();  
+		    System.out.println(date.getHours());
+		    System.out.println(json);
+		    
+			int value=assetService.tollSystem(date, json,"username");
+			if(value==0) {
+				return ResponseEntity.status(HttpStatus.OK).body("success");
+			}else if(value==1) {
+				return ResponseEntity.status(HttpStatus.OK).body("wallet is running low on balance. FAILED");
+			}
+		}catch(Exception ex) {
+			log.fatal("Error: ",ex);
+			ex.printStackTrace();
+			throw ex;
+		}
+		
+		if (log.isDebugEnabled()) 
+			log.debug("Leaving");
+		
+		return ResponseEntity.status(HttpStatus.OK).body("");
+		 
+	}
+
+	
+	@PostMapping(value = "/getTotal")
+	public ResponseEntity<String> getTotal(@RequestBody String json,
+			HttpServletRequest request) throws Exception {
+		if (log.isDebugEnabled()) {
+			log.debug("entering");
+		}
+		System.out.println("called total");
+		
+		try {
+			Map<String,Integer> map=assetService.getTotal();
+			JsonObject jsonObj=new JsonObject();
+			jsonObj.addProperty("Total vehicles passed", map.get("totalVehiclesPassed"));
+			jsonObj.addProperty("Total amount collected", map.get("totalAmountCollected"));
+			return ResponseEntity.status(HttpStatus.OK).body(jsonObj.toString());
+		}catch(Exception ex) {
+			log.fatal("Error: ",ex);
+			ex.printStackTrace();
+			throw ex;
+		}
+	}
+	
+
+}

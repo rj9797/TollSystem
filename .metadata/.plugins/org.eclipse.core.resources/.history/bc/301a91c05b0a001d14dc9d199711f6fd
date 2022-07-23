@@ -1,0 +1,1157 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+
+@JsonInclude(Include.NON_NULL)
+public class AssetVO {
+
+	private BigDecimal id;
+	private String isin;
+	private String name;
+
+	private String assetID1;
+	private String assetID2;
+	private String assetID3;
+	private String assetID4;
+	private String assetID5;
+	private String description1;
+	private String description2;
+	private String description3;
+	private BigDecimal _categoryAppId;
+	private BigDecimal _subcategory1AppId;
+	private BigDecimal _subcategory2AppId;
+	private BigDecimal _subcategory3AppId;
+	private BigDecimal _subcategory4AppId;
+	private BigDecimal _subcategory5AppId;
+	private BigDecimal _sectorAppId;
+	private BigDecimal _regionAppId;
+	private BigDecimal _countryAppId;
+	private BigDecimal _stockExchangeAppId;
+	private BigDecimal _currencyAppId;
+	private BigDecimal divisor;
+	private BigDecimal denomination;
+	private BigDecimal _optionStyleAppId;
+	private BigDecimal _optionDirectionAppId;
+	private BigDecimal strikePrice;
+	private BigDecimal _strikePriceCurrencyAppId;
+	private int contractSize;
+	private BigDecimal _firstLegCurrencyAppId;
+	private BigDecimal firstLegAmount;
+	private BigDecimal _secondLegCurrencyAppId;
+	private BigDecimal secondLegAmount;
+	private BigDecimal _originatingCurrencyAppId;
+	private BigDecimal _targetCurrencyAppId;
+	private String initialLevelDate;// N.A
+
+	private String categoryAppConfigName;
+	private String subcategory1AppConfigName;
+	private String subcategory2AppConfigName;
+	private String subcategory3AppConfigName;
+	private String subcategory4AppConfigName;
+	private String subcategory5AppConfigName;
+	private String sectorAppConfigName;
+	private String regionAppConfigName;
+	private String countryAppConfigName;
+	private String rateTypeAppConfigName;
+	private String currencyAppConfigName;
+	private String stockExchangeAppConfigName;
+	private String optionStyleAppConfigName;
+	private String optionDirectionAppConfigName;
+	private String strikePriceCurrencyAppConfigName;
+	private String firstLegCurrencyAppConfigName;
+	private String secondLegCurrencyAppConfigName;
+	private String originatingCurrencyAppConfigName;
+	private String targetCurrencyAppConfigName;
+	private String issuerAppConfigName;
+
+	private BigDecimal _issuerAppId;
+	private String issuerConfigName;
+	private Date issueDate;
+	private Date tradeDate;
+	private Date expiryDate;
+	private Date maturityDate;
+	private int intrinsicVsMarkFlag;
+	private BigDecimal _rateTypeAppId;
+	private Double rate;
+	private int isActive;
+
+	// private Date expiryDate;
+	private int workflowId;
+	private String statusSince;
+
+	private BigDecimal _statusAppId;
+	private String statusAppConfigName;
+	private String approvedBy;
+	private Date approvedDate;
+	private String updatedBy;
+	private Date updatedDate;
+	private String createdBy;
+	private Date createdDate;
+	private Date effectiveFromDate;
+	private Date effectiveToDate;
+
+	private Date referenceDate;
+	private BigDecimal _sourceAppId;
+	private String sourceAppConfigName;
+
+	private BigDecimal _tenantId;
+	private String tenantCode;
+	private BigDecimal _thirdPartyProcessorId1;
+	private BigDecimal _thirdPartyProcessorId2;
+	private int hasError;
+
+	private List<ErrorVO> errors;
+
+	// interest_details
+	private BigDecimal _interestPracticeAppId;
+	private BigDecimal _interestFrequencyAppId;
+	private BigDecimal _interestCurrencyAppId;
+	private String interestPracticeAppConfigName;
+	private String interestCurrencyAppConfigName;
+	private String interestFrequencyAppConfigName;
+
+	// redemption_details
+	private Date redemptionDate;
+	private BigDecimal _redemptionCurrencyAppId;
+	private BigDecimal redemptionPrice;
+	private Date earlyRedemptionDate;
+	private BigDecimal earlyRedemptionPrice;
+	private BigDecimal _redemptionFrequencyAppId;
+	private String redemptionCurrencyAppConfigName;
+	private String redemptionFrequencyAppConfigName;
+	
+	
+	private String categoryDescription;
+	private String subCategory1Description;
+	private String subCategory2Description;
+	private String subCategory3Description;
+	private BigDecimal _productRiskAppId;
+	private String productRiskAppConfigName;
+	private Double investmentHorizon;
+	private BigDecimal _liquidityAppId;
+	private String liquidityAppConfigName;
+
+	private List<UnderlyingAssetsVO> underlyingAssets;
+	private List<AssetValuationScheduleVO> assetValuationSchedule;
+	// Latest VO's Added in AssetVO
+	private List<AssetPriceVO> assetPrice;
+	private List<AssetKeyFigureVO> assetKeyFigure;
+	//# addons
+	private List<CategoryList> categoryList;
+	//------
+	private AssetSPMetricsVO assetSPMetrics;
+	private String username;
+	
+	private String uniqueKey;
+
+	public List<CategoryList> getCategoryList() {
+		return categoryList;
+	}
+
+	public void setCategoryList(List<CategoryList> categoryList) {
+		this.categoryList = categoryList;
+	}
+
+	public BigDecimal getId() {
+		return id;
+	}
+
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+
+	public String getIsin() {
+		return isin;
+	}
+
+	public void setIsin(String isin) {
+		this.isin = isin;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getAssetID1() {
+		return assetID1;
+	}
+
+	public void setAssetID1(String assetID1) {
+		this.assetID1 = assetID1;
+	}
+
+	public String getAssetID2() {
+		return assetID2;
+	}
+
+	public void setAssetID2(String assetID2) {
+		this.assetID2 = assetID2;
+	}
+
+	public String getAssetID3() {
+		return assetID3;
+	}
+
+	public void setAssetID3(String assetID3) {
+		this.assetID3 = assetID3;
+	}
+
+	public String getAssetID4() {
+		return assetID4;
+	}
+
+	public void setAssetID4(String assetID4) {
+		this.assetID4 = assetID4;
+	}
+
+	public String getAssetID5() {
+		return assetID5;
+	}
+
+	public void setAssetID5(String assetID5) {
+		this.assetID5 = assetID5;
+	}
+
+	public String getDescription1() {
+		return description1;
+	}
+
+	public void setDescription1(String description_1) {
+		this.description1 = description_1;
+	}
+
+	public String getDescription2() {
+		return description2;
+	}
+
+	public void setDescription2(String description_2) {
+		this.description2 = description_2;
+	}
+
+	public String getDescription3() {
+		return description3;
+	}
+
+	public void setDescription3(String description_3) {
+		this.description3 = description_3;
+	}
+
+	public BigDecimal get_categoryAppId() {
+		return _categoryAppId;
+	}
+
+	public void set_categoryAppId(BigDecimal _categoryAppId) {
+		this._categoryAppId = _categoryAppId;
+	}
+
+	public BigDecimal get_subcategory1AppId() {
+		return _subcategory1AppId;
+	}
+
+	public void set_subcategory1AppId(BigDecimal _subcategory1AppId) {
+		this._subcategory1AppId = _subcategory1AppId;
+	}
+
+	public BigDecimal get_subcategory2AppId() {
+		return _subcategory2AppId;
+	}
+
+	public void set_subcategory2AppId(BigDecimal _subcategory2AppId) {
+		this._subcategory2AppId = _subcategory2AppId;
+	}
+
+	public BigDecimal get_subcategory3AppId() {
+		return _subcategory3AppId;
+	}
+
+	public void set_subcategory3AppId(BigDecimal _subcategory3AppId) {
+		this._subcategory3AppId = _subcategory3AppId;
+	}
+
+	public BigDecimal get_subcategory4AppId() {
+		return _subcategory4AppId;
+	}
+
+	public void set_subcategory4AppId(BigDecimal _subcategory4AppId) {
+		this._subcategory4AppId = _subcategory4AppId;
+	}
+
+	public BigDecimal get_subcategory5AppId() {
+		return _subcategory5AppId;
+	}
+
+	public void set_subcategory5AppId(BigDecimal _subcategory5AppId) {
+		this._subcategory5AppId = _subcategory5AppId;
+	}
+
+	public BigDecimal get_sectorAppId() {
+		return _sectorAppId;
+	}
+
+	public void set_sectorAppId(BigDecimal _sectorAppId) {
+		this._sectorAppId = _sectorAppId;
+	}
+
+	public BigDecimal get_regionAppId() {
+		return _regionAppId;
+	}
+
+	public void set_regionAppId(BigDecimal _regionAppId) {
+		this._regionAppId = _regionAppId;
+	}
+
+	public BigDecimal get_countryAppId() {
+		return _countryAppId;
+	}
+
+	public void set_countryAppId(BigDecimal _countryAppId) {
+		this._countryAppId = _countryAppId;
+	}
+
+	public BigDecimal get_stockExchangeAppId() {
+		return _stockExchangeAppId;
+	}
+
+	public void set_stockExchangeAppId(BigDecimal _stockExchangeAppId) {
+		this._stockExchangeAppId = _stockExchangeAppId;
+	}
+
+	public BigDecimal get_currencyAppId() {
+		return _currencyAppId;
+	}
+
+	public void set_currencyAppId(BigDecimal _currencyAppId) {
+		this._currencyAppId = _currencyAppId;
+	}
+
+	public BigDecimal getDivisor() {
+		return divisor;
+	}
+
+	public void setDivisor(BigDecimal divisor) {
+		this.divisor = divisor;
+	}
+
+	public BigDecimal getDenomination() {
+		return denomination;
+	}
+
+	public void setDenomination(BigDecimal denomination) {
+		this.denomination = denomination;
+	}
+
+	public BigDecimal get_optionStyleAppId() {
+		return _optionStyleAppId;
+	}
+
+	public void set_optionStyleAppId(BigDecimal _optionStyleAppId) {
+		this._optionStyleAppId = _optionStyleAppId;
+	}
+
+	public BigDecimal get_optionDirectionAppId() {
+		return _optionDirectionAppId;
+	}
+
+	public void set_optionDirectionAppId(BigDecimal _optionDirectionAppId) {
+		this._optionDirectionAppId = _optionDirectionAppId;
+	}
+
+	public BigDecimal getStrikePrice() {
+		return strikePrice;
+	}
+
+	public void setStrikePrice(BigDecimal strikePrice) {
+		this.strikePrice = strikePrice;
+	}
+
+	public BigDecimal get_strikePriceCurrencyAppId() {
+		return _strikePriceCurrencyAppId;
+	}
+
+	public void set_strikePriceCurrencyAppId(BigDecimal _strikePriceCurrencyAppId) {
+		this._strikePriceCurrencyAppId = _strikePriceCurrencyAppId;
+	}
+
+	public int getContractSize() {
+		return contractSize;
+	}
+
+	public void setContractSize(int contractSize) {
+		this.contractSize = contractSize;
+	}
+
+	public BigDecimal get_firstLegCurrencyAppId() {
+		return _firstLegCurrencyAppId;
+	}
+
+	public void set_firstLegCurrencyAppId(BigDecimal _firstLegCurrencyAppId) {
+		this._firstLegCurrencyAppId = _firstLegCurrencyAppId;
+	}
+
+	public BigDecimal getFirstLegAmount() {
+		return firstLegAmount;
+	}
+
+	public void setFirstLegAmount(BigDecimal firstLegAmount) {
+		this.firstLegAmount = firstLegAmount;
+	}
+
+	public BigDecimal get_secondLegCurrencyAppId() {
+		return _secondLegCurrencyAppId;
+	}
+
+	public void set_secondLegCurrencyAppId(BigDecimal _secondLegCurrencyAppId) {
+		this._secondLegCurrencyAppId = _secondLegCurrencyAppId;
+	}
+
+	public BigDecimal getSecondLegAmount() {
+		return secondLegAmount;
+	}
+
+	public void setSecondLegAmount(BigDecimal secondLegAmount) {
+		this.secondLegAmount = secondLegAmount;
+	}
+
+	public BigDecimal get_originatingCurrencyAppId() {
+		return _originatingCurrencyAppId;
+	}
+
+	public void set_originatingCurrencyAppId(BigDecimal _originatingCurrencyAppId) {
+		this._originatingCurrencyAppId = _originatingCurrencyAppId;
+	}
+
+	public BigDecimal get_targetCurrencyAppId() {
+		return _targetCurrencyAppId;
+	}
+
+	public void set_targetCurrencyAppId(BigDecimal _targetCurrencyAppId) {
+		this._targetCurrencyAppId = _targetCurrencyAppId;
+	}
+
+	public String getInitialLevelDate() {
+		return initialLevelDate;
+	}
+
+	public void setInitialLevelDate(String initialLevelDate) {
+		this.initialLevelDate = initialLevelDate;
+	}
+
+	public String getCategoryAppConfigName() {
+		return categoryAppConfigName;
+	}
+
+	public void setCategoryAppConfigName(String categoryAppConfigName) {
+		this.categoryAppConfigName = categoryAppConfigName;
+	}
+
+	public String getSubcategory1AppConfigName() {
+		return subcategory1AppConfigName;
+	}
+
+	public void setSubcategory1AppConfigName(String subcategory1AppConfigName) {
+		this.subcategory1AppConfigName = subcategory1AppConfigName;
+	}
+
+	public String getSubcategory2AppConfigName() {
+		return subcategory2AppConfigName;
+	}
+
+	public void setSubcategory2AppConfigName(String subcategory2AppConfigName) {
+		this.subcategory2AppConfigName = subcategory2AppConfigName;
+	}
+
+	public String getSubcategory3AppConfigName() {
+		return subcategory3AppConfigName;
+	}
+
+	public void setSubcategory3AppConfigName(String subcategory3AppConfigName) {
+		this.subcategory3AppConfigName = subcategory3AppConfigName;
+	}
+
+	public String getSubcategory4AppConfigName() {
+		return subcategory4AppConfigName;
+	}
+
+	public void setSubcategory4AppConfigName(String subcategory4AppConfigName) {
+		this.subcategory4AppConfigName = subcategory4AppConfigName;
+	}
+
+	public String getSubcategory5AppConfigName() {
+		return subcategory5AppConfigName;
+	}
+
+	public void setSubcategory5AppConfigName(String subcategory5AppConfigName) {
+		this.subcategory5AppConfigName = subcategory5AppConfigName;
+	}
+
+	public String getSectorAppConfigName() {
+		return sectorAppConfigName;
+	}
+
+	public void setSectorAppConfigName(String sectorAppConfigName) {
+		this.sectorAppConfigName = sectorAppConfigName;
+	}
+
+	public String getRegionAppConfigName() {
+		return regionAppConfigName;
+	}
+
+	public void setRegionAppConfigName(String regionAppConfigName) {
+		this.regionAppConfigName = regionAppConfigName;
+	}
+
+	public String getCountryAppConfigName() {
+		return countryAppConfigName;
+	}
+
+	public void setCountryAppConfigName(String countryAppConfigName) {
+		this.countryAppConfigName = countryAppConfigName;
+	}
+
+	public String getRateTypeAppConfigName() {
+		return rateTypeAppConfigName;
+	}
+
+	public void setRateTypeAppConfigName(String rateTypeAppConfigName) {
+		this.rateTypeAppConfigName = rateTypeAppConfigName;
+	}
+
+	public String getOptionStyleAppConfigName() {
+		return optionStyleAppConfigName;
+	}
+
+	public void setOptionStyleAppConfigName(String optionStyleAppConfigName) {
+		this.optionStyleAppConfigName = optionStyleAppConfigName;
+	}
+
+	public String getOptionDirectionAppConfigName() {
+		return optionDirectionAppConfigName;
+	}
+
+	public void setOptionDirectionAppConfigName(String optionDirectionAppConfigName) {
+		this.optionDirectionAppConfigName = optionDirectionAppConfigName;
+	}
+
+	public String getStrikePriceCurrencyAppConfigName() {
+		return strikePriceCurrencyAppConfigName;
+	}
+
+	public void setStrikePriceCurrencyAppConfigName(String strikePriceCurrencyAppConfigName) {
+		this.strikePriceCurrencyAppConfigName = strikePriceCurrencyAppConfigName;
+	}
+
+	public String getFirstLegCurrencyAppConfigName() {
+		return firstLegCurrencyAppConfigName;
+	}
+
+	public void setFirstLegCurrencyAppConfigName(String firstLegCurrencyAppConfigName) {
+		this.firstLegCurrencyAppConfigName = firstLegCurrencyAppConfigName;
+	}
+
+	public String getSecondLegCurrencyAppConfigName() {
+		return secondLegCurrencyAppConfigName;
+	}
+
+	public void setSecondLegCurrencyAppConfigName(String secondLegCurrencyAppConfigName) {
+		this.secondLegCurrencyAppConfigName = secondLegCurrencyAppConfigName;
+	}
+
+	public String getOriginatingCurrencyAppConfigName() {
+		return originatingCurrencyAppConfigName;
+	}
+
+	public void setOriginatingCurrencyAppConfigName(String originatingCurrencyAppConfigName) {
+		this.originatingCurrencyAppConfigName = originatingCurrencyAppConfigName;
+	}
+
+	public String getTargetCurrencyAppConfigName() {
+		return targetCurrencyAppConfigName;
+	}
+
+	public void setTargetCurrencyAppConfigName(String targetCurrencyAppConfigName) {
+		this.targetCurrencyAppConfigName = targetCurrencyAppConfigName;
+	}
+
+	public String getIssuerAppConfigName() {
+		return issuerAppConfigName;
+	}
+
+	public void setIssuerAppConfigName(String issuerAppConfigName) {
+		this.issuerAppConfigName = issuerAppConfigName;
+	}
+
+	public BigDecimal get_issuerAppId() {
+		return _issuerAppId;
+	}
+
+	public void set_issuerAppId(BigDecimal _issuerAppId) {
+		this._issuerAppId = _issuerAppId;
+	}
+
+	public String getIssuerConfigName() {
+		return issuerConfigName;
+	}
+
+	public void setIssuerConfigName(String issuerConfigName) {
+		this.issuerConfigName = issuerConfigName;
+	}
+
+	public Date getIssueDate() {
+		return issueDate;
+	}
+
+	public void setIssueDate(Date issueDate) {
+		this.issueDate = issueDate;
+	}
+
+	public Date getTradeDate() {
+		return tradeDate;
+	}
+
+	public void setTradeDate(Date tradeDate) {
+		this.tradeDate = tradeDate;
+	}
+
+	public Date getExpiryDate() {
+		return expiryDate;
+	}
+
+	public void setExpiryDate(Date expiryDate) {
+		this.expiryDate = expiryDate;
+	}
+
+	public Date getMaturityDate() {
+		return maturityDate;
+	}
+
+	public void setMaturityDate(Date maturityDate) {
+		this.maturityDate = maturityDate;
+	}
+
+	public int getIntrinsicVsMarkFlag() {
+		return intrinsicVsMarkFlag;
+	}
+
+	public void setIntrinsicVsMarkFlag(int intrinsicVsMarkFlag) {
+		this.intrinsicVsMarkFlag = intrinsicVsMarkFlag;
+	}
+
+	public BigDecimal get_rateTypeAppId() {
+		return _rateTypeAppId;
+	}
+
+	public void set_rateTypeAppId(BigDecimal _rateTypeAppId) {
+		this._rateTypeAppId = _rateTypeAppId;
+	}
+
+	public Double getRate() {
+		return rate;
+	}
+
+	public void setRate(Double rate) {
+		this.rate = rate;
+	}
+
+	public int getWorkflowId() {
+		return workflowId;
+	}
+
+	public void setWorkflowId(int workflowId) {
+		this.workflowId = workflowId;
+	}
+
+	public String getStatusSince() {
+		return statusSince;
+	}
+
+	public void setStatusSince(String statusSince) {
+		this.statusSince = statusSince;
+	}
+
+	public String getStatusAppConfigName() {
+		return statusAppConfigName;
+	}
+
+	public void setStatusAppConfigName(String statusConfigName) {
+		this.statusAppConfigName = statusConfigName;
+	}
+
+	public String getApprovedBy() {
+		return approvedBy;
+	}
+
+	public void setApprovedBy(String approvedBy) {
+		this.approvedBy = approvedBy;
+	}
+
+	public Date getApprovedDate() {
+		return approvedDate;
+	}
+
+	public void setApprovedDate(Date approvedDate) {
+		this.approvedDate = approvedDate;
+	}
+
+	public String getUpdatedBy() {
+		return updatedBy;
+	}
+
+	public void setUpdatedBy(String updatedBy) {
+		this.updatedBy = updatedBy;
+	}
+
+	public Date getUpdatedDate() {
+		return updatedDate;
+	}
+
+	public void setUpdatedDate(Date updatedDate) {
+		this.updatedDate = updatedDate;
+	}
+
+	public String getCreatedBy() {
+		return createdBy;
+	}
+
+	public void setCreatedBy(String createdBy) {
+		this.createdBy = createdBy;
+	}
+
+	public Date getCreatedDate() {
+		return createdDate;
+	}
+
+	public void setCreatedDate(Date createdDate) {
+		this.createdDate = createdDate;
+	}
+
+	public Date getEffectiveFromDate() {
+		return effectiveFromDate;
+	}
+
+	public void setEffectiveFromDate(Date effectiveFromDate) {
+		this.effectiveFromDate = effectiveFromDate;
+	}
+
+	public Date getEffectiveToDate() {
+		return effectiveToDate;
+	}
+
+	public void setEffectiveToDate(Date effectiveToDate) {
+		this.effectiveToDate = effectiveToDate;
+	}
+
+	public Date getReferenceDate() {
+		return referenceDate;
+	}
+
+	public void setReferenceDate(Date referenceDate) {
+		this.referenceDate = referenceDate;
+	}
+
+	public BigDecimal get_tenantId() {
+		return _tenantId;
+	}
+
+	public void set_tenantId(BigDecimal _tenantId) {
+		this._tenantId = _tenantId;
+	}
+
+	public String getTenantCode() {
+		return tenantCode;
+	}
+
+	public void setTenantCode(String tenantCode) {
+		this.tenantCode = tenantCode;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+
+	public void set_thirdPartyProcessorId1(BigDecimal _thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = _thirdPartyProcessorId1;
+	}
+
+	public BigDecimal get_thirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+
+	public void set_thirdPartyProcessorId2(BigDecimal _thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = _thirdPartyProcessorId2;
+	}
+
+	public int getHasError() {
+		return hasError;
+	}
+
+	public void setHasError(int hasError) {
+		this.hasError = hasError;
+	}
+
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+
+	public List<UnderlyingAssetsVO> getUnderlyingAssets() {
+		return underlyingAssets;
+	}
+
+	public void setUnderlyingAssets(List<UnderlyingAssetsVO> underlyingAssets) {
+		this.underlyingAssets = underlyingAssets;
+	}
+
+	public String getCurrencyAppConfigName() {
+		return currencyAppConfigName;
+	}
+
+	public void setCurrencyAppConfigName(String currencyAppConfigName) {
+		this.currencyAppConfigName = currencyAppConfigName;
+	}
+
+	public String getStockExchangeAppConfigName() {
+		return stockExchangeAppConfigName;
+	}
+
+	public void setStockExchangeAppConfigName(String stockExchangeAppConfigName) {
+		this.stockExchangeAppConfigName = stockExchangeAppConfigName;
+	}
+
+	public List<AssetPriceVO> getAssetPrice() {
+		return assetPrice;
+	}
+
+	public void setAssetPrice(List<AssetPriceVO> assetPrice) {
+		this.assetPrice = assetPrice;
+	}
+
+	public List<AssetKeyFigureVO> getAssetKeyFigure() {
+		return assetKeyFigure;
+	}
+
+	public void setAssetKeyFigure(List<AssetKeyFigureVO> assetKeyFigure) {
+		this.assetKeyFigure = assetKeyFigure;
+	}
+
+	public BigDecimal get_statusAppId() {
+		return _statusAppId;
+	}
+
+	public void set_statusAppId(BigDecimal _statusAppId) {
+		this._statusAppId = _statusAppId;
+	}
+
+	public AssetSPMetricsVO getAssetSPMetrics() {
+		return assetSPMetrics;
+	}
+
+	public void setAssetSPMetrics(AssetSPMetricsVO assetSPMetrics) {
+		this.assetSPMetrics = assetSPMetrics;
+	}
+
+	public BigDecimal get_interestPracticeAppId() {
+		return _interestPracticeAppId;
+	}
+
+	public void set_interestPracticeAppId(BigDecimal _interestPracticeAppId) {
+		this._interestPracticeAppId = _interestPracticeAppId;
+	}
+
+	public BigDecimal get_interestFrequencyAppId() {
+		return _interestFrequencyAppId;
+	}
+
+	public void set_interestFrequencyAppId(BigDecimal _interestFrequencyAppId) {
+		this._interestFrequencyAppId = _interestFrequencyAppId;
+	}
+
+	public BigDecimal get_interestCurrencyAppId() {
+		return _interestCurrencyAppId;
+	}
+
+	public void set_interestCurrencyAppId(BigDecimal _interestCurrencyAppId) {
+		this._interestCurrencyAppId = _interestCurrencyAppId;
+	}
+
+	public String getInterestPracticeAppConfigName() {
+		return interestPracticeAppConfigName;
+	}
+
+	public void setInterestPracticeAppConfigName(String interestPracticeAppConfigName) {
+		this.interestPracticeAppConfigName = interestPracticeAppConfigName;
+	}
+
+	public String getInterestCurrencyAppConfigName() {
+		return interestCurrencyAppConfigName;
+	}
+
+	public void setInterestCurrencyAppConfigName(String interestCurrencyAppConfigName) {
+		this.interestCurrencyAppConfigName = interestCurrencyAppConfigName;
+	}
+
+	public String getInterestFrequencyAppConfigName() {
+		return interestFrequencyAppConfigName;
+	}
+
+	public void setInterestFrequencyAppConfigName(String interestFrequencyAppConfigName) {
+		this.interestFrequencyAppConfigName = interestFrequencyAppConfigName;
+	}
+
+	public Date getRedemptionDate() {
+		return redemptionDate;
+	}
+
+	public void setRedemptionDate(Date redemptionDate) {
+		this.redemptionDate = redemptionDate;
+	}
+
+	public BigDecimal get_redemptionCurrencyAppId() {
+		return _redemptionCurrencyAppId;
+	}
+
+	public void set_redemptionCurrencyAppId(BigDecimal _redemptionCurrencyAppId) {
+		this._redemptionCurrencyAppId = _redemptionCurrencyAppId;
+	}
+
+	public BigDecimal getRedemptionPrice() {
+		return redemptionPrice;
+	}
+
+	public void setRedemptionPrice(BigDecimal redemptionPrice) {
+		this.redemptionPrice = redemptionPrice;
+	}
+
+	public Date getEarlyRedemptionDate() {
+		return earlyRedemptionDate;
+	}
+
+	public void setEarlyRedemptionDate(Date earlyRedemptionDate) {
+		this.earlyRedemptionDate = earlyRedemptionDate;
+	}
+
+	public BigDecimal getEarlyRedemptionPrice() {
+		return earlyRedemptionPrice;
+	}
+
+	public void setEarlyRedemptionPrice(BigDecimal earlyRedemptionPrice) {
+		this.earlyRedemptionPrice = earlyRedemptionPrice;
+	}
+
+	public BigDecimal get_redemptionFrequencyAppId() {
+		return _redemptionFrequencyAppId;
+	}
+
+	public void set_redemptionFrequencyAppId(BigDecimal _redemptionFrequencyAppId) {
+		this._redemptionFrequencyAppId = _redemptionFrequencyAppId;
+	}
+
+	public String getRedemptionCurrencyAppConfigName() {
+		return redemptionCurrencyAppConfigName;
+	}
+
+	public void setRedemptionCurrencyAppConfigName(String redemptionCurrencyAppConfigName) {
+		this.redemptionCurrencyAppConfigName = redemptionCurrencyAppConfigName;
+	}
+
+	public String getRedemptionFrequencyAppConfigName() {
+		return redemptionFrequencyAppConfigName;
+	}
+
+	public void setRedemptionFrequencyAppConfigName(String redemptionFrequencyAppConfigName) {
+		this.redemptionFrequencyAppConfigName = redemptionFrequencyAppConfigName;
+	}
+
+	public List<AssetValuationScheduleVO> getAssetValuationSchedule() {
+		return assetValuationSchedule;
+	}
+
+	public void setAssetValuationSchedule(List<AssetValuationScheduleVO> assetValuationSchedule) {
+		this.assetValuationSchedule = assetValuationSchedule;
+	}
+
+	public BigDecimal get_sourceAppId() {
+		return _sourceAppId;
+	}
+
+	public void set_sourceAppId(BigDecimal _sourceAppId) {
+		this._sourceAppId = _sourceAppId;
+	}
+
+	public String getSourceAppConfigName() {
+		return sourceAppConfigName;
+	}
+
+	public void setSourceAppConfigName(String sourceAppConfigName) {
+		this.sourceAppConfigName = sourceAppConfigName;
+	}
+
+	public int getIsActive() {
+		return isActive;
+	}
+
+	public void setIsActive(int isActive) {
+		this.isActive = isActive;
+	}
+
+	public String getUniqueKey() {
+		return uniqueKey;
+	}
+
+	public void setUniqueKey(String uniqueKey) {
+		this.uniqueKey = uniqueKey;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public void setUsername(String username) {
+		this.username = username;
+	}
+
+	public String getCategoryDescription() {
+		return categoryDescription;
+	}
+
+	public void setCategoryDescription(String categoryDescription) {
+		this.categoryDescription = categoryDescription;
+	}
+
+	public String getSubCategory1Description() {
+		return subCategory1Description;
+	}
+
+	public void setSubCategory1Description(String subCategory1Description) {
+		this.subCategory1Description = subCategory1Description;
+	}
+
+	public String getSubCategory2Description() {
+		return subCategory2Description;
+	}
+
+	public void setSubCategory2Description(String subCategory2Description) {
+		this.subCategory2Description = subCategory2Description;
+	}
+
+	public String getSubCategory3Description() {
+		return subCategory3Description;
+	}
+
+	public void setSubCategory3Description(String subCategory3Description) {
+		this.subCategory3Description = subCategory3Description;
+	}
+
+	public BigDecimal get_productRiskAppId() {
+		return _productRiskAppId;
+	}
+
+	public void set_productRiskAppId(BigDecimal _productRiskAppId) {
+		this._productRiskAppId = _productRiskAppId;
+	}
+
+	public String getProductRiskAppConfigName() {
+		return productRiskAppConfigName;
+	}
+
+	public void setProductRiskAppConfigName(String productRiskAppConfigName) {
+		this.productRiskAppConfigName = productRiskAppConfigName;
+	}
+
+	public Double getInvestmentHorizon() {
+		return investmentHorizon;
+	}
+
+	public void setInvestmentHorizon(Double investmentHorizon) {
+		this.investmentHorizon = investmentHorizon;
+	}
+
+	public BigDecimal get_liquidityAppId() {
+		return _liquidityAppId;
+	}
+
+	public void set_liquidityAppId(BigDecimal _liquidityAppId) {
+		this._liquidityAppId = _liquidityAppId;
+	}
+
+	public String getLiquidityAppConfigName() {
+		return liquidityAppConfigName;
+	}
+
+	public void setLiquidityAppConfigName(String liquidityAppConfigName) {
+		this.liquidityAppConfigName = liquidityAppConfigName;
+	}
+
+	@Override
+	public String toString() {
+		return "AssetVO [id=" + id + ", isin=" + isin + ", name=" + name + ", assetID1=" + assetID1 + ", assetID2="
+				+ assetID2 + ", assetID3=" + assetID3 + ", assetID4=" + assetID4 + ", assetID5=" + assetID5
+				+ ", description1=" + description1 + ", description2=" + description2 + ", description3=" + description3
+				+ ", _categoryAppId=" + _categoryAppId + ", _subcategory1AppId=" + _subcategory1AppId
+				+ ", _subcategory2AppId=" + _subcategory2AppId + ", _subcategory3AppId=" + _subcategory3AppId
+				+ ", _subcategory4AppId=" + _subcategory4AppId + ", _subcategory5AppId=" + _subcategory5AppId
+				+ ", _sectorAppId=" + _sectorAppId + ", _regionAppId=" + _regionAppId + ", _countryAppId="
+				+ _countryAppId + ", _stockExchangeAppId=" + _stockExchangeAppId + ", _currencyAppId=" + _currencyAppId
+				+ ", divisor=" + divisor + ", denomination=" + denomination + ", _optionStyleAppId=" + _optionStyleAppId
+				+ ", _optionDirectionAppId=" + _optionDirectionAppId + ", strikePrice=" + strikePrice
+				+ ", _strikePriceCurrencyAppId=" + _strikePriceCurrencyAppId + ", contractSize=" + contractSize
+				+ ", _firstLegCurrencyAppId=" + _firstLegCurrencyAppId + ", firstLegAmount=" + firstLegAmount
+				+ ", _secondLegCurrencyAppId=" + _secondLegCurrencyAppId + ", secondLegAmount=" + secondLegAmount
+				+ ", _originatingCurrencyAppId=" + _originatingCurrencyAppId + ", _targetCurrencyAppId="
+				+ _targetCurrencyAppId + ", initialLevelDate=" + initialLevelDate + ", categoryAppConfigName="
+				+ categoryAppConfigName + ", subcategory1AppConfigName=" + subcategory1AppConfigName
+				+ ", subcategory2AppConfigName=" + subcategory2AppConfigName + ", subcategory3AppConfigName="
+				+ subcategory3AppConfigName + ", subcategory4AppConfigName=" + subcategory4AppConfigName
+				+ ", subcategory5AppConfigName=" + subcategory5AppConfigName + ", sectorAppConfigName="
+				+ sectorAppConfigName + ", regionAppConfigName=" + regionAppConfigName + ", countryAppConfigName="
+				+ countryAppConfigName + ", rateTypeAppConfigName=" + rateTypeAppConfigName + ", currencyAppConfigName="
+				+ currencyAppConfigName + ", stockExchangeAppConfigName=" + stockExchangeAppConfigName
+				+ ", optionStyleAppConfigName=" + optionStyleAppConfigName + ", optionDirectionAppConfigName="
+				+ optionDirectionAppConfigName + ", strikePriceCurrencyAppConfigName="
+				+ strikePriceCurrencyAppConfigName + ", firstLegCurrencyAppConfigName=" + firstLegCurrencyAppConfigName
+				+ ", secondLegCurrencyAppConfigName=" + secondLegCurrencyAppConfigName
+				+ ", originatingCurrencyAppConfigName=" + originatingCurrencyAppConfigName
+				+ ", targetCurrencyAppConfigName=" + targetCurrencyAppConfigName + ", issuerAppConfigName="
+				+ issuerAppConfigName + ", _issuerAppId=" + _issuerAppId + ", issuerConfigName=" + issuerConfigName
+				+ ", issueDate=" + issueDate + ", tradeDate=" + tradeDate + ", expiryDate=" + expiryDate
+				+ ", maturityDate=" + maturityDate + ", intrinsicVsMarkFlag=" + intrinsicVsMarkFlag
+				+ ", _rateTypeAppId=" + _rateTypeAppId + ", rate=" + rate + ", isActive=" + isActive + ", workflowId="
+				+ workflowId + ", statusSince=" + statusSince + ", _statusAppId=" + _statusAppId
+				+ ", statusAppConfigName=" + statusAppConfigName + ", approvedBy=" + approvedBy + ", approvedDate="
+				+ approvedDate + ", updatedBy=" + updatedBy + ", updatedDate=" + updatedDate + ", createdBy="
+				+ createdBy + ", createdDate=" + createdDate + ", effectiveFromDate=" + effectiveFromDate
+				+ ", effectiveToDate=" + effectiveToDate + ", referenceDate=" + referenceDate + ", _sourceAppId="
+				+ _sourceAppId + ", sourceAppConfigName=" + sourceAppConfigName + ", _tenantId=" + _tenantId
+				+ ", tenantCode=" + tenantCode + ", _thirdPartyProcessorId1=" + _thirdPartyProcessorId1
+				+ ", _thirdPartyProcessorId2=" + _thirdPartyProcessorId2 + ", hasError=" + hasError + ", errors="
+				+ errors + ", _interestPracticeAppId=" + _interestPracticeAppId + ", _interestFrequencyAppId="
+				+ _interestFrequencyAppId + ", _interestCurrencyAppId=" + _interestCurrencyAppId
+				+ ", interestPracticeAppConfigName=" + interestPracticeAppConfigName
+				+ ", interestCurrencyAppConfigName=" + interestCurrencyAppConfigName
+				+ ", interestFrequencyAppConfigName=" + interestFrequencyAppConfigName + ", redemptionDate="
+				+ redemptionDate + ", _redemptionCurrencyAppId=" + _redemptionCurrencyAppId + ", redemptionPrice="
+				+ redemptionPrice + ", earlyRedemptionDate=" + earlyRedemptionDate + ", earlyRedemptionPrice="
+				+ earlyRedemptionPrice + ", _redemptionFrequencyAppId=" + _redemptionFrequencyAppId
+				+ ", redemptionCurrencyAppConfigName=" + redemptionCurrencyAppConfigName
+				+ ", redemptionFrequencyAppConfigName=" + redemptionFrequencyAppConfigName + ", categoryDescription="
+				+ categoryDescription + ", subCategory1Description=" + subCategory1Description
+				+ ", subCategory2Description=" + subCategory2Description + ", subCategory3Description="
+				+ subCategory3Description + ", _productRiskAppId=" + _productRiskAppId + ", productRiskAppConfigName="
+				+ productRiskAppConfigName + ", investmentHorizon=" + investmentHorizon + ", _liquidityAppId="
+				+ _liquidityAppId + ", liquidityAppConfigName=" + liquidityAppConfigName + ", underlyingAssets="
+				+ underlyingAssets + ", assetValuationSchedule=" + assetValuationSchedule + ", assetPrice=" + assetPrice
+				+ ", assetKeyFigure=" + assetKeyFigure + ", categoryList=" + categoryList + ", assetSPMetrics="
+				+ assetSPMetrics + ", username=" + username + ", uniqueKey=" + uniqueKey + "]";
+	}
+}

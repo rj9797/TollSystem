@@ -1,0 +1,79 @@
+package com.klayx.asset.dao;
+
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetPerformanceVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.FailedAssetVO;
+import com.klayx.asset.model.PreferredAssetGroupVO;
+import com.klayx.asset.model.PreferredAssetVO;
+import com.klayx.asset.model.ResponseVO;
+import com.klayx.asset.model.SearchRequestVO;
+import com.klayx.asset.model.SearchResultDataVO;
+import com.klayx.asset.model.UnderlyingAssetsVO;
+
+public interface IAssetDAO {
+
+	public void addAsset(String tenantCode,AssetVO assetVO) throws Exception;
+
+	public void addAssets(String tenantCode,List<AssetVO> assetVOs,AssetRequestVO reqParam) throws Exception;
+
+	public void addUnderlyingAssets(String tenantCode,AssetVO assetVO) throws Exception;
+
+	public void addValuationSchedule(String tenantCode,AssetVO assetVO) throws Exception;
+
+	public int assetsInactive(String tenantCode) throws Exception;
+	
+	public ResponseVO<SearchResultDataVO, SearchRequestVO> getAssetSearchInResponse(String tenantCode,String queryConditions, List<String> searchInTextParams,
+			List<String> textSearchParams, List<String> dateSearchParams, List<String> numberSearchParams,
+			AssetRequestVO assetRequestVO) throws Exception;
+
+	public List<AssetVO>  getAsset(String tenantCode,List<AssetGetRequestVO> assetGetRequest, BigDecimal get_tenantId)throws Exception;
+	
+	public HashMap<String,AssetVO>  getAssetMap(List<AssetGetRequestVO> assetGetRequest, BigDecimal get_tenantId, String tenantCode)throws Exception;
+	
+	public ResponseVO deleteActiveAssetDao(String tenantCode) throws Exception;
+	
+	public void insertFailedAsset(List<FailedAssetVO> failedAssetVOList,String tenantCode);
+	
+	public Map<String,AssetVO> checkAssets(List<UnderlyingAssetsVO> underlyingAssetVoList, String tenantCode);
+
+	public Map<BigDecimal,List<UnderlyingAssetsVO>> getAssetUnderLying(List<UnderlyingAssetsVO> underlyingAssetVoInsertList, String tenantCode);
+	
+	public void addUnderlyingAsset(String tenantCode,List<UnderlyingAssetsVO> underlyingAssetVoList,AssetRequestVO assetRequestVO) throws Exception;
+	
+	public void updateUnderlyingAsset(String tenantCode,List<UnderlyingAssetsVO> underlyingAssetVoUpdateList,AssetRequestVO assetRequestVO) throws Exception;
+	
+	public void deactivateUnderlyingAsset(String tenantCode,List<UnderlyingAssetsVO> underlyingAssetVoDeleteList ,AssetRequestVO assetRequestVO) throws Exception;
+
+	/**
+	 * @usage : Call by /preferredassetsinfo and /preferredassetsbycode
+	 * @param req  : incoming req
+	 * @param formattedDate 
+	 * @param signal : 1 -> /preferredassetsinfo , 2 -> /preferredassetsbycode
+	 */
+	
+	
+	public void addPreferredAssetsGroup(String tenantCode,List<PreferredAssetGroupVO> preferredAssetGroupFreshInsertVO,AssetRequestVO assetRequestVO) throws Exception;
+	
+	public void addPreferredAssets(String tenantCode,List<PreferredAssetVO> preferredAssetVO,AssetRequestVO assetRequestVO) throws Exception;
+	
+	public Map<BigDecimal,PreferredAssetGroupVO> getCustodianWiseMaxDate(String tenantCode,List<PreferredAssetGroupVO> preferredAssetGroupVO,AssetRequestVO assetRequestVO) throws Exception;
+	
+	public void updateCustodianWiseMaxDate(String tenantCode,List<PreferredAssetGroupVO> preferredAssetGroupVO,AssetRequestVO assetRequestVO) throws Exception;
+	
+	public void addCustodianWiseMaxDate(String tenantCode,List<PreferredAssetGroupVO> preferredAssetGroupList,AssetRequestVO assetRequestVO) throws Exception;
+	public String getpreferredassetsinfo(List<AssetGetRequestVO> req,String tenantCode, String formattedDate) throws Exception;
+
+	public void deactivatePreferredAssetGroup(String tenantCode,List<PreferredAssetGroupVO> preferredAssetGroupList,AssetRequestVO assetRequestVO) throws Exception;
+	
+	public void deactivatePreferredAsset(String tenantCode,List<PreferredAssetGroupVO> preferredAssetGroupList,AssetRequestVO assetRequestVO) throws Exception;
+	
+}

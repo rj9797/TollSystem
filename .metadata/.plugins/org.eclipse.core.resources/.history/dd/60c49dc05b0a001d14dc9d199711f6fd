@@ -1,0 +1,29 @@
+package com.klayx.asset.model;
+
+import java.util.Date;
+
+public class AssetRequestByIdVO {
+	
+	Long _assetId;
+	Long _custodianId;
+	Date requestDate;
+	public Long get_assetId() {
+		return _assetId;
+	}
+	public void set_assetId(Long _assetId) {
+		this._assetId = _assetId;
+	}
+	public Long get_custodianId() {
+		return _custodianId;
+	}
+	public void set_custodianId(Long _custodianId) {
+		this._custodianId = _custodianId;
+	}
+	public Date getRequestDate() {
+		return requestDate;
+	}
+	public void setRequestDate(Date requestDate) {
+		this.requestDate = requestDate;
+	}
+	
+}

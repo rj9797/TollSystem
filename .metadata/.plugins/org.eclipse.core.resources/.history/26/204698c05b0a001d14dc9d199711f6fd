@@ -1,0 +1,29 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+
+import com.google.gson.annotations.SerializedName;
+
+public class DocumentTypesVO {
+
+	private BigDecimal businessDefinitionAppId;
+	private String businessDefinitionAppConfigName;
+	public BigDecimal getBusinessDefinitionAppId() {
+		return businessDefinitionAppId;
+	}
+	public void setBusinessDefinitionAppId(BigDecimal businessDefinitionAppId) {
+		this.businessDefinitionAppId = businessDefinitionAppId;
+	}
+	public String getBusinessDefinitionAppConfigName() {
+		return businessDefinitionAppConfigName;
+	}
+	public void setBusinessDefinitionAppConfigName(String businessDefinitionAppConfigName) {
+		this.businessDefinitionAppConfigName = businessDefinitionAppConfigName;
+	}
+	@Override
+	public String toString() {
+		return "DocumentTypesVO [businessDefinitionAppId=" + businessDefinitionAppId
+				+ ", businessDefinitionAppConfigName=" + businessDefinitionAppConfigName + "]";
+	}
+	
+}

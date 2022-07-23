@@ -1,0 +1,48 @@
+{
+	"$schema": "http://json-schema.org/draft-04/schema#",
+	"type": "object",
+	"properties": {
+		"_id": {
+			"anyOf": [{
+					"type": "integer"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"_thirdPartyProcessorId1": {
+			"anyOf": [{
+					"type": "integer"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"_thirdPartyProcessorId2": {
+			"anyOf": [{
+					"type": "integer"
+				},
+				{	
+					"type": "null"
+				}
+			]
+		},
+		"infoKey": {
+			"anyOf": [
+				{
+					"$ref": "classpath://./jsonschema/AppConfigSchema.json#/AssetReturnsAdditionalInfoKeys"
+				}
+			]
+		},
+		"infoValue": {
+			"type": "number"
+		}
+	},
+	"required": [
+		"infoKey",
+		"infoValue"
+	],
+	"additionalProperties": true
+}

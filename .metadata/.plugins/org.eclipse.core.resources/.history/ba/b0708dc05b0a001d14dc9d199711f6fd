@@ -1,0 +1,31 @@
+package com.klayx.asset.rowmapper;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.jdbc.core.RowMapper;
+
+import com.klayx.asset.model.PreferredAssetGroupVO;
+import com.klayx.asset.model.PreferredAssetVO;
+
+public class PreferredAssetGroupForMaxDateMapper implements RowMapper<PreferredAssetGroupVO>{
+
+	@Override
+	public PreferredAssetGroupVO mapRow(ResultSet rs, int rowNum) throws SQLException {
+		PreferredAssetGroupVO vo=new PreferredAssetGroupVO();
+		vo.setId(rs.getBigDecimal("id"));
+		vo.setGroupTypeId(rs.getBigDecimal("pa_group_type_id"));
+		vo.setGroupCode(rs.getString("group_code"));
+		vo.setMaxEffFromDate(rs.getDate("max_eff_from_date"));
+		vo.setReferenceDate(rs.getDate("group_eff_from_date"));
+		List<PreferredAssetVO> preferredList=new ArrayList<PreferredAssetVO>();
+		PreferredAssetVO preferredAssetVO=new PreferredAssetVO();
+		preferredList.add(preferredAssetVO);
+		preferredAssetVO.setPreferredAssetsGroupId(rs.getBigDecimal("id"));
+		vo.setPreferredAssets(preferredList);
+		return vo;
+	}
+	
+}

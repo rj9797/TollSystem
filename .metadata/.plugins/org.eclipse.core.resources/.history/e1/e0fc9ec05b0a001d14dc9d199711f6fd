@@ -1,0 +1,23 @@
+package com.klayx.asset.model;
+
+public class SearchTokanizeFieldVO {
+
+	private String aliasName;
+	private int fieldPriority;
+	
+	public String getAliasName() {
+		return aliasName;
+	}
+	public void setAliasName(String aliasName) {
+		this.aliasName = aliasName;
+	}
+	public int getFieldPriority() {
+		return fieldPriority;
+	}
+	public void setFieldPriority(int fieldPriority) {
+		this.fieldPriority = fieldPriority;
+	}
+	
+	
+	
+}

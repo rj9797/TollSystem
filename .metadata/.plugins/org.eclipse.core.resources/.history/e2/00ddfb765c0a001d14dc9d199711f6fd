@@ -1,0 +1,72 @@
+version: '3'
+
+services:
+  uat-assetmaster-postgres:
+    build:
+          context: ./assetpostgres
+    image: "uat/postgres:latest"
+    container_name: uat-assetmaster-postgres
+    ports:
+      - "5444:5432"
+    volumes:
+      - /home/uat-user/uatservicesvolumedata/assetmanagementdata/dbscript:/docker-entrypoint-initdb.d/
+      - /home/uat-user/uatservicesvolumedata/assetmanagementdata/dbscriptdata:/var/lib/postgresql/data
+      - /home/uat-user/uatservicesvolumedata/assetmanagementdata/dbconfigfile/data/postgresql.conf:/var/lib/postgresql/data/postgresql.conf
+      - /home/uat-user/uatservicesvolumedata/assetmanagementdata/dump:/dump
+      - /home/uat-user/uatservicesvolumedata/assetmanagementdata/updatescript:/updatescript
+      # - ${PWD}/dbdata:/var/lib/postgresql/data  This is new Test text on same line   
+      #   ${PWD}/dbdata:/var/lib/postgresql/data  This is new line text on same line
+
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      TZ: 'UTC'
+      PGTZ: 'UTC'
+    restart: always
+    networks:
+      - uatdockernetwork
+  
+  uat-assetmaster:
+           image: "localhost:5000/uat-assetmaster:0.0.1-SNAPSHOT"
+           container_name: uat-assetmaster
+           ports:
+                   - "8083:8083"
+                   - "8001:8001" 
+           volumes:
+                   - /home/uat-user/uatservicesvolumedata/assetmanagementdata/certificate:/home/produser/certificate
+                   - /home/uat-user/uatservicesvolumedata/assetmanagementdata/logs:/home/produser/logs
+           entrypoint: "java -jar AssetMaster-0.0.1-SNAPSHOT.jar -Puat"
+
+           depends_on:
+                   - uat-assetmaster-postgres     
+           environment:
+                   - spring.klayx.datasource.url=jdbc:postgresql://uat-assetmaster-postgres:5432/klayassetmaster
+                   - spring.klayx.datasource.username=klayassetmaster
+                   - spring.klayx.datasource.password=klayassetmaster
+                   - spring.klayx.datasource.platform=postgresql
+
+                   - spring.t4k8.datasource.driver-class-name=org.postgresql.Driver
+                   - spring.t4k8.datasource.url=jdbc:postgresql://uat-assetmaster-postgres:5432/klayassetmaster
+                   - spring.t4k8.datasource.username=klayassetmaster
+                   - spring.t4k8.datasource.password=klayassetmaster
+                   
+                   - spring.t4c7.datasource.url=jdbc:postgresql://uat-assetmaster-postgres:5432/klayassetmaster
+                   - spring.t4c7.datasource.username=klayassetmaster
+                   - spring.t4c7.datasource.password=klayassetmaster
+                   - spring.klayassetmasterdummy.datasource.url=jdbc:postgresql://uat-assetmaster-postgres:5432/klayassetmasterdummy
+                   - spring.klayassetmasterdummy.datasource.username=klayassetmasterdummy
+                   - spring.klayassetmasterdummy.datasource.password=klayassetmasterdummy
+                   - spring.klayassetmasterdummy.datasource.platform=postgresql
+
+                   - server.port=8083
+                   - connector.port=8001
+
+           restart: always
+           networks:
+                   - uatdockernetwork
+
+networks:
+  uatdockernetwork:
+          name: uat_custom_network
+           

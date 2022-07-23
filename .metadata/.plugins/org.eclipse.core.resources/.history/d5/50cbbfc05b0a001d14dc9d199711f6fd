@@ -1,0 +1,55 @@
+package com.klayx.asset.model;
+
+import java.util.List;
+
+import com.google.gson.JsonObject;
+
+public class AssetCompositeResponseVO {
+	
+	private List<JsonObject> assetVOs;
+	private List<JsonObject> assetPriceVOs;
+	private List<JsonObject> assetReturnVOs;
+	private List<JsonObject> universeStockVOs;
+	private List<JsonObject> universeStockDetailsByBrokerVOs;
+	
+	public List<JsonObject> getAssetVOs() {
+		return assetVOs;
+	}
+	public void setAssetVOs(List<JsonObject> assetVOs) {
+		this.assetVOs = assetVOs;
+	}
+	public List<JsonObject> getAssetPriceVOs() {
+		return assetPriceVOs;
+	}
+	public void setAssetPriceVOs(List<JsonObject> assetPriceVOs) {
+		this.assetPriceVOs = assetPriceVOs;
+	}
+	public List<JsonObject> getAssetReturnVOs() {
+		return assetReturnVOs;
+	}
+	public void setAssetReturnVOs(List<JsonObject> assetReturnVOs) {
+		this.assetReturnVOs = assetReturnVOs;
+	}
+	public List<JsonObject> getUniverseStockVOs() {
+		return universeStockVOs;
+	}
+	public void setUniverseStockVOs(List<JsonObject> universeStockVOs) {
+		this.universeStockVOs = universeStockVOs;
+	}
+	public List<JsonObject> getUniverseStockDetailsByBrokerVOs() {
+		return universeStockDetailsByBrokerVOs;
+	}
+	public void setUniverseStockDetailsByBrokerVOs(List<JsonObject> universeStockDetailsByBrokerVOs) {
+		this.universeStockDetailsByBrokerVOs = universeStockDetailsByBrokerVOs;
+	}
+	@Override
+	public String toString() {
+		return "AssetCompositeResponseVO [assetVOs=" + assetVOs + ", assetPriceVOs=" + assetPriceVOs
+				+ ", assetReturnVOs=" + assetReturnVOs + ", universeStockVOs=" + universeStockVOs
+				+ ", universeStockDetailsByBrokerVOs=" + universeStockDetailsByBrokerVOs + "]";
+	}
+	
+	
+	
+	
+}

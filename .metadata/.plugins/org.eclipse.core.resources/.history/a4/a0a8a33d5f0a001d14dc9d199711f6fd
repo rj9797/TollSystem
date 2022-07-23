@@ -1,0 +1,5 @@
+package com.toll.demo.srvice;
+
+public interface tollService {
+
+}

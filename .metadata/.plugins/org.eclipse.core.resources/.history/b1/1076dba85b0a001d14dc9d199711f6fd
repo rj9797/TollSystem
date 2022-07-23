@@ -1,0 +1,62 @@
+package com.klayx.asset.transactionmanager;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.Around;
+import org.aspectj.lang.annotation.Aspect;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.springframework.stereotype.Component;
+
+import com.klayx.asset.common.AssetConstants;
+import com.klayx.asset.dao.impl.AssetDAOImpl;
+import com.klayx.asset.datasourcemanager.DataSourceManager;
+
+
+@Aspect
+@Component
+public class CustomTransactionalAspect /* implements ApplicationContextAware */ {
+//    private ApplicationContext applicationContext;
+	
+	private static final Logger log = LogManager.getLogger(CustomTransactionalAspect.class);
+    
+    @Autowired
+    DataSourceManager dataSourceManager;
+    
+    @Around("@annotation(customTransactional)")
+    public Object customTransaction(ProceedingJoinPoint joinPoint, CustomTransactional customTransactional) throws Throwable {
+    	Object args[]=joinPoint.getArgs();
+    	String tenantCode = null;
+    	if(args == null || args.length==0){
+    		throw new RuntimeException("TenantCode argument is compulsory and the same is not passed therefore con not cont...");
+    	}else {
+    		
+			if(args[0]==null) {
+    			tenantCode = AssetConstants.DEFAULTTENANTCODE;
+    		}
+    		else {
+    			tenantCode = args[0].toString();
+    		}
+    		
+    		dataSourceManager.refreshDataBase(tenantCode, null);
+    	}
+    	
+    	
+        // custom transaction management
+        return dataSourceManager.getTransactionTemplate(tenantCode).execute(status -> {
+            try {
+                return joinPoint.proceed();
+            } catch (Throwable throwable) {
+                throw new RuntimeException(throwable);
+            }
+        });
+    }
+
+//    @Override
+//    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+//        this.applicationContext = applicationContext;
+//    }
+}

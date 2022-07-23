@@ -1,0 +1,36 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"type": "object",
+	"properties": {
+		"toCurrencyConfigName": {
+			"type": "string",
+			"anyOf": [
+				{
+					"$ref": "classpath://./jsonschema/AppConfigSchema.json#/currency"
+				}
+			]
+		},
+		"fromCurrencyConfigName": {
+			"anyOf": [
+				{
+					"$ref": "classpath://./jsonschema/AppConfigSchema.json#/currency"
+				}
+			]
+		},
+		"custodianConfigName": {
+			"anyOf": [
+				{
+					"$ref": "classpath://./jsonschema/AppConfigSchema.json#/custodian"
+				},
+				{
+					"type": "null"
+				}
+			]
+		}
+	},
+	"required": [
+		"toCurrencyConfigName",
+		"fromCurrencyConfigName"
+	],
+	"additionalProperties": false
+}

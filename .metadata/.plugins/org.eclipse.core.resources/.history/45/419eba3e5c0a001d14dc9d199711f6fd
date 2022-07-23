@@ -1,0 +1,108 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"type": "object",
+	"properties": {
+		"underlyingAssetIsin": {
+			"type": "string"
+		},
+		"initialLevel": {
+			"type": "number"
+		},
+		"_underlyingAssetCurrencyAppId": {
+			"type": "number"
+		},
+		"underlyingAssetCurrencyAppConfigName": {
+			"type": "string",
+			"anyOf": [
+				{
+					"$ref": "classpath://./jsonschema/AppConfigSchema.json#/currency"
+				}
+			]
+		},
+		"_thirdPartyProcessorId1": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"_thirdPartyProcessorId2": {
+			"anyOf": [
+				{
+					"type": "number"
+				},
+				{
+					"type": "null"
+				}
+			]
+		}
+	},
+	"initialLevel": {
+		"anyOf": [
+			{
+				"type": "number"
+			},
+			{
+				"type": "null"
+			}
+		]
+	},
+	"underlyingAssetId": {
+		"anyOf": [
+			{
+				"type": "number"
+			},
+			{
+				"type": "null"
+			}
+		]
+	},
+	"underlyingAssetName": {
+		"anyOf": [
+			{
+				"type": "string"
+			},
+			{
+				"type": "null"
+			}
+		]
+	},
+	"parentAssetId": {
+		"anyOf": [
+			{
+				"type": "number"
+			},
+			{
+				"type": "null"
+			}
+		]
+	},
+	"hasError": {
+		"anyOf": [
+			{
+				"type": "number"
+			},
+			{
+				"type": "null"
+			}
+		]
+	},
+	"errors": {
+		"anyOf": [
+			{
+				"type": "array"
+			},
+			{
+				"type": "null"
+			}
+		]
+	},
+	"required": [
+		"underlyingAssetIsin",
+		"underlyingAssetCurrencyAppConfigName"
+	],
+	"additionalProperties": true
+}

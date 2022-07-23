@@ -1,0 +1,86 @@
+package com.klayx.asset.model;
+
+import java.util.List;
+
+public class SearchRequestVO {
+	
+	private int searchIn;
+	
+	private String searchInText;
+	
+	private List<SearchTextVO> textSearch =null;
+	
+	private List<SearchDateVO> dateSearch =null;
+	
+	private List<SearchNumberVO> numberSearch = null;
+	
+	private List<SearchTokanizeFieldVO> tokanizeFields = null;
+
+	private String tenantCode;
+	private long _tenantId;
+	private int pageNumber;
+	
+	public int getSearchIn() {
+		return searchIn;
+	}
+	public void setSearchIn(int searchIn) {
+		this.searchIn = searchIn;
+	}
+	public String getSearchInText() {
+		return searchInText;
+	}
+	public void setSearchInText(String searchInText) {
+		this.searchInText = searchInText;
+	}
+	public List<SearchTextVO> getTextSearch() {
+		return textSearch;
+	}
+	public void setTextSearch(List<SearchTextVO> textSearch) {
+		this.textSearch = textSearch;
+	}
+	public List<SearchDateVO> getDateSearch() {
+		return dateSearch;
+	}
+	public void setDateSearch(List<SearchDateVO> dateSearch) {
+		this.dateSearch = dateSearch;
+	}
+	public List<SearchNumberVO> getNumberSearch() {
+		return numberSearch;
+	}
+	public void setNumberSearch(List<SearchNumberVO> numberSearch) {
+		this.numberSearch = numberSearch;
+	}
+	public List<SearchTokanizeFieldVO> getTokanizeFields() {
+		return tokanizeFields;
+	}
+	public void setTokanizeFields(List<SearchTokanizeFieldVO> tokanizeFields) {
+		this.tokanizeFields = tokanizeFields;
+	}
+	public String getTenantCode() {
+		return tenantCode;
+	}
+	public void setTenantCode(String tenantCode) {
+		this.tenantCode = tenantCode;
+	}
+	public long get_tenantId() {
+		return _tenantId;
+	}
+	public void set_tenantId(long _tenantId) {
+		this._tenantId = _tenantId;
+	}
+	public int getPageNumber() {
+		return pageNumber;
+	}
+	public void setPageNumber(int pageNumber) {
+		this.pageNumber = pageNumber;
+	}
+
+	@Override
+	public String toString() {
+		return "SearchRequestVO [searchIn=" + searchIn + ", searchInText=" + searchInText + ", textSearch=" + textSearch
+				+ ", dateSearch=" + dateSearch + ", numberSearch=" + numberSearch + ", tokanizeFields=" + tokanizeFields
+				+ ", tenantCode=" + tenantCode + ", _tenantId=" + _tenantId + ", pageNumber=" + pageNumber + "]";
+	}
+	
+	
+}

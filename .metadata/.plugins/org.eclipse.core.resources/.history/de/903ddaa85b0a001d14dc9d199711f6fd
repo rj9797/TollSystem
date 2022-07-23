@@ -1,0 +1,62 @@
+package com.klayx.asset.validator;
+
+import java.util.HashMap;
+import java.util.List;
+
+import com.google.gson.JsonObject;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetKeyFigureVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetReturnsVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.ExchangeRateVO;
+import com.klayx.asset.model.FailedVO;
+
+public interface IAssetBusinessValidator {
+
+	public void validateBusinessRulesForAssetPrice(List<AssetVO> successVOs, List<FailedVO<AssetVO>> failedVOs,
+			boolean isInterfaceRequest, AssetRequestVO entityRequestVO) throws Exception;
+
+	public void validateAssetPriceResult(List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO requestVO, List<AssetPriceVO> assetVOs, java.util.Date refernceDate,String tenantCode)
+			throws Exception;
+
+	public void validateAssetResult(List<AssetGetRequestVO> successVOs, List<FailedVO<AssetGetRequestVO>> failedVOs,
+			AssetRequestVO requestVO, List<AssetVO> assetVOs) throws Exception;
+	
+	public void validateAssetResultMap(List<AssetGetRequestVO> successVOs, List<FailedVO<AssetGetRequestVO>> failedVOs,
+			AssetRequestVO requestVO, HashMap<String,AssetVO> assetVOs) throws Exception;
+
+	public void validateExchangeRateResult(List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO requestVO, List<ExchangeRateVO> assetVOs,String tenantCode)
+			throws Exception;
+
+	public void validateAssetKeyFigByIdRateResult(List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO requestVO, List<AssetKeyFigureVO> assetVOs)
+			throws Exception;
+
+	public void validateBusinessRulesForAssetReturns(List<AssetReturnsVO> successVOs,
+			List<FailedVO<AssetReturnsVO>> failedVOs, boolean isInterfaceRequest, AssetRequestVO entityRequestVO)
+			throws Exception;
+
+	public void validateBusinessRulesForAssets(List<AssetVO> successVOs, List<FailedVO<AssetVO>> failedVOs,
+			boolean isInterfaceRequest, List<AssetVO> successList) throws Exception;
+
+	public void validateAssetKeyFigureResult(List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO requestVO, List<AssetKeyFigureVO> assetVOs, java.util.Date refernceDate,String tenantCode )
+			throws Exception ;
+	
+	public void validateExchangeRateInfoByDateResult(List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO requestVO, List<ExchangeRateVO> assetVOs,String tenantCode)
+			throws Exception;
+
+	public void validateAsset(List<AssetVO> successVOs, List<FailedVO<AssetVO>> failedVOs, List<JsonObject> totalVOs,
+			boolean isInterfaceRequest, AssetRequestVO assetRequestVO) throws Exception;
+
+	public void validateAssetReturns(List<AssetReturnsVO> successVOs, List<FailedVO<AssetReturnsVO>> failedVOs,
+			List<JsonObject> totalVOs, boolean isInterfaceRequest, AssetRequestVO assetRequestVO) throws Exception;
+
+	public void validateAssetPrice(List<AssetPriceVO> successVOs, List<FailedVO<AssetPriceVO>> failedVOs,
+			List<JsonObject> totalVOs, boolean isInterfaceRequest, AssetRequestVO assetRequestVO) throws Exception;
+}

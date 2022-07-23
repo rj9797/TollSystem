@@ -1,0 +1,30 @@
+package com.klayx.asset.rowmapper;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.jdbc.core.RowMapper;
+
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.SqlExtractVO;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+public class ResultRowMapper implements RowMapper<SqlExtractVO>{
+
+	@Override
+	public SqlExtractVO mapRow(ResultSet rs, int rowNum) throws SQLException {
+		SqlExtractVO extractVO=new SqlExtractVO();
+		extractVO.setId(rs.getBigDecimal("id"));
+		extractVO.setCustodian_app_id(rs.getBigDecimal("custodian_id"));
+		extractVO.setIsin(rs.getString("isin"));
+		extractVO.setEff_from_date(rs.getDate("eff_from_date"));
+		extractVO.setEff_to_date(rs.getDate("eff_to_date"));
+		extractVO.setAssetpricekey(rs.getString("assetpricekey"));
+		extractVO.setAssetpricemaxdate(rs.getString("assetpricemaxdate"));
+		
+		return extractVO;
+	}
+}

@@ -1,0 +1,75 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+
+public class SqlAssetReturnsVO {
+
+	private BigDecimal id;
+	private BigDecimal asset_id;
+	private Date eff_from_date;
+	private Date eff_to_date;
+	private BigDecimal assetreturnskey;
+	private Date assetreturnsmaxdate;
+	
+	public SqlAssetReturnsVO() {
+		super();
+		// TODO Auto-generated constructor stub
+	}
+
+	public BigDecimal getId() {
+		return id;
+	}
+
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+
+	public BigDecimal getAsset_id() {
+		return asset_id;
+	}
+
+	public void setAsset_id(BigDecimal asset_id) {
+		this.asset_id = asset_id;
+	}
+
+	public Date getEff_from_date() {
+		return eff_from_date;
+	}
+
+	public void setEff_from_date(Date eff_from_date) {
+		this.eff_from_date = eff_from_date;
+	}
+
+	public Date getEff_to_date() {
+		return eff_to_date;
+	}
+
+	public void setEff_to_date(Date eff_to_date) {
+		this.eff_to_date = eff_to_date;
+	}
+
+	public BigDecimal getAssetreturnskey() {
+		return assetreturnskey;
+	}
+
+	public void setAssetreturnskey(BigDecimal assetreturnskey) {
+		this.assetreturnskey = assetreturnskey;
+	}
+
+	public Date getAssetreturnsmaxdate() {
+		return assetreturnsmaxdate;
+	}
+
+	public void setAssetreturnsmaxdate(Date assetreturnsmaxdate) {
+		this.assetreturnsmaxdate = assetreturnsmaxdate;
+	}
+
+	@Override
+	public String toString() {
+		return "SqlAssetReturnsVO [id=" + id + ", eff_from_date=" + eff_from_date + ", eff_to_date=" + eff_to_date
+				+ ", assetreturnskey=" + assetreturnskey + ", assetreturnsmaxdate=" + assetreturnsmaxdate + "]";
+	}
+
+	
+}

@@ -1,0 +1,39 @@
+package com.klayx.asset.dao;
+
+import java.math.BigDecimal;
+import java.sql.SQLException;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import com.klayx.asset.model.AssetAddRequestVO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.SqlExtractVO;
+
+public interface IAssetPriceDAO {
+
+	public Map<String, SqlExtractVO> addAssetPriceList(String tenantCode,List<AssetPriceVO> successVOs,
+			String tmpQuery)throws Exception;
+
+	public void freshInsert(String tenantCode,List<AssetPriceVO> assetPriceVO)throws Exception;
+
+	public void updateListIntoDb(String tenantCode,List<AssetPriceVO> assetPriceVOs)throws Exception;
+
+	public void insertListIntoDb(String tenantCode,Map<String, List<AssetPriceVO>> assetPriceVO)throws Exception;
+
+	public boolean isStructureProduct(String tenantCode,String isin,String Currency)throws Exception;
+
+	public boolean checkCatagory(String tenantCode,AssetPriceVO assetPriceVO)throws Exception;
+
+	public String getCategory(String tenantCode,AssetGetRequestVO assetPriceVO)throws Exception;
+
+	public List<Map<String, Object>> getCategoryList(String tenantCode,List<AssetGetRequestVO> assetPriceVO)throws Exception;
+
+	List<AssetPriceVO> getAssetPrice(String tenantCode,List<AssetGetRequestVO> reqParam, Date computedDate) throws Exception;
+
+	public void insertIntoAssetCustodianWiseLastDate(String tenantCode, List<AssetPriceVO> maxDateList) throws Exception;
+
+	public void updateAssetCustodianWiseLastDate(String tenantCode, List<AssetPriceVO> maxDateUpdateList) throws Exception;
+
+}

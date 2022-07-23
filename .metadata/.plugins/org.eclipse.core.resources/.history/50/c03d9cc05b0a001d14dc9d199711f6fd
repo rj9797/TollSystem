@@ -1,0 +1,72 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+public class ConsolidationVO
+{
+    private BigDecimal id;
+    private String consolidationCode;
+    private BigDecimal expetedReturnPerc;
+    private BigDecimal expectedIncomePerc;
+    private BigDecimal ltvPerc;
+    private String consolidationName;
+    private List<ConsolidationDetails> consolidationDetails;
+
+    public String getConsolidationName() {
+        return consolidationName;
+    }
+
+    public void setConsolidationName(String consolidationName) {
+        this.consolidationName = consolidationName;
+    }
+
+    public List<ConsolidationDetails> getConsolidationDetails() {
+        return consolidationDetails;
+    }
+
+    public void setConsolidationDetails(List<ConsolidationDetails> consolidationDetails) {
+        this.consolidationDetails = consolidationDetails;
+    }
+
+    public BigDecimal getId() {
+        return id;
+    }
+
+    public String getConsolidationCode() {
+        return consolidationCode;
+    }
+
+    public BigDecimal getExpectedIncomePerc() {
+        return expectedIncomePerc;
+    }
+
+    public BigDecimal getExpetedReturnPerc() {
+        return expetedReturnPerc;
+    }
+
+    public BigDecimal getLtvPerc() {
+        return ltvPerc;
+    }
+
+    public void setId(BigDecimal id) {
+        this.id = id;
+    }
+
+    public void setConsolidationCode(String  consolidationCode) {
+        this.consolidationCode = consolidationCode;
+    }
+
+    public void setExpectedIncomePerc(BigDecimal expectedIncomePerc) {
+        this.expectedIncomePerc = expectedIncomePerc;
+    }
+
+    public void setExpetedReturnPerc(BigDecimal expetedReturnPerc) {
+        this.expetedReturnPerc = expetedReturnPerc;
+    }
+
+    public void setLtvPerc(BigDecimal ltvPerc) {
+        this.ltvPerc = ltvPerc;
+    }
+
+}

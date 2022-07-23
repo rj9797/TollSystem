@@ -1,0 +1,26 @@
+package com.klayx.asset.model;
+
+public class IsinCurrencyListVO {
+	
+	private String isin;
+	private String currency;
+	public String getIsin() {
+		return isin;
+	}
+	public void setIsin(String isin) {
+		this.isin = isin;
+	}
+	public String getCurrency() {
+		return currency;
+	}
+	public void setCurrency(String currency) {
+		this.currency = currency;
+	}
+	@Override
+	public String toString() {
+		return "IsinCurrencyListVO [isin=" + isin + ", currency=" + currency + "]";
+	}
+	
+	
+
+}

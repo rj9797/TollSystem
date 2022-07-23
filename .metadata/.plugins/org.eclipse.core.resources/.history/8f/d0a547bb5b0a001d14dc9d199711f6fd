@@ -1,0 +1,55 @@
+package com.klayx.asset.dao;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.Date;
+import java.util.List;
+
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetSPMetricsVO;
+import com.klayx.asset.model.AssetSPUnderlyingMetricsVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.AssetValuationScheduleVO;
+
+public interface IAssetSPMetricsDAO {
+
+	public List<AssetVO> getAssetSPMetrics(String tenantCode) throws Exception;
+
+	public Date getNextValuationDate(String tenantCode,BigDecimal assetId);
+
+	public double getCouponBarrierPerc(String tenantCode,BigDecimal assetId);
+
+	public double getAutocallPerc(String tenantCode,BigDecimal assetId);
+
+	public String getInterestConfigValue(String tenantCode,BigDecimal assetId);
+
+	public String getRedemptionConfigValue(String tenantCode,BigDecimal assetId);
+
+	public BigDecimal saveAssetSPMetrics(String tenantCode,AssetSPMetricsVO assetSPMetricsVO);
+
+	public void setIsActive(String tenantCodes,List<AssetVO> assetMaster);
+
+	public List<AssetSPMetricsVO> getStructureProductMetrics(String tenantCode,List<AssetGetRequestVO> assetSPMetricsVOs, Date date);
+
+	Date getFinalValuationDate(String tenantCode,BigDecimal assetId);
+	
+	public String getCategory(String tenantCode,AssetGetRequestVO assetPriceVO);
+	
+	public void addSPMetricsList(String tenantCode,AssetRequestVO assetRequestVO,List<AssetSPMetricsVO> assetSPMetricsVOs,BigDecimal tenantId);
+	
+	public void updateSPMetricsList(String tenantCode,AssetRequestVO assetRequestVO,List<AssetSPMetricsVO> assetSPMetricsVOs,BigDecimal tenantId) throws Exception;
+	
+	public void inActiveSPMetricsList(String tenantCode,AssetRequestVO requestVO,List<AssetSPMetricsVO> assetSPMetricsVOs,BigDecimal tenantId);
+	
+	public void addSPMetrics(String tenantCode,AssetRequestVO assetRequestVO,AssetSPMetricsVO assetSPMetricsVOs,BigDecimal tenantId);
+	
+	public void addUnderlyingSPMetrics(String teanantCode,AssetRequestVO assetRequestVO,AssetSPMetricsVO assetSPMetricsVOs,BigDecimal tenantId);
+
+	public List<AssetSPMetricsVO> getSPMetrics( String tenantCode,Date date);
+	
+	public List<AssetValuationScheduleVO> getAssetValuation(String tenantCode,BigDecimal assetId);
+
+	public Date getAssetBusinessDate(String tenantCode) throws Exception;
+}

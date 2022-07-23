@@ -1,0 +1,38 @@
+package com.klayx.asset.model;
+
+import java.util.Date;
+
+public class ExchangeRateRequestByInfoByIdVO {
+
+	private Long _fromCurrency;
+	private Long _toCurrency;
+	private Long _custodian;
+	
+	private Date requestDate;
+	
+	public Date getRequestDate() {
+		return requestDate;
+	}
+	public void setRequestDate(Date requestDate) {
+		this.requestDate = requestDate;
+	}
+	public Long get_fromCurrency() {
+		return _fromCurrency;
+	}
+	public void set_fromCurrency(Long _fromCurrency) {
+		this._fromCurrency = _fromCurrency;
+	}
+	public Long get_toCurrency() {
+		return _toCurrency;
+	}
+	public void set_toCurrency(Long _toCurrency) {
+		this._toCurrency = _toCurrency;
+	}
+	public Long get_custodian() {
+		return _custodian;
+	}
+	public void set_custodian(Long _custodian) {
+		this._custodian = _custodian;
+	}
+		
+}

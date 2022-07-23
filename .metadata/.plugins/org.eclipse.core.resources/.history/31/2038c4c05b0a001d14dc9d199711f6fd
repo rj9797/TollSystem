@@ -1,0 +1,210 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.Date;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+
+@JsonInclude(value = Include.NON_DEFAULT)
+public class AssetSPUnderlyingMetricsVO {
+
+	private BigDecimal id;
+	private BigDecimal assetSPMetricsId;
+	private BigDecimal underlyingAssetId;
+	private BigDecimal parentAssetId;
+	private Date computedDate;
+	private BigDecimal initialLevelAmt;
+	private BigDecimal barrierLevelAmt;
+	private BigDecimal currentLevelAmt;
+	private double marginBetweenCurrentAndBarrierPerc;
+	private double marginBetweenInitialAndCurrentPerc;
+	private BigDecimal autocallLevelAmt;
+	private double marginFromAutocallPerc;
+	private String underlyingIsin;
+	private BigDecimal underlyingCurrencyId;
+	private String underlyingCurrencyConfigName;
+	private int isActive;
+	private String createdBy;
+	private Date createdDate;
+	private String updatedBy;
+	private Date updatedDate;
+
+	public BigDecimal getId() {
+		return id;
+	}
+
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+
+	public BigDecimal getAssetSPMetricsId() {
+		return assetSPMetricsId;
+	}
+
+	public void setAssetSPMetricsId(BigDecimal assetSPMetricsId) {
+		this.assetSPMetricsId = assetSPMetricsId;
+	}
+
+	public BigDecimal getUnderlyingAssetId() {
+		return underlyingAssetId;
+	}
+
+	public void setUnderlyingAssetId(BigDecimal underlyingAssetId) {
+		this.underlyingAssetId = underlyingAssetId;
+	}
+
+	public BigDecimal getParentAssetId() {
+		return parentAssetId;
+	}
+
+	public void setParentAssetId(BigDecimal parentAssetId) {
+		this.parentAssetId = parentAssetId;
+	}
+
+	public Date getComputedDate() {
+		return computedDate;
+	}
+
+	public void setComputedDate(Date computedDate) {
+		this.computedDate = computedDate;
+	}
+
+	public BigDecimal getInitialLevelAmt() {
+		return initialLevelAmt;
+	}
+
+	public void setInitialLevelAmt(BigDecimal initialLevelAmt) {
+		this.initialLevelAmt = initialLevelAmt;
+	}
+
+	public BigDecimal getBarrierLevelAmt() {
+		return barrierLevelAmt;
+	}
+
+	public void setBarrierLevelAmt(BigDecimal barrierLevelAmt) {
+		this.barrierLevelAmt = barrierLevelAmt;
+	}
+
+	public BigDecimal getCurrentLevelAmt() {
+		return currentLevelAmt;
+	}
+
+	public void setCurrentLevelAmt(BigDecimal currentLevelAmt) {
+		this.currentLevelAmt = currentLevelAmt;
+	}
+
+	public double getMarginBetweenCurrentAndBarrierPerc() {
+		return marginBetweenCurrentAndBarrierPerc;
+	}
+
+	public void setMarginBetweenCurrentAndBarrierPerc(double marginBetweenCurrentAndBarrierPerc) {
+		this.marginBetweenCurrentAndBarrierPerc = marginBetweenCurrentAndBarrierPerc;
+	}
+
+	public double getMarginBetweenInitialAndCurrentPerc() {
+		return marginBetweenInitialAndCurrentPerc;
+	}
+
+	public void setMarginBetweenInitialAndCurrentPerc(double marginBetweenInitialAndCurrentPerc) {
+		this.marginBetweenInitialAndCurrentPerc = marginBetweenInitialAndCurrentPerc;
+	}
+
+	public BigDecimal getAutocallLevelAmt() {
+		return autocallLevelAmt;
+	}
+
+	public void setAutocallLevelAmt(BigDecimal autocallLevelAmt) {
+		this.autocallLevelAmt = autocallLevelAmt;
+	}
+
+	public double getMarginFromAutocallPerc() {
+		return marginFromAutocallPerc;
+	}
+
+	public void setMarginFromAutocallPerc(double marginFromAutocallPerc) {
+		this.marginFromAutocallPerc = marginFromAutocallPerc;
+	}
+
+	public int getIsActive() {
+		return isActive;
+	}
+
+	public void setIsActive(int isActive) {
+		this.isActive = isActive;
+	}
+
+	public String getCreatedBy() {
+		return createdBy;
+	}
+
+	public void setCreatedBy(String createdBy) {
+		this.createdBy = createdBy;
+	}
+
+	public Date getCreatedDate() {
+		return createdDate;
+	}
+
+	public void setCreatedDate(Date createdDate) {
+		this.createdDate = createdDate;
+	}
+
+	public String getUpdatedBy() {
+		return updatedBy;
+	}
+
+	public void setUpdatedBy(String updatedBy) {
+		this.updatedBy = updatedBy;
+	}
+
+	public Date getUpdatedDate() {
+		return updatedDate;
+	}
+
+	public void setUpdatedDate(Date updatedDate) {
+		this.updatedDate = updatedDate;
+	}
+
+	public String getUnderlyingIsin() {
+		return underlyingIsin;
+	}
+
+	public void setUnderlyingIsin(String underlyingIsin) {
+		this.underlyingIsin = underlyingIsin;
+	}
+
+	public BigDecimal getUnderlyingCurrency() {
+		return underlyingCurrencyId;
+	}
+
+	public void setUnderlyingCurrency(BigDecimal underlyingCurrency) {
+		this.underlyingCurrencyId = underlyingCurrency;
+	}
+
+	public String getUnderlyingCurrencyConfigName() {
+		return underlyingCurrencyConfigName;
+	}
+
+	public void setUnderlyingCurrencyConfigName(String underlyingCurrencyCOnfigName) {
+		this.underlyingCurrencyConfigName = underlyingCurrencyCOnfigName;
+	}
+
+	@Override
+	public String toString() {
+		return "AssetSPUnderlyingMetricsVO [id=" + id + ", assetSPMetricsId=" + assetSPMetricsId
+				+ ", underlyingAssetId=" + underlyingAssetId + ", parentAssetId=" + parentAssetId + ", computedDate="
+				+ computedDate + ", initialLevelAmt=" + initialLevelAmt + ", barrierLevelAmt=" + barrierLevelAmt
+				+ ", currentLevelAmt=" + currentLevelAmt + ", marginBetweenCurrentAndBarrierPerc="
+				+ marginBetweenCurrentAndBarrierPerc + ", marginBetweenInitialAndCurrentPerc="
+				+ marginBetweenInitialAndCurrentPerc + ", autocallLevelAmt=" + autocallLevelAmt
+				+ ", marginFromAutocallPerc=" + marginFromAutocallPerc + ", underlyingIsin=" + underlyingIsin
+				+ ", underlyingCurrencyId=" + underlyingCurrencyId + ", underlyingCurrencyConfigName="
+				+ underlyingCurrencyConfigName + ", isActive=" + isActive + ", createdBy=" + createdBy
+				+ ", createdDate=" + createdDate + ", updatedBy=" + updatedBy + ", updatedDate=" + updatedDate + "]";
+	}
+
+	
+
+}

@@ -1,0 +1,25 @@
+package com.klayx.asset.rowmapper;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import javax.swing.tree.TreePath;
+
+import org.springframework.jdbc.core.RowMapper;
+
+import com.klayx.asset.model.AssetVO;
+
+public class AssetRowMapper implements RowMapper<AssetVO>{
+
+	public AssetVO mapRow(ResultSet rs, int rowNum) throws SQLException {
+
+		AssetVO assetVO = new AssetVO();
+		assetVO.setIsin(rs.getString("isin"));
+		assetVO.setName(rs.getString("NAME"));
+        assetVO.set_currencyAppId(rs.getBigDecimal("currency_id"));
+        assetVO.set_stockExchangeAppId(rs.getBigDecimal("stock_exchange_id"));
+        assetVO.setId(rs.getBigDecimal("id"));
+        return assetVO;
+    }
+	
+}

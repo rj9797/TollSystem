@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "underlyingAssetIsin": {
+      "type": "string"
+    },
+    "initialLevel": {
+      "type": "string"
+    },
+    "_underlyingAssetCurrencyAppId": {
+      "type": "integer"
+    },
+    "underlyingAssetCurrencyAppConfigName": {
+     "anyOf": [
+				{
+					"$ref": "classpath://./jsonschema/AppConfigSchema.json#/currency"
+				}
+			]
+    },
+    "_thirdPartyProcessorId1": {
+			"anyOf": [{
+					"type": "integer"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"_thirdPartyProcessorId2": {
+			"anyOf": [{
+					"type": "integer"
+				},
+				{
+					"type": "null"
+				}
+			]
+		}
+  },
+  "required": [
+    "underlyingAssetIsin",
+    "underlyingAssetCurrencyAppConfigName"
+  ]
+}

@@ -1,0 +1,50 @@
+package com.klayx.asset.dao;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.google.gson.JsonObject;
+import com.klayx.asset.model.AccessDetailVO;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.DocumentTypesVO;
+import com.klayx.asset.model.DocumentVO;
+import com.klayx.asset.model.ResponseVO;
+import com.klayx.asset.model.SearchRequestVO;
+import com.klayx.asset.model.SearchResultDataVO;
+import com.klayx.asset.model.SqlExtractVO;
+import com.klayx.asset.model.UniverseStockDetailsByBrokerVO;
+import com.klayx.asset.model.UniverseStockDetailsByTerminalVO;
+import com.klayx.asset.model.UniverseStockInitialRated;
+import com.klayx.asset.model.UniverseStockVO;
+
+public interface IUniverseStockDAO {
+
+	public void addUniverseStocks(String tenantCode, List<UniverseStockVO> successVOs, AssetRequestVO assetRequestVO) throws Exception;
+	public void addUniverseStockDetailByTerminal(String tenantCode,List<UniverseStockDetailsByTerminalVO> reqParam,List<JsonObject> totalVOs)throws Exception;
+	public Map<String, SqlExtractVO> getListForMaxDate(String tenantCode,String query) throws Exception;
+	public void freshInsertForMaxDate(String tenantCode,List<UniverseStockDetailsByTerminalVO> listVo) throws Exception;
+	public void updateForMaxDate(String tenantCode,List<UniverseStockDetailsByTerminalVO> listVo) throws Exception;
+	public void updateUniverseStockDetailByTerminal(String tenantCode,List<UniverseStockDetailsByTerminalVO> reqParam,List<UniverseStockDetailsByTerminalVO> newUpdateList)throws Exception;
+	public String getBrokerRatingHistory(List<AssetGetRequestVO> req, String tenantCode, Date date) throws Exception;
+	public Map<String, UniverseStockDetailsByBrokerVO> getAssetCustodianwiseLastDateForUniverseStockDetailsByBroker(String tenantCode, List<UniverseStockDetailsByBrokerVO> uniqueVOs) throws Exception;
+	public void freshInsertUniverseStockDetailsByBrokerVOsForMaxDate(String tenantCode,List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerVOs) throws Exception;
+	public void updateUniverseStockDetailsByBrokerVOsForMaxDate(String tenantCode, List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerVOs) throws Exception;
+	public void updateUniverseStockDetailsByBroker(String tenantCode, List<UniverseStockDetailsByBrokerVO> reqParam,List<UniverseStockDetailsByBrokerVO> newUpdate)
+			throws Exception;
+	public void addUniverseStockDetailsByBroker(String tenantCode, List<UniverseStockDetailsByBrokerVO> reqList,
+			List<JsonObject> totalVOs,HashMap<String,UniverseStockInitialRated> universeStockInitialRatedMap) throws Exception;
+	public HashMap<String,UniverseStockInitialRated> addUniverseStockBrokerInitialRated(String tenantCode, List<UniverseStockDetailsByBrokerVO> universeStockDetailsByBrokerVOs, List<UniverseStockDetailsByBrokerVO> uniqueVOs,List<UniverseStockDetailsByBrokerVO> uniqueBrokerVOs) throws Exception;
+	public HashMap<String,UniverseStockInitialRated> updateUniverseStockBrokerInitialRated(HashMap<String,UniverseStockInitialRated> universeStockInitialRatedMap,String tenantCode) throws Exception;
+	public List<SearchResultDataVO> getUniverseStockSearchInResponse(String tenantCode, String queryConditions, StringBuilder dateSearchQuery, StringBuilder sortingFilterQuery, List<String> searchInTextParams, List<String> textSearchParams, List<String> dateSearchParams, List<String> numberSearchParams, AssetRequestVO assetRequestVO,List<String> numberSearchBigDecimalParams)
+			throws Exception;
+	public BigDecimal addAssetDocumentsForUSM(String tenantCode, DocumentVO documentVO) throws Exception;
+	public void addAssetDocumentsForUSMBusinessDefination(String tenantCode, DocumentVO documentVO,BigDecimal primarKey,AccessDetailVO accessDetailVO) throws Exception;
+	public void updateDocumentsExternalReferenceNumber(String tenantCode, List<DocumentVO> documentVOs)throws Exception;
+	public Map<String, String> getAssetDocumentMapInternalExternalRefNbr(String tenantCode,DocumentVO documentVO ,UniverseStockVO universeStockVO) throws Exception;
+	public List<UniverseStockVO> getMissingUniverseStockVOInRequest(String tenantCode,List<UniverseStockDetailsByBrokerVO> uniqueVOs) throws Exception;
+
+}

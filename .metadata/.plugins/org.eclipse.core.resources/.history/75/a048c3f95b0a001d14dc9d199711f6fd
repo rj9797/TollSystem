@@ -1,0 +1,15 @@
+package com.klayx.asset.service;
+
+import java.util.List;
+
+import org.json.JSONObject;
+
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.FailedAssetVO;
+
+public interface IassetreportdatService
+{
+    public JSONObject reportService(String date);
+    public List<FailedAssetVO> failedAsset(String referenceDate,String tenantCode) throws Exception;
+    public List<AssetVO> getNotClassifiedAssets(String tenantCode,String accessToken) throws Exception;
+}

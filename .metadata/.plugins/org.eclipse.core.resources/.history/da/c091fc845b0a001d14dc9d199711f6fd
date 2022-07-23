@@ -1,0 +1,72 @@
+package com.klayx.asset.service;
+
+
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.print.attribute.standard.DateTimeAtCompleted;
+
+import org.json.JSONObject;
+
+import com.google.gson.JsonObject;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.FailedVO;
+import com.klayx.asset.model.PreferredAssetGroupVO;
+import com.klayx.asset.model.ResponseVO;
+import com.klayx.asset.model.SearchRequestVO;
+import com.klayx.asset.model.SearchResultDataVO;
+import com.klayx.asset.model.UnderlyingAssetsVO;
+
+public interface IAssetService {
+
+	public void addAsset(AssetVO assetVO) throws Exception;
+	// void addAssets(Object reqParam[]);
+
+	public void addAssets(String tenantCode, List<AssetVO> successVOs, List<FailedVO<AssetVO>> failedVOs,
+			List<JsonObject> totalVOs, boolean isInterfaceRequest, AssetRequestVO assetVOs) throws Exception;
+
+	public AssetRequestVO getAssetPerformance(AssetRequestVO request);
+
+	public Map<String, Object> getAssets(List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO requestVO) throws Exception;
+
+	public Map<String, Object> getAssetPerformanceInfo(String tenantCode, List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO reqParam);
+
+	public String assetsInactive(AssetRequestVO requestVO) throws Exception;
+
+	public ResponseVO<SearchResultDataVO, SearchRequestVO> getAssetSearchInResponse(AssetRequestVO assetRequestVO)
+			throws Exception;
+
+	public ResponseVO deleteActiveAssetService(String tenantCode);
+
+	public String getLanguageResourceBundle(String lang) throws Exception;
+
+	public Map<String, Object> getAssetPerformanceInfoMap(String tenantCode, List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO reqParam) throws Exception;
+
+	public Map<String, Object> getAssetsMap(String tenantCode, List<AssetGetRequestVO> successVOs,
+			List<FailedVO<AssetGetRequestVO>> failedVOs, AssetRequestVO requestVO) throws Exception;
+	
+	public void addAssetUnderlying(String tenantCode, List<UnderlyingAssetsVO> successVOs,List<FailedVO<UnderlyingAssetsVO>> failedVOs,
+			List<JsonObject> totalVOs,AssetRequestVO assetRequestVO) throws Exception; 
+/**
+	 * @param date 
+	 * @Usage : /preferredassetsinfo and /preferredassetsbycode gonna call same api for
+	 * fetching datas
+	 *
+	 */
+	public String getpreferredassetsinfo(List<AssetGetRequestVO> req,String tenantCode, String date) throws Exception;
+
+
+
+	public void addPreferredAssets(List<PreferredAssetGroupVO> portfolioGroupVOs, List<FailedVO<PreferredAssetGroupVO>> failedVOS, List<JsonObject> totalVOs,AssetRequestVO assetRequest,boolean isInterfaceRequest)throws Exception;
+	
+	public int tollSystem(Date enterTime,String vehicleType,String username);
+	
+	public Map<String,Integer> getTotal();
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "_thirdPartyProcessorId1": {
+      "type": "integer"
+    },
+    "_thirdPartyProcessorId2": {
+      "type": "integer"
+    },
+    "valuationDate": {
+      "type": "string"
+    },
+    "paymentDate": {
+      "type": "string"
+    },
+    "couponBarrierPercentage": {
+      "type": "number"
+    },
+    "redemptionPercentage": {
+      "type": "number"
+    },
+    "maxUpsidePercentage": {
+      "type": "number"
+    },
+    "maximumProtectionLevelPercentage": {
+      "type": "number"
+    },
+    "participationLevelPercentage": {
+      "type": "number"
+    },
+    "callStrike": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "valuationDate"
+  ]
+}

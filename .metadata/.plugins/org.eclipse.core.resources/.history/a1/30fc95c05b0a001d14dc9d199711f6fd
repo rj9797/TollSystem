@@ -1,0 +1,54 @@
+package com.klayx.asset.model;
+
+import java.util.List;
+
+public class SearchTextVO {
+
+	private String aliasName;
+	
+	private String logicalOperator;
+	
+	private String aliasDataType;
+	
+	private List<SearchTextFieldValuesVO> values = null;
+
+	public String getAliasName() {
+		return aliasName;
+	}
+
+	public void setAliasName(String aliasName) {
+		this.aliasName = aliasName;
+	}
+
+	public String getLogicalOperator() {
+		return logicalOperator;
+	}
+
+	public void setLogicalOperator(String logicalOperator) {
+		this.logicalOperator = logicalOperator;
+	}
+
+	public String getAliasDataType() {
+		return aliasDataType;
+	}
+
+	public void setAliasDataType(String aliasDataType) {
+		this.aliasDataType = aliasDataType;
+	}
+
+	public List<SearchTextFieldValuesVO> getValues() {
+		return values;
+	}
+
+	public void setValues(List<SearchTextFieldValuesVO> values) {
+		this.values = values;
+	}
+
+	
+
+	
+	
+	
+
+	
+}

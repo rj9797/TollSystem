@@ -1,0 +1,64 @@
+package com.klayx.asset.model;
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+import com.google.gson.JsonObject;
+
+public class FailedVO<T> {
+	private T identityDetails;
+	private JsonObject identityDetailsAsString;
+	private List<ErrorVO> errors;
+	private Date referenceDate;
+	private String tenantCode;
+	private BigDecimal _tenantId;
+
+	public T getIdentityDetails() {
+		return identityDetails;
+	}
+
+	public void setIdentityDetails(T identityDetails) {
+		this.identityDetails = identityDetails;
+	}
+
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+
+	public BigDecimal get_tenantId() {
+		return _tenantId;
+	}
+
+	public void set_tenantId(BigDecimal _tenantId) {
+		this._tenantId = _tenantId;
+	}
+
+	public Date getReferenceDate() {
+		return referenceDate;
+	}
+
+	public void setReferenceDate(Date referenceDate) {
+		this.referenceDate = referenceDate;
+	}
+
+	public String getTenantCode() {
+		return tenantCode;
+	}
+
+	public void setTenantCode(String tenantCode) {
+		this.tenantCode = tenantCode;
+	}
+
+	public JsonObject getIdentityDetailsAsString() {
+		return identityDetailsAsString;
+	}
+
+	public void setIdentityDetailsAsString(JsonObject identityDetailsAsString) {
+		this.identityDetailsAsString = identityDetailsAsString;
+	}
+
+}

@@ -1,0 +1,42 @@
+package com.klayx.asset.rowmapper;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Component;
+
+import com.klayx.asset.model.AssetPriceVO;
+
+@Component
+public class AssetPriceRowMapper implements RowMapper<AssetPriceVO> {
+
+	@Override
+	public AssetPriceVO mapRow(ResultSet rs, int rowNum) throws SQLException {
+		AssetPriceVO assetPriceVO = new AssetPriceVO();
+		assetPriceVO.set_assetID(rs.getBigDecimal("asset_id"));
+		assetPriceVO.set_currencyAppId(rs.getBigDecimal("currency_id"));
+		assetPriceVO.set_custodianAppId(rs.getBigDecimal("custodian_id"));
+		assetPriceVO.set_id(rs.getBigDecimal("id"));
+		assetPriceVO.set_sourceAppId(rs.getBigDecimal("source_id"));
+		assetPriceVO.setAsk(rs.getBigDecimal("ask_amt"));
+		assetPriceVO.setBid(rs.getBigDecimal("bid_amt"));
+		assetPriceVO.setClose(rs.getBigDecimal("close_amt"));
+		assetPriceVO.setCreatedBy(rs.getString("created_by"));
+		assetPriceVO.setCreatedDate(rs.getTimestamp("created_date"));
+		assetPriceVO.setDirtyPrice(rs.getBigDecimal("dirty_price_amt"));
+		assetPriceVO.setEffectiveFromDate(rs.getTimestamp("eff_from_date"));
+		assetPriceVO.setEffToDate(rs.getTimestamp("eff_to_date"));
+		assetPriceVO.setHigh(rs.getBigDecimal("high_amt"));
+		assetPriceVO.setIsin(rs.getString("isin"));
+		assetPriceVO.setLow(rs.getBigDecimal("low_amt"));
+		assetPriceVO.setOpen(rs.getBigDecimal("open_amt"));
+		assetPriceVO.setPrice(rs.getBigDecimal("price_amt"));
+		assetPriceVO.setRemarks(rs.getString("remarks"));
+		assetPriceVO.setCurrencyAppConfigName(rs.getString("currency_config_name"));
+		assetPriceVO.setCustodianAppConfigName(rs.getString("custodian_config_name"));
+		
+		return assetPriceVO;
+	}
+
+}

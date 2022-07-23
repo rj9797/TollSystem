@@ -1,0 +1,71 @@
+package com.klayx.asset.configuration;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.oauth2.config.annotation.web.configuration.EnableResourceServer;
+import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
+import org.springframework.security.oauth2.config.annotation.web.configurers.ResourceServerSecurityConfigurer;
+import org.springframework.security.oauth2.provider.token.TokenStore;
+import org.springframework.security.oauth2.provider.token.store.jwk.JwkTokenStore;
+
+@Configuration
+@EnableResourceServer
+public class ResourceServerConfig
+        extends ResourceServerConfigurerAdapter {
+	
+	@Value("${keycloak_certs_url}")
+	private String keycloakCertsUrl;
+
+  @Bean
+  public TokenStore tokenStore() {
+    return new JwkTokenStore(keycloakCertsUrl);
+  }
+
+  @Override
+  public void configure(ResourceServerSecurityConfigurer resources) throws Exception {
+    resources.tokenStore(tokenStore());
+    resources.resourceId("klayWebApp");
+  }
+  
+  @Override
+  public void configure(HttpSecurity http) throws Exception {
+      http
+          .authorizeRequests()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/assets").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/assetsinfo").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/structuredproductmetricsinfo").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/structuredproductmetrics").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/assetperformanceinfo").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/assetskeyfigure").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/assetskeyfigureinfobyids").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/assetskeyfigureinfo").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/assetsprice").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/priceinfo").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/assetsinactive").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/exchangerateinfo").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/exchangeratesinfobyid").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/exchangeRates").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/assetsreturns").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/compositeasset").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/searchasset").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/deleteAsset").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/assetperformanceinfomap").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/assetsinfomap").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/notclassifiedassets").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/exchangerateinfobydate").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/generateerrorreport").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/universestocks").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/universestockdetailsbyterminal").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/fialedAsset").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/assetunderlying").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/brokerratinghistory").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/universestockdetailsbybroker").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/compositeuniversestock").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/searchuniversestock").authenticated()
+          .mvcMatchers(HttpMethod.POST,"/assetmanagement/v1/downloadsearchuniversestock").authenticated()
+          .mvcMatchers(HttpMethod.POST,"*/languageresourcebundle").permitAll();
+  }
+}

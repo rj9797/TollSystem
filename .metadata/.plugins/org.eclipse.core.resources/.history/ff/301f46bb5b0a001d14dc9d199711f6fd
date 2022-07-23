@@ -1,0 +1,748 @@
+package com.klayx.asset.dao.impl;
+
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCreator;
+import org.springframework.jdbc.core.PreparedStatementSetter;
+import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.jdbc.support.rowset.SqlRowSet;
+import org.springframework.stereotype.Repository;
+
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IAssetSPMetricsDAO;
+import com.klayx.asset.datasourcemanager.DataSourceManager;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetRequestVO;
+import com.klayx.asset.model.AssetSPMetricsVO;
+import com.klayx.asset.model.AssetSPUnderlyingMetricsVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.AssetValuationScheduleVO;
+import com.klayx.asset.rowmapper.AssetMasterRowMapper;
+import com.klayx.asset.rowmapper.AssetSPMetricsRowMapper;
+import com.klayx.asset.rowmapper.AssetSPUnderlyingMetricsRowMapper;
+import com.klayx.asset.rowmapper.AssetValuationScheduleRowMapper;
+import com.klayx.asset.transactionmanager.CustomTransactional;
+
+@Repository
+@PropertySource({ "classpath:${DBSQLFILE}.properties" })
+public class AssetSPMetricsDAOImpl implements IAssetSPMetricsDAO {
+
+	@Value("${GET_FROM_ASSET_MASTER}")
+	private String GET_FROM_ASSET_MASTER;
+
+	@Value("${GET_VALUATION_DATE_AND_BARRIER_PERC}")
+	private String GET_VALUATION_DATE_AND_BARRIER_PERC;
+
+	@Value("${GET_NEXT_VALUATION_DATE}")
+	private String GET_NEXT_VALUATION_DATE;
+
+	@Value("${GET_COUPON_BARRIER_PERC}")
+	private String GET_COUPON_BARRIER_PERC;
+
+	@Value("${CHECK_CATEGORY}")
+	private String CHECK_CATEGORY;
+
+	@Value("${GET_AUTOCALL_PERC}")
+	private String GET_AUTOCALL_PERC;
+
+	@Value("${GET_INTEREST_CONFIG_VALUE}")
+	private String GET_INTEREST_CONFIG_VALUE;
+
+	@Value("${GET_REDEMPTION_CONFIG_VALUE}")
+	private String GET_REDEMPTION_CONFIG_VALUE;
+
+	@Value("${INSERT_ASSET_SP_METRICS}")
+	private String INSERT_ASSET_SP_METRICS;
+
+	@Value("${INSERT_ASSET_SP_UNDERLYING_METRICS}")
+	private String INSERT_ASSET_SP_UNDERLYING_METRICS;
+
+	@Value("${UNEDRLYING_SPMETRICS_UPDATE}")
+	private String UNEDRLYING_SPMETRICS_UPDATE;
+
+	@Value("${SET_ASSET_SP_IS_ACTIVE_VALUE}")
+	private String SET_ASSET_SP_IS_ACTIVE_VALUE;
+
+	@Value("${GET_ALL_ASSET_SP_METRICS}")
+	private String GET_ALL_ASSET_SP_METRICS;
+
+	@Value("${GET_FINAL_VALUATION_DATE}")
+	private String GET_FINAL_VALUATION_DATE;
+
+	@Value("${SPMETRICS_INSERT}")
+	private String SPMETRICS_INSERT;
+
+	@Value("${INACTIVE_SPMETRICS}")
+	private String INACTIVE_SPMETRICS;
+
+	@Value("${INACTIVE_UNEDRLYING_SPMETRICS}")
+	private String INACTIVE_UNEDRLYING_SPMETRICS;
+
+	@Value("${SPMETRICS_UPDATE}")
+	private String SPMETRICS_UPDATE;
+
+	@Value("${UNEDRLYING_SPMETRICS_INSERT}")
+	private String UNEDRLYING_SPMETRICS_INSERT;
+
+	@Value("${GET_VALUATION_SCHEDULE}")
+	private String GET_VALUATION_SCHEDULE;//GET_SP_METRICS
+	
+	@Value("${GET_SP_METRICS}")
+	private String GET_SP_METRICS;
+
+	@Value("${SERVICE_ID}")
+	private BigDecimal SERVICE_ID;
+	
+	@Value("${GET_ASSET_BUSINESS_DATE}")
+	private String GET_ASSET_BUSINESS_DATE;
+	
+	
+
+	@Autowired
+	DataSourceManager dataSourceManager;
+	
+	@Autowired
+	private AssetSPMetricsRowMapper assetSPMetricsRowMapper;
+
+//	@Autowired
+	NamedParameterJdbcTemplate jdbcTemplate;
+
+//	@Autowired
+	JdbcTemplate jdbcTemplateObject;
+
+//	@Autowired
+	AssetMasterRowMapper assetMasterRowMapper;
+
+	// Logger logger = LoggerFactory.getLogger(this.getClass());
+	private static final Logger log = LogManager.getLogger(AssetSPMetricsDAOImpl.class);
+	
+	@CustomTransactional
+	@Override
+	public BigDecimal saveAssetSPMetrics(String tenantCode,AssetSPMetricsVO assetSPMetricsVO) {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomNamedJdbc(tenantCode,null);
+			KeyHolder keyHolder = new GeneratedKeyHolder();
+			jdbcTemplate.update(INSERT_ASSET_SP_METRICS, new BeanPropertySqlParameterSource(assetSPMetricsVO),
+					keyHolder);
+			return BigDecimal.valueOf(Long.parseLong(keyHolder.getKeys().get("id").toString()));
+		} catch (Exception e) {
+			log.fatal("Error occured while adding Structured Product Metrics");
+			throw e;
+		}
+	}
+
+	@Override
+	@CustomTransactional
+	public List<AssetVO> getAssetSPMetrics(String tenantCode) throws Exception {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomNamedJdbc(tenantCode,null);
+			return jdbcTemplate.query(GET_FROM_ASSET_MASTER, new AssetMasterRowMapper());
+		} catch (Exception e) {
+			log.fatal("Error occured while fetching Asset Master data");
+			throw e;
+		}
+	}
+
+	@Override
+	public Date getNextValuationDate(String tenantCode,BigDecimal assetId) {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomNamedJdbc(tenantCode,null);
+			return jdbcTemplate.queryForObject(GET_NEXT_VALUATION_DATE, new MapSqlParameterSource("assetId", assetId),
+					Date.class);
+		} catch (Exception e) {
+			log.fatal("Error occured while adding Structured Product Metrics");
+			//
+			return null;
+		}
+	}
+
+	@CustomTransactional
+	@Override
+	public Date getFinalValuationDate(String tenantCode,BigDecimal assetId) {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomNamedJdbc(tenantCode,null);
+			return jdbcTemplate.queryForObject(GET_FINAL_VALUATION_DATE, new MapSqlParameterSource("assetId", assetId),
+					Date.class);
+		} catch (Exception e) {
+			log.fatal("Error occured while adding Structured Product Metrics");
+			//
+			return null;
+		}
+	}
+
+	@Override
+	public double getCouponBarrierPerc(String tenantCode,BigDecimal assetId) {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomNamedJdbc(tenantCode,null);
+			return jdbcTemplate.queryForObject(GET_COUPON_BARRIER_PERC, new MapSqlParameterSource("assetId", assetId),
+					double.class);
+		} catch (Exception e) {
+			log.fatal("Error occured while fetching Coupon Barrier Percent");
+			//
+			return -1;
+		}
+	}
+
+	@Override
+	public double getAutocallPerc(String tenantCode,BigDecimal assetId) {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomNamedJdbc(tenantCode,null);
+			return jdbcTemplate.queryForObject(GET_AUTOCALL_PERC, new MapSqlParameterSource("assetId", assetId),
+					double.class);
+		} catch (Exception e) {
+			log.fatal("Error occured while fetching Auto call Percent");
+			//
+			return -1;
+		}
+	}
+
+	@Override
+	public String getInterestConfigValue(String tenantCode,BigDecimal assetId) {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomNamedJdbc(tenantCode,null);
+			return jdbcTemplate.queryForObject(GET_INTEREST_CONFIG_VALUE, new MapSqlParameterSource("assetId", assetId),
+					String.class);
+		} catch (Exception e) {
+			log.fatal("Error occured while fetching Interest Config Value");
+			//
+			return null;
+		}
+	}
+
+	@Override
+	public String getRedemptionConfigValue(String tenantCode,BigDecimal assetId) {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomNamedJdbc(tenantCode,null);
+			return jdbcTemplate.queryForObject(GET_REDEMPTION_CONFIG_VALUE,
+					new MapSqlParameterSource("assetId", assetId), String.class);
+		} catch (Exception e) {
+			log.fatal("Error occured while fetching Redemption Config Value");
+			//
+			return null;
+		}
+	}
+
+	@Override
+	public void setIsActive(String tenantCode,List<AssetVO> assetVOs) {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomNamedJdbc(tenantCode,null);
+			String query = " ";
+			MapSqlParameterSource map = new MapSqlParameterSource();
+			for (int i = 0; i < assetVOs.size() - 1; i++) {
+				query = query + " ASSET_ID = :assetId" + i + " OR";
+				map.addValue("assetId" + i, assetVOs.get(i).getId());
+			}
+			int size = assetVOs.size() - 1;
+			query = query + "  ASSET_ID = :assetId" + size;
+			map.addValue("assetId" + size, assetVOs.get(size).getId());
+			jdbcTemplate.update(SET_ASSET_SP_IS_ACTIVE_VALUE + query, map);
+		} catch (Exception e) {
+			log.fatal("Error occured while setting up the active status of Structured Product Metrics");
+			throw e;
+		}
+	}
+
+	@Override
+	public List<AssetSPMetricsVO> getStructureProductMetrics(String tenantCode,List<AssetGetRequestVO> reqParam, Date date
+			) {
+		try {
+			StringBuilder query = new StringBuilder();
+			query.append(GET_ALL_ASSET_SP_METRICS);
+			String lastStr;
+			String normStr;
+			jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(tenantCode,null);
+
+			for (int i = 0; i < reqParam.size(); i++) {
+
+				if (i == reqParam.size() - 1) {
+					lastStr = "(MASTER.ISIN = ? AND MASTER.CURRENCY_CONFIG_NAME = ?))";
+					query.append(lastStr);
+				} else {
+					normStr = "(MASTER.ISIN = ? AND MASTER.CURRENCY_CONFIG_NAME = ?) OR ";
+					query.append(normStr);
+				}
+			}
+			String remainingStr = " AND SPMETRICS.IS_ACTIVE = 1 AND (uspmetrics.is_active = 1 OR uspmetrics.is_active is null) AND (SPMETRICS.computed_date between ? and ?) order by SPMETRICS.computed_date desc";
+			query.append(remainingStr);
+
+			List<AssetSPMetricsVO> assetSPMetricsVOs = jdbcTemplateObject.query(query.toString(),
+					new PreparedStatementSetter() {
+						int cnt = 0;
+
+						@Override
+						public void setValues(PreparedStatement preparedStatement) throws SQLException {
+							for (int i = 0; i < reqParam.size(); i++) {
+
+								if (i == reqParam.size() - 1) {
+									preparedStatement.setString(++cnt, reqParam.get(i).getIsin());
+									preparedStatement.setString(++cnt, reqParam.get(i).getCurrencyConfigName());
+								} else {
+									preparedStatement.setString(++cnt, reqParam.get(i).getIsin());
+									preparedStatement.setString(++cnt, reqParam.get(i).getCurrencyConfigName());
+								}
+							}
+							try {
+								log.fatal((AssetUtil.convertstringToTimestamp(AssetUtil.spMetricsDateFormater(date)+  " 00:00:00")));
+								log.fatal((AssetUtil.convertstringToTimestamp(AssetUtil.DateFormater(date)+  " 00:00:00")));
+								preparedStatement.setTimestamp(++cnt, AssetUtil.convertstringToTimestamp(AssetUtil.spMetricsDateFormater(date)+  " 00:00:00"));
+								preparedStatement.setTimestamp(++cnt, AssetUtil.convertstringToTimestamp(AssetUtil.spMetricsDateFormater(date)+  " 23:59:59"));
+							} catch (SQLException e) {
+								log.fatal("Error while setting the date",e);
+								throw e;
+							} catch (Exception e) {
+								log.fatal("Error while setting the date",e);
+							}
+						}
+					}, new ResultSetExtractor<List<AssetSPMetricsVO>>() {
+
+						@Override
+						public List<AssetSPMetricsVO> extractData(ResultSet rs)
+								throws SQLException, DataAccessException {
+							List<AssetSPMetricsVO> assetSPMetricsVOs = new ArrayList<AssetSPMetricsVO>();
+							List<AssetSPUnderlyingMetricsVO> assetSPUnderlyingMetricsVOs = new ArrayList<AssetSPUnderlyingMetricsVO>();
+							HashMap<BigDecimal, AssetSPMetricsVO> spmetricsIdMap = new HashMap<>();
+							List<AssetSPMetricsVO> list = new ArrayList<AssetSPMetricsVO>();
+							while (rs.next()) {
+								AssetSPMetricsVO assetSPMetricsVO;
+								assetSPMetricsVO = new AssetSPMetricsRowMapper().mapRow(rs, rs.getRow());
+								if (!spmetricsIdMap.containsKey(assetSPMetricsVO.getId())) {
+									spmetricsIdMap.put(assetSPMetricsVO.getId(), assetSPMetricsVO);
+								}
+								
+								if(rs.getBigDecimal("uid")!=null) {
+									AssetSPUnderlyingMetricsVO assetSPUnderlyingMetricsVO = new AssetSPUnderlyingMetricsRowMapper()
+											.mapRow(rs, rs.getRow());
+									assetSPUnderlyingMetricsVOs.add(assetSPUnderlyingMetricsVO);
+									
+								}
+								
+								assetSPMetricsVOs.add(assetSPMetricsVO);
+								
+								
+							}
+
+							if (spmetricsIdMap.size() > 0) {
+								List<AssetSPMetricsVO> spMetricsVOs = new ArrayList<AssetSPMetricsVO>(
+										spmetricsIdMap.values());
+								for (int i = 0; i < spMetricsVOs.size(); i++) {
+									List<AssetSPUnderlyingMetricsVO> tempVOList = new ArrayList<AssetSPUnderlyingMetricsVO>();
+									for (int j = 0; j < assetSPUnderlyingMetricsVOs.size(); j++) {
+										if (spMetricsVOs.get(i).getId()
+												.equals(assetSPUnderlyingMetricsVOs.get(j).getAssetSPMetricsId())) {
+											tempVOList.add(assetSPUnderlyingMetricsVOs.get(j));
+											spMetricsVOs.get(i).setAssetSPUnderlyingMetricsVO(tempVOList);
+										}
+									}
+									list.add(spMetricsVOs.get(i));
+								}
+							}
+
+//							System.out.println(
+//									"assetSPUnderlyingMetricsVOs=" + list.get(0).getAssetSPUnderlyingMetricsVO());
+							return list;
+						}
+					});
+			return assetSPMetricsVOs;
+		} catch (Exception e) {
+			log.fatal("Error occured while fetching Structured Product Metrics",e);
+			throw e;
+		}
+	}
+
+	public String getCategory(String tenantCode,AssetGetRequestVO assetPriceVO) {
+
+		jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(tenantCode,null);
+		String query1 = CHECK_CATEGORY;
+		query1 = query1.replace("isinPlaceholder", assetPriceVO.getIsin());
+		query1 = query1.replace("currencyPlaceholder", assetPriceVO.getCurrencyConfigName());
+		String catagoryName = jdbcTemplateObject.queryForObject(query1, String.class);
+
+		return catagoryName;
+	}
+
+	@CustomTransactional
+	public void addSPMetricsList(String tenantCode, AssetRequestVO assetReqVO, List<AssetSPMetricsVO> assetSPMetricsVOs, BigDecimal tenantId) {
+
+		for (int i = 0; i < assetSPMetricsVOs.size(); i++) {
+			this.addSPMetrics(assetReqVO.getTenantCode(),assetReqVO,assetSPMetricsVOs.get(i), tenantId);
+		}
+	}
+
+	@CustomTransactional
+	@Override
+	public void updateSPMetricsList(String tenantCode,AssetRequestVO assetRequestVO,List<AssetSPMetricsVO> assetSPMetricsVOs, BigDecimal tenantId)
+			throws Exception {
+
+		try {
+			for (int i = 0; i < assetSPMetricsVOs.size(); i++) {
+				//System.out.println("assetSPMetricsVOs.get(i).ID="+assetSPMetricsVOs.get(i).getId());
+				this.updateSPMetricsList(assetRequestVO.getTenantCode(),assetRequestVO,assetSPMetricsVOs.get(i), tenantId);
+				this.updateSPUnderlyingMetrics( assetRequestVO.getTenantCode(),assetSPMetricsVOs.get(i).getId(), tenantId,assetRequestVO);
+				this.addUnderlyingSPMetrics(assetRequestVO.getTenantCode(), assetRequestVO,assetSPMetricsVOs.get(i), tenantId);
+			}
+		} catch (Exception e) {
+			log.fatal("Error in updateSPMetricsList: ",e);
+			throw e;
+		}
+	}
+
+	@CustomTransactional
+	private void updateSPUnderlyingMetrics( String tenantCode,BigDecimal assetSPMetricsId, BigDecimal tenantId,AssetRequestVO  assetRequestVO) {
+		// TODO Auto-generated method stub
+		//System.out.println("Inside updateSPMetrics368="+assetSPMetricsId);
+		KeyHolder keyHolder = new GeneratedKeyHolder();
+		int status = jdbcTemplateObject.update(new PreparedStatementCreator() {
+			public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+				PreparedStatement preparedStatement = connection.prepareStatement("update asset_sp_underlying_metrics set is_active=0,updated_by=?,updated_date=now() where asset_sp_metrics_id=?",
+						new String[] { "id" });
+				//int i=1;
+				//preparedStatement.setInt(i++, 0);
+				preparedStatement.setString(1, assetRequestVO.getUsername());
+				preparedStatement.setBigDecimal(2, assetSPMetricsId);
+				return preparedStatement;
+			}
+		}, keyHolder);
+		//System.out.println("Status="+status);
+		
+	}
+
+	@CustomTransactional
+	@Override
+	public void addSPMetrics(String tenantCode,AssetRequestVO assetRequestVO,AssetSPMetricsVO assetSPMetricsVOs, BigDecimal tenantId) {
+
+		try {
+			jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(assetRequestVO.getTenantCode(),null);
+			KeyHolder keyHolder = new GeneratedKeyHolder();
+			jdbcTemplateObject.update(new PreparedStatementCreator() {
+				public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+					PreparedStatement preparedStatement = connection.prepareStatement(SPMETRICS_INSERT,
+							new String[] { "id" });
+					int i = 1;
+					preparedStatement.setBigDecimal(i++, SERVICE_ID);
+					preparedStatement.setBigDecimal(i++, tenantId);
+					preparedStatement.setString(i++, assetSPMetricsVOs.getIsin());
+					preparedStatement.setString(i++, assetSPMetricsVOs.getCurrencyConfigName());
+					preparedStatement.setBigDecimal(i++, assetSPMetricsVOs.getCurrencyId());
+					preparedStatement.setBigDecimal(i++, assetSPMetricsVOs.getAssetId());
+					try {
+						// System.out.println("BEFORE COMPUTED "+assetSPMetricsVOs.getComputedDate());
+						preparedStatement.setDate(i++, AssetUtil.DateFormater(assetSPMetricsVOs.getComputedDate()));
+//						System.out.println("AFTER COMPUTED "+AssetUtil.stringToTimestamp(assetSPMetricsVOs.getComputedDate()));
+					} catch (SQLException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					preparedStatement.setBigDecimal(i++, assetSPMetricsVOs.getAssetMaturityDaysLeft());
+					preparedStatement.setBigDecimal(i++, assetSPMetricsVOs.getAssetDaysFromTrade());
+					preparedStatement.setBigDecimal(i++, assetSPMetricsVOs.getAssetDaysToFinalValuation());
+					try {
+						preparedStatement.setDate(i++,
+								AssetUtil.DateFormater(assetSPMetricsVOs.getFinalValuationDate()));
+					} catch (SQLException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					preparedStatement.setBigDecimal(i++, assetSPMetricsVOs.getAssetDaysToNextValuation());
+					try {
+						preparedStatement.setDate(i++,
+								AssetUtil.DateFormater(assetSPMetricsVOs.getNextValuationDate()));
+					} catch (SQLException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getNextCouponPerc());
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getBarrierPerc());
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getAutocallPerc());
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getDistanceToBarrierPerc());
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getIntrinsicPerc());
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getMinIndexReturnPerc());
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getMarkPerc());
+					preparedStatement.setInt(i++, assetSPMetricsVOs.getIsAutocallLikely());
+					preparedStatement.setInt(i++, 1);
+					System.out.println("USERnamE: "+assetRequestVO.getUsername());
+					preparedStatement.setString(i++, assetRequestVO.getUsername());
+
+					return preparedStatement;
+				}
+			}, keyHolder);
+			BigDecimal pk = (BigDecimal) keyHolder.getKey();
+
+			assetSPMetricsVOs.setId(pk);
+
+			//System.out.println("assetSPMetricsVOs.setId(pk)=" + assetSPMetricsVOs.getId());
+			this.addUnderlyingSPMetrics(assetRequestVO.getTenantCode(),assetRequestVO,assetSPMetricsVOs, tenantId);
+
+		} catch (Exception e) {
+			log.fatal("Error in addSPMetrics: ", e);
+			throw e;
+		}
+	}
+
+	@CustomTransactional
+	@Override
+	public void addUnderlyingSPMetrics(String tenantCode, AssetRequestVO assetRequestVO,AssetSPMetricsVO assetSPMetricsVO, BigDecimal tenantId) {
+		try {
+			// System.out.println("addUnderlyingSPMetrics="+assetSPMetricsVO.getId());
+			if (assetSPMetricsVO.getAssetSPUnderlyingMetricsVO() != null
+					&& assetSPMetricsVO.getAssetSPUnderlyingMetricsVO().size() > 0) {
+				List<AssetSPUnderlyingMetricsVO> assetSPUnderlyingMetricsVOs = assetSPMetricsVO
+						.getAssetSPUnderlyingMetricsVO();
+				jdbcTemplateObject.batchUpdate(UNEDRLYING_SPMETRICS_INSERT, new BatchPreparedStatementSetter() {
+
+					@Override
+					public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+						int j = 1;
+						preparedStatement.setBigDecimal(j++, SERVICE_ID);
+						preparedStatement.setBigDecimal(j++, tenantId);
+						//System.out.println("441assetSPMetricsVO.getId()=" + assetSPMetricsVO);
+						preparedStatement.setBigDecimal(j++, assetSPMetricsVO.getId());
+						preparedStatement.setBigDecimal(j++, assetSPUnderlyingMetricsVOs.get(i).getUnderlyingAssetId());
+						preparedStatement.setBigDecimal(j++, assetSPUnderlyingMetricsVOs.get(i).getParentAssetId());
+						preparedStatement.setString(j++, assetSPUnderlyingMetricsVOs.get(i).getUnderlyingIsin());
+						preparedStatement.setString(j++,
+								assetSPUnderlyingMetricsVOs.get(i).getUnderlyingCurrencyConfigName());
+						preparedStatement.setBigDecimal(j++,
+								assetSPUnderlyingMetricsVOs.get(i).getUnderlyingCurrency());
+						preparedStatement.setBigDecimal(j++, assetSPUnderlyingMetricsVOs.get(i).getInitialLevelAmt());
+						preparedStatement.setBigDecimal(j++, assetSPUnderlyingMetricsVOs.get(i).getBarrierLevelAmt());
+						preparedStatement.setBigDecimal(j++, assetSPUnderlyingMetricsVOs.get(i).getCurrentLevelAmt());
+						preparedStatement.setDouble(j++,
+								assetSPUnderlyingMetricsVOs.get(i).getMarginBetweenCurrentAndBarrierPerc());
+						preparedStatement.setDouble(j++,
+								assetSPUnderlyingMetricsVOs.get(i).getMarginBetweenInitialAndCurrentPerc());
+						preparedStatement.setBigDecimal(j++, assetSPUnderlyingMetricsVOs.get(i).getAutocallLevelAmt());
+						preparedStatement.setDouble(j++,
+								assetSPUnderlyingMetricsVOs.get(i).getMarginFromAutocallPerc());
+						preparedStatement.setString(j++, assetRequestVO.getUsername());
+						preparedStatement.setInt(j++, 1);
+					}
+
+					@Override
+					public int getBatchSize() {
+						return assetSPUnderlyingMetricsVOs.size();
+					}
+				});
+			}
+		} catch (DataAccessException e) {
+			log.fatal("Error in addUnderlyingSPMetrics: ",e);
+			throw e;
+		}
+	}
+
+	@CustomTransactional
+	@Override
+	public List<AssetValuationScheduleVO> getAssetValuation(String tenantCode,BigDecimal assetId) {
+		jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(tenantCode,null);
+		return jdbcTemplateObject.query(GET_VALUATION_SCHEDULE+assetId+" AND VALUATION_DATE >= CURRENT_DATE ORDER BY VALUATION_DATE ASC LIMIT 1\r\n"
+				+ "", new AssetValuationScheduleRowMapper());
+	}
+
+	@CustomTransactional
+	public void updateSPMetricsList(String tenantCode,AssetRequestVO assetRequestVO,AssetSPMetricsVO assetSPMetricsVOs, BigDecimal tenantId)
+			throws Exception {
+		try {
+			jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(assetRequestVO.getTenantCode(),null);
+			KeyHolder keyHolder = new GeneratedKeyHolder();
+			jdbcTemplateObject.update(new PreparedStatementCreator() {
+				public PreparedStatement createPreparedStatement(Connection connection) throws SQLException {
+					PreparedStatement preparedStatement = connection.prepareStatement(SPMETRICS_UPDATE);
+					int i = 1;
+					preparedStatement.setDate(i++, AssetUtil.DateFormater(assetSPMetricsVOs.getComputedDate()));
+					preparedStatement.setBigDecimal(i++, assetSPMetricsVOs.getAssetMaturityDaysLeft());
+					preparedStatement.setBigDecimal(i++, assetSPMetricsVOs.getAssetDaysFromTrade());
+					preparedStatement.setBigDecimal(i++, assetSPMetricsVOs.getAssetDaysToFinalValuation());
+
+					preparedStatement.setDate(i++, AssetUtil.DateFormater(assetSPMetricsVOs.getFinalValuationDate()));
+					preparedStatement.setBigDecimal(i++, assetSPMetricsVOs.getAssetDaysToNextValuation());
+
+					preparedStatement.setDate(i++, AssetUtil.DateFormater(assetSPMetricsVOs.getNextValuationDate()));
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getNextCouponPerc());
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getBarrierPerc());
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getAutocallPerc());
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getDistanceToBarrierPerc());
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getIntrinsicPerc());
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getMinIndexReturnPerc());
+					preparedStatement.setDouble(i++, assetSPMetricsVOs.getMarkPerc());
+					preparedStatement.setInt(i++, assetSPMetricsVOs.getIsAutocallLikely());
+					//preparedStatement.setInt(i++, 1); // is_active
+					preparedStatement.setString(i++, assetRequestVO.getUsername());
+					preparedStatement.setBigDecimal(i++, assetSPMetricsVOs.getId());
+					//System.out.println(preparedStatement);
+					return preparedStatement;
+				}
+			});
+			BigDecimal pk = (BigDecimal) keyHolder.getKey();
+
+			//assetSPMetricsVOs.setId(pk);
+
+			// System.out.println("assetSPMetricsVOs.setId(pk)="+assetSPMetricsVOs.getId());
+			// if(assetSPMetricsVOs.getId()!=null)
+			
+
+		} catch (Exception e) {
+			log.fatal("Error in addSPMetrics: ", e);
+			throw e;
+		}
+
+	}
+
+	@CustomTransactional
+	public void updateUnderlyingSPMetrics(String tenantCode,AssetSPMetricsVO assetSPMetricsVO, BigDecimal tenantId) {
+		try {
+			jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(tenantCode,null);
+			// System.out.println("updateUnderlyingSPMetrics="+assetSPMetricsVO.getAssetSPUnderlyingMetricsVO().size());
+			if (assetSPMetricsVO.getAssetSPUnderlyingMetricsVO() != null
+					&& assetSPMetricsVO.getAssetSPUnderlyingMetricsVO().size() > 0) {
+				List<AssetSPUnderlyingMetricsVO> assetSPUnderlyingMetricsVOs = assetSPMetricsVO
+						.getAssetSPUnderlyingMetricsVO();
+				jdbcTemplateObject.batchUpdate(INACTIVE_UNEDRLYING_SPMETRICS, new BatchPreparedStatementSetter() {
+
+					@Override
+					public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+						int j = 1;
+
+						preparedStatement.setInt(j++, 0); // is_active
+						preparedStatement.setBigDecimal(j++, assetSPUnderlyingMetricsVOs.get(i).getId());
+					}
+
+					@Override
+					public int getBatchSize() {
+						return assetSPUnderlyingMetricsVOs.size();
+					}
+				});
+			}
+			//this.addUnderlyingSPMetrics(assetSPMetricsVO, tenantId, tenantCode);
+		} catch (DataAccessException e) {
+			log.fatal("Error in updateUnderlyingSPMetrics: ",e);
+			throw e;
+		}
+	}
+
+	@CustomTransactional
+	@Override
+	public void inActiveSPMetricsList(String tenantCode,AssetRequestVO requestVO,List<AssetSPMetricsVO> assetSPMetricsVOs, BigDecimal tenantId) {
+		try {
+			// System.out.println("addUnderlyingSPMetrics="+assetSPMetricsVO.getAssetSPUnderlyingMetricsVO().size());
+
+			jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(requestVO.getTenantCode(),null);
+			
+			jdbcTemplateObject.batchUpdate(INACTIVE_SPMETRICS, new BatchPreparedStatementSetter() {
+
+				@Override
+				public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+					int j = 1;
+
+					preparedStatement.setInt(j++, -99); // is_active
+					preparedStatement.setString(j++, requestVO.getUsername());
+					preparedStatement.setBigDecimal(j++, assetSPMetricsVOs.get(i).getId());
+				}
+
+				@Override
+				public int getBatchSize() {
+					return assetSPMetricsVOs.size();
+				}
+			});
+			inActiveSPUnderlyingMetricsList(requestVO.getTenantCode(),assetSPMetricsVOs, tenantId,requestVO);
+		} catch (Exception e) {
+			log.fatal("Error in inActiveSPMetricsList: ",e);
+			throw e;
+		}
+	}
+	public void inActiveSPUnderlyingMetricsList(String tenantCode, List<AssetSPMetricsVO> assetSPMetricsVOs, BigDecimal tenantId,AssetRequestVO assetRequestVO) {
+		try {
+			// System.out.println("addUnderlyingSPMetrics="+assetSPMetricsVO.getAssetSPUnderlyingMetricsVO().size());
+			jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(tenantCode,null);
+			
+			jdbcTemplateObject.batchUpdate(INACTIVE_UNEDRLYING_SPMETRICS, new BatchPreparedStatementSetter() {
+
+				@Override
+				public void setValues(PreparedStatement preparedStatement, int i) throws SQLException {
+					int j = 1;
+					//System.out.println("651assetSPMetricsVOs.get(i).getId()="+assetSPMetricsVOs.get(i).getId());
+					//preparedStatement.setInt(j++, 0); // is_active
+					preparedStatement.setString(j++, assetRequestVO.getUsername());
+					preparedStatement.setBigDecimal(j++, assetSPMetricsVOs.get(i).getId());
+				}
+
+				@Override
+				public int getBatchSize() {
+					return assetSPMetricsVOs.size();
+				}
+			});
+		} catch (Exception e) {
+			log.fatal("Error in inActiveSPUnderlyingMetricsList: ",e);
+			throw e;
+		}
+	}
+
+	@CustomTransactional
+	@Override
+	public List<AssetSPMetricsVO> getSPMetrics( String tenantCode,Date date) {
+		try {
+			
+			jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(tenantCode,null);
+
+			
+			return jdbcTemplateObject.query(GET_SP_METRICS , new PreparedStatementSetter() {
+				public void setValues(PreparedStatement preparedStatement) throws SQLException {
+					preparedStatement.setDate(1, AssetUtil.DateFormater(date));
+				}
+			}, new AssetSPMetricsRowMapper());
+		} catch (Exception e) {
+			log.fatal("Error occured while fetching GET_SP_METRICS data");
+			throw e;
+		}
+	
+	}
+	
+	@CustomTransactional
+	@Override
+	public Date getAssetBusinessDate(String tenantCode) throws Exception {
+		Date businessDate = null;
+		try {
+			
+			jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(tenantCode,null);
+			
+		SqlRowSet rs =	jdbcTemplateObject.queryForRowSet(GET_ASSET_BUSINESS_DATE);
+		if(rs.next()) {
+			businessDate = rs.getDate("BUSINESS_DATE");
+		}
+	
+		}catch(Exception ex) {
+			log.fatal("Error in getAssetBusinessDate: ",ex);
+			throw ex;
+		}
+		
+		return businessDate;
+	}
+}

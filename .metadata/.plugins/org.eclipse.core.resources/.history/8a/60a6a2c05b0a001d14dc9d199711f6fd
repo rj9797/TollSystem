@@ -1,0 +1,107 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+public class AssetInterestScheduleVO {
+
+	private BigDecimal id;
+	private BigDecimal assetID;
+	private BigDecimal assetInterestDetailsId;
+	private Date valuationDate;
+	private Date paymentDate;
+	private double couponBarrierPercentage;
+	private int isStatus;
+	private BigDecimal _thirdPartyProcessorId1;
+	private BigDecimal _thirdPartyProcessorId2;
+	
+	private List<ErrorVO> errors;
+	private int hasError;
+	
+	//getter and setter
+	public BigDecimal getId() {
+		return id;
+	}
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+	public BigDecimal getAssetID() {
+		return assetID;
+	}
+	public void setAssetID(BigDecimal assetID) {
+		this.assetID = assetID;
+	}
+	public BigDecimal getAssetInterestDetailsId() {
+		return assetInterestDetailsId;
+	}
+	public void setAssetInterestDetailsId(BigDecimal assetInterestDetailsId) {
+		this.assetInterestDetailsId = assetInterestDetailsId;
+	}
+	public Date getValuationDate() {
+		return valuationDate;
+	}
+	public void setValuationDate(Date valuationDate) {
+		this.valuationDate = valuationDate;
+	}
+	public Date getPaymentDate() {
+		return paymentDate;
+	}
+	public void setPaymentDate(Date paymentDate) {
+		this.paymentDate = paymentDate;
+	}
+	public double getCouponBarrierPercentage() {
+		return couponBarrierPercentage;
+	}
+	public void setCouponBarrierPercentage(double couponBarrierPercentage) {
+		this.couponBarrierPercentage = couponBarrierPercentage;
+	}
+	public int getIsStatus() {
+		return isStatus;
+	}
+	public void setIsStatus(int isStatus) {
+		this.isStatus = isStatus;
+	}
+	
+	public BigDecimal get_thirdPartyProcessorId1() {
+		return _thirdPartyProcessorId1;
+	}
+	public void set_thirdPartyProcessorId1(BigDecimal _thirdPartyProcessorId1) {
+		this._thirdPartyProcessorId1 = _thirdPartyProcessorId1;
+	}
+	public BigDecimal get_thirdPartyProcessorId2() {
+		return _thirdPartyProcessorId2;
+	}
+	public void set_thirdPartyProcessorId2(BigDecimal _thirdPartyProcessorId2) {
+		this._thirdPartyProcessorId2 = _thirdPartyProcessorId2;
+	}
+	
+	
+	
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+	
+	
+	public int getHasError() {
+		return hasError;
+	}
+	public void setHasError(int hasError) {
+		this.hasError = hasError;
+	}
+	@Override
+	public String toString() {
+		return "AssetInterestScheduleVO [id=" + id + ", assetID=" + assetID + ", assetInterestDetailsId="
+				+ assetInterestDetailsId + ", valuationDate=" + valuationDate + ", paymentDate=" + paymentDate
+				+ ", couponBarrierPercentage=" + couponBarrierPercentage + ", isStatus=" + isStatus + ", getId()=" + getId() + ", getAssetID()=" + getAssetID()
+				+ ", getAssetInterestDetailsId()=" + getAssetInterestDetailsId() + ", getValuationDate()="
+				+ getValuationDate() + ", getPaymentDate()=" + getPaymentDate() + ", getCouponBarrierPercentage()="
+				+ getCouponBarrierPercentage() + ", getIsStatus()=" + getIsStatus() 
+				+ ", getClass()=" + getClass() + ", hashCode()=" + hashCode() + ", toString()=" + super.toString()
+				+ "]";
+	}
+	
+}

@@ -1,0 +1,107 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.Date;
+import java.util.List;
+
+public class UniverseStockBrokerRatingStatusVO {
+	
+	private BigDecimal id;
+	private BigDecimal universeStockId;
+	
+	private BigDecimal brokerAppId;
+	private String brokerAppConfigName;
+	
+	private Date currentRatingCoverageDate;
+	
+	private BigDecimal currentRatingCoverageTypeId;
+	private String currentRatingCoverageTypeConfigName;
+	
+	private int isActive;
+	private BigDecimal universeStockDetailsByBrokerId;
+	
+	private List<UniverseStockDetailsByBrokerVO> stockToBrokerCoverageHistory;
+
+	public BigDecimal getId() {
+		return id;
+	}
+
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+
+	public BigDecimal getUniverseStockId() {
+		return universeStockId;
+	}
+
+	public void setUniverseStockId(BigDecimal universeStockId) {
+		this.universeStockId = universeStockId;
+	}
+
+	public BigDecimal getBrokerAppId() {
+		return brokerAppId;
+	}
+
+	public void setBrokerAppId(BigDecimal brokerAppId) {
+		this.brokerAppId = brokerAppId;
+	}
+
+	public String getBrokerAppConfigName() {
+		return brokerAppConfigName;
+	}
+
+	public void setBrokerAppConfigName(String brokerAppConfigName) {
+		this.brokerAppConfigName = brokerAppConfigName;
+	}
+
+	public Date getCurrentRatingCoverageDate() {
+		return currentRatingCoverageDate;
+	}
+
+	public void setCurrentRatingCoverageDate(Date currentRatingCoverageDate) {
+		this.currentRatingCoverageDate = currentRatingCoverageDate;
+	}
+
+	public List<UniverseStockDetailsByBrokerVO> getStockToBrokerCoverageHistory() {
+		return stockToBrokerCoverageHistory;
+	}
+
+	public void setStockToBrokerCoverageHistory(List<UniverseStockDetailsByBrokerVO> stockToBrokerCoverageHistory) {
+		this.stockToBrokerCoverageHistory = stockToBrokerCoverageHistory;
+	}
+
+	public BigDecimal getCurrentRatingCoverageTypeId() {
+		return currentRatingCoverageTypeId;
+	}
+
+	public void setCurrentRatingCoverageTypeId(BigDecimal currentRatingCoverageTypeId) {
+		this.currentRatingCoverageTypeId = currentRatingCoverageTypeId;
+	}
+
+	public String getCurrentRatingCoverageTypeConfigName() {
+		return currentRatingCoverageTypeConfigName;
+	}
+
+	public void setCurrentRatingCoverageTypeConfigName(String currentRatingCoverageTypeConfigName) {
+		this.currentRatingCoverageTypeConfigName = currentRatingCoverageTypeConfigName;
+	}
+
+	public int getIsActive() {
+		return isActive;
+	}
+
+	public void setIsActive(int isActive) {
+		this.isActive = isActive;
+	}
+
+	public BigDecimal getUniverseStockDetailsByBrokerId() {
+		return universeStockDetailsByBrokerId;
+	}
+
+	public void setUniverseStockDetailsByBrokerId(BigDecimal universeStockDetailsByBrokerId) {
+		this.universeStockDetailsByBrokerId = universeStockDetailsByBrokerId;
+	}
+
+	
+	
+}

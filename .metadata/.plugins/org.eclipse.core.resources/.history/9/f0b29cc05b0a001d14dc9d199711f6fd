@@ -1,0 +1,248 @@
+package com.klayx.asset.model;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+
+public class PreferredAssetVO
+{
+	private String isin;
+	private String consolidationCode;
+	private String currency;
+	private String preferredAssetType;
+	private BigDecimal preferredAssetsGroupId;
+	private String identifier;
+	private BigDecimal constraintAssetUsedAmt;
+	private BigDecimal cumulativeConstraintAssetUsedAmt;
+	private BigDecimal id;
+	private BigDecimal preferredAssetsTypeId;
+	private BigDecimal currencyAppId;
+	private String currencyAppConfigName;
+	private String instrumentType;
+	private BigDecimal minPerc;
+	private BigDecimal Min;
+	private BigDecimal minimumFlatAmt;
+	private BigDecimal maximumFlatAmount;
+	private BigDecimal recommendedPerc;
+	private BigDecimal maxPerc;
+	private String preferredAssetsTypeConfigName;
+	private BigDecimal instrumentTypeId;
+	private String instrumentTypeAppConfigName;
+	private String securityRating;
+	private int allocationPriority;
+	private int allocationOrder;
+	private ConsolidationVO consolidationVO;
+	private AssetVO assetDetails;
+	private BigDecimal thirdPartyProcessorId1;
+	private BigDecimal thirdPartyProcessorId2;
+	private int hasError;
+	private List<ErrorVO> errors;
+	
+	
+	public String getIsin() {
+		return isin;
+	}
+	public void setIsin(String isin) {
+		this.isin = isin;
+	}
+	public String getConsolidationCode() {
+		return consolidationCode;
+	}
+	public void setConsolidationCode(String consolidationCode) {
+		this.consolidationCode = consolidationCode;
+	}
+	public String getCurrency() {
+		return currency;
+	}
+	public void setCurrency(String currency) {
+		this.currency = currency;
+	}
+	public String getPreferredAssetType() {
+		return preferredAssetType;
+	}
+	public void setPreferredAssetType(String preferredAssetType) {
+		this.preferredAssetType = preferredAssetType;
+	}
+	public BigDecimal getPreferredAssetsGroupId() {
+		return preferredAssetsGroupId;
+	}
+	public void setPreferredAssetsGroupId(BigDecimal preferredAssetsGroupId) {
+		this.preferredAssetsGroupId = preferredAssetsGroupId;
+	}
+	public String getIdentifier() {
+		return identifier;
+	}
+	public void setIdentifier(String identifier) {
+		this.identifier = identifier;
+	}
+	public BigDecimal getConstraintAssetUsedAmt() {
+		return constraintAssetUsedAmt;
+	}
+	public void setConstraintAssetUsedAmt(BigDecimal constraintAssetUsedAmt) {
+		this.constraintAssetUsedAmt = constraintAssetUsedAmt;
+	}
+	public BigDecimal getCumulativeConstraintAssetUsedAmt() {
+		return cumulativeConstraintAssetUsedAmt;
+	}
+	public void setCumulativeConstraintAssetUsedAmt(BigDecimal cumulativeConstraintAssetUsedAmt) {
+		this.cumulativeConstraintAssetUsedAmt = cumulativeConstraintAssetUsedAmt;
+	}
+	public BigDecimal getId() {
+		return id;
+	}
+	public void setId(BigDecimal id) {
+		this.id = id;
+	}
+	public BigDecimal getPreferredAssetsTypeId() {
+		return preferredAssetsTypeId;
+	}
+	public void setPreferredAssetsTypeId(BigDecimal preferredAssetsTypeId) {
+		this.preferredAssetsTypeId = preferredAssetsTypeId;
+	}
+	public BigDecimal getCurrencyAppId() {
+		return currencyAppId;
+	}
+	public void setCurrencyAppId(BigDecimal currencyAppId) {
+		this.currencyAppId = currencyAppId;
+	}
+	public String getCurrencyAppConfigName() {
+		return currencyAppConfigName;
+	}
+	public void setCurrencyAppConfigName(String currencyAppConfigName) {
+		this.currencyAppConfigName = currencyAppConfigName;
+	}
+	public String getInstrumentType() {
+		return instrumentType;
+	}
+	public void setInstrumentType(String instrumentType) {
+		this.instrumentType = instrumentType;
+	}
+	public BigDecimal getMinPerc() {
+		return minPerc;
+	}
+	public void setMinPerc(BigDecimal minPerc) {
+		this.minPerc = minPerc;
+	}
+	public BigDecimal getMin() {
+		return Min;
+	}
+	public void setMin(BigDecimal min) {
+		Min = min;
+	}
+	public BigDecimal getMinimumFlatAmt() {
+		return minimumFlatAmt;
+	}
+	public void setMinimumFlatAmt(BigDecimal minimumFlatAmt) {
+		this.minimumFlatAmt = minimumFlatAmt;
+	}
+	public BigDecimal getMaximumFlatAmount() {
+		return maximumFlatAmount;
+	}
+	public void setMaximumFlatAmount(BigDecimal maximumFlatAmount) {
+		this.maximumFlatAmount = maximumFlatAmount;
+	}
+	public BigDecimal getRecommendedPerc() {
+		return recommendedPerc;
+	}
+	public void setRecommendedPerc(BigDecimal recommendedPerc) {
+		this.recommendedPerc = recommendedPerc;
+	}
+	public BigDecimal getMaxPerc() {
+		return maxPerc;
+	}
+	public void setMaxPerc(BigDecimal maxPerc) {
+		this.maxPerc = maxPerc;
+	}
+	public String getPreferredAssetsTypeConfigName() {
+		return preferredAssetsTypeConfigName;
+	}
+	public void setPreferredAssetsTypeConfigName(String preferredAssetsTypeConfigName) {
+		this.preferredAssetsTypeConfigName = preferredAssetsTypeConfigName;
+	}
+	public BigDecimal getInstrumentTypeId() {
+		return instrumentTypeId;
+	}
+	public void setInstrumentTypeId(BigDecimal instrumentTypeId) {
+		this.instrumentTypeId = instrumentTypeId;
+	}
+	public String getInstrumentTypeAppConfigName() {
+		return instrumentTypeAppConfigName;
+	}
+	public void setInstrumentTypeAppConfigName(String instrumentTypeAppConfigName) {
+		this.instrumentTypeAppConfigName = instrumentTypeAppConfigName;
+	}
+	public String getSecurityRating() {
+		return securityRating;
+	}
+	public void setSecurityRating(String securityRating) {
+		this.securityRating = securityRating;
+	}
+	public int getAllocationPriority() {
+		return allocationPriority;
+	}
+	public void setAllocationPriority(int allocationPriority) {
+		this.allocationPriority = allocationPriority;
+	}
+	public int getAllocationOrder() {
+		return allocationOrder;
+	}
+	public void setAllocationOrder(int allocationOrder) {
+		this.allocationOrder = allocationOrder;
+	}
+	public ConsolidationVO getConsolidationVO() {
+		return consolidationVO;
+	}
+	public void setConsolidationVO(ConsolidationVO consolidationVO) {
+		this.consolidationVO = consolidationVO;
+	}
+	public AssetVO getAssetDetails() {
+		return assetDetails;
+	}
+	public void setAssetDetails(AssetVO assetDetails) {
+		this.assetDetails = assetDetails;
+	}
+	public BigDecimal getThirdPartyProcessorId1() {
+		return thirdPartyProcessorId1;
+	}
+	public void setThirdPartyProcessorId1(BigDecimal thirdPartyProcessorId1) {
+		this.thirdPartyProcessorId1 = thirdPartyProcessorId1;
+	}
+	public BigDecimal getThirdPartyProcessorId2() {
+		return thirdPartyProcessorId2;
+	}
+	public void setThirdPartyProcessorId2(BigDecimal thirdPartyProcessorId2) {
+		this.thirdPartyProcessorId2 = thirdPartyProcessorId2;
+	}
+	public int getHasError() {
+		return hasError;
+	}
+	public void setHasError(int hasError) {
+		this.hasError = hasError;
+	}
+	public List<ErrorVO> getErrors() {
+		return errors;
+	}
+	public void setErrors(List<ErrorVO> errors) {
+		this.errors = errors;
+	}
+	@Override
+	public String toString() {
+		return "PreferredAssetVO [isin=" + isin + ", consolidationCode=" + consolidationCode + ", currency=" + currency
+				+ ", preferredAssetType=" + preferredAssetType + ", preferredAssetsGroupId=" + preferredAssetsGroupId
+				+ ", identifier=" + identifier + ", constraintAssetUsedAmt=" + constraintAssetUsedAmt
+				+ ", cumulativeConstraintAssetUsedAmt=" + cumulativeConstraintAssetUsedAmt + ", id=" + id
+				+ ", preferredAssetsTypeId=" + preferredAssetsTypeId + ", currencyAppId=" + currencyAppId
+				+ ", currencyAppConfigName=" + currencyAppConfigName + ", instrumentType=" + instrumentType
+				+ ", minPerc=" + minPerc + ", Min=" + Min + ", minimumFlatAmt=" + minimumFlatAmt
+				+ ", maximumFlatAmount=" + maximumFlatAmount + ", recommendedPerc=" + recommendedPerc + ", maxPerc="
+				+ maxPerc + ", preferredAssetsTypeConfigName=" + preferredAssetsTypeConfigName + ", instrumentTypeId="
+				+ instrumentTypeId + ", instrumentTypeAppConfigName=" + instrumentTypeAppConfigName
+				+ ", securityRating=" + securityRating + ", allocationPriority=" + allocationPriority
+				+ ", allocationOrder=" + allocationOrder + ", consolidationVO=" + consolidationVO + ", assetDetails="
+				+ assetDetails + ", thirdPartyProcessorId1=" + thirdPartyProcessorId1 + ", thirdPartyProcessorId2="
+				+ thirdPartyProcessorId2 + ", hasError=" + hasError + ", errors=" + errors + "]";
+	}
+	
+	
+	
+}

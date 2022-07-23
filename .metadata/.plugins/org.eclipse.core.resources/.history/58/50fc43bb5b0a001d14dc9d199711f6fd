@@ -1,0 +1,236 @@
+package com.klayx.asset.dao.impl;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementSetter;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Repository;
+
+import com.klayx.asset.common.AssetUtil;
+import com.klayx.asset.dao.IAssetSPUnderlyingMetricsDAO;
+import com.klayx.asset.datasourcemanager.DataSourceManager;
+import com.klayx.asset.model.AssetGetRequestVO;
+import com.klayx.asset.model.AssetPriceVO;
+import com.klayx.asset.model.AssetSPMetricsVO;
+import com.klayx.asset.model.AssetSPUnderlyingMetricsVO;
+import com.klayx.asset.model.AssetVO;
+import com.klayx.asset.model.UnderlyingAssetsVO;
+import com.klayx.asset.rowmapper.AssetPriceRowMapper;
+import com.klayx.asset.rowmapper.AssetSPMetricsRowMapper;
+import com.klayx.asset.rowmapper.UnderlyingAssetRowMapper;
+import com.klayx.asset.transactionmanager.CustomTransactional;
+
+@Repository
+@PropertySource({ "classpath:${DBSQLFILE}.properties" })
+public class AssetSPUnderlyingMetricsDAOImpl implements IAssetSPUnderlyingMetricsDAO {
+
+	@Value("${GET_CURRENT_LEVEL_AMOUNT}")
+	private String GET_CURRENT_LEVEL_AMOUNT;
+
+	@Value("${GET_CURRENT_LEVEL_AMOUNT_BY_ISIN}")
+	private String GET_CURRENT_LEVEL_AMOUNT_BY_ISIN;
+
+	@Value("${GET_INITIAL_LEVEL_AMOUNT}")
+	private String GET_INITIAL_LEVEL_AMOUNT;
+
+	@Value("${INSERT_ASSET_SP_UNDERLYING_METRICS}")
+	private String INSERT_ASSET_SP_UNDERLYING_METRICS;
+
+	@Value("${GET_UNDERLYING_ASSET_ID}")
+	private String GET_UNDERLYING_ASSET_ID;
+
+	@Value("${SET_ASSET_SP_UNDERLYING_IS_ACTIVE_VALUE}")
+	private String SET_ASSET_SP_UNDERLYING_IS_ACTIVE_VALUE;
+
+	@Value("${GET_ASSET_ID}")
+	private String GET_ASSET_ID;
+	
+	@Value("${GET_UNDERLYING_ASSET_MAP}")
+	private String GET_UNDERLYING_ASSET_MAP;
+	
+	@Value("${GET_ASSET_PRICE}")
+	private String GET_ASSET_PRICE;
+	
+//	@Autowired
+	private NamedParameterJdbcTemplate jdbcTemplate;
+
+//	@Autowired
+	JdbcTemplate jdbcTemplateObject;
+	
+	@Autowired
+	DataSourceManager dataSourceManager;
+	
+	@Autowired
+	private AssetPriceRowMapper assetPriceRowMapper;
+
+	private static final Logger log = LogManager.getLogger(AssetSPUnderlyingMetricsDAOImpl.class);
+	
+	@CustomTransactional
+	@Override
+	public BigDecimal saveAssetSPUnderlyingMetrics(String tenantCode,AssetSPUnderlyingMetricsVO assetSPUnderlyingMetricsVO) {
+		try {
+			jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(tenantCode,null);
+			KeyHolder keyHolder = new GeneratedKeyHolder();
+			BigDecimal underlyingAssetId = jdbcTemplateObject.queryForObject(GET_ASSET_ID+ " isin='"+ assetSPUnderlyingMetricsVO.getUnderlyingIsin()+"' AND currency_config_name='"+assetSPUnderlyingMetricsVO.getUnderlyingCurrencyConfigName()+"'",BigDecimal.class);
+			assetSPUnderlyingMetricsVO.setUnderlyingAssetId(underlyingAssetId);
+			jdbcTemplate.update(INSERT_ASSET_SP_UNDERLYING_METRICS,
+					new BeanPropertySqlParameterSource(assetSPUnderlyingMetricsVO), keyHolder);
+			return BigDecimal.valueOf(Long.parseLong(keyHolder.getKeys().get("id").toString()));
+		} catch (Exception e) {
+			log.fatal("Error occured while adding Structured Product Underlying Metrics");
+			//e.printStackTrace();
+			throw e;
+		}
+	}
+
+	@CustomTransactional
+	@Override
+	public BigDecimal getCurrentLevelAmount(String tenantCode,BigDecimal assetId) {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomNamedJdbc(tenantCode,null);
+			return jdbcTemplate.queryForObject(GET_CURRENT_LEVEL_AMOUNT, new MapSqlParameterSource("assetId", assetId),
+					BigDecimal.class);
+		} catch (Exception e) {
+			log.fatal("Error occured while fetching Current Level Amount by Asset Id");
+		//	e.printStackTrace();
+			return new BigDecimal(-1);
+		}
+	}
+
+	public List<UnderlyingAssetsVO> getUnderlyingAssetMap(String tenantCode,BigDecimal assetId) {
+		jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(tenantCode,null);
+		return jdbcTemplateObject.query(GET_UNDERLYING_ASSET_MAP+assetId, new UnderlyingAssetRowMapper());
+	}
+
+	@Override
+	public List<AssetPriceVO> getAssetPriceList(String tenantCode,BigDecimal assetId) {
+		jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(tenantCode,null);
+		return jdbcTemplateObject.query(GET_ASSET_PRICE+assetId, new AssetPriceRowMapper());
+	}
+
+	@Override
+	public List<AssetPriceVO> getAssetPrice(String tenantCode,List<AssetGetRequestVO> reqParam, Date computedDate) throws Exception {
+		try {
+			jdbcTemplateObject=dataSourceManager.refreshCustomJdbc(tenantCode,null);
+			/*
+			 * List<AssetPriceVO> assetPriceVOs =
+			 * jdbcTemplate.query(GET_CURRENT_LEVEL_AMOUNT_BY_ISIN, new
+			 * MapSqlParameterSource("isin", isin).addValue("computedDate", computedDate)
+			 * .addValue("currencyConfigName", currencyConfigName)
+			 * .addValue("custodianConfigName", custodianConfigName), assetPriceRowMapper);
+			 */
+			StringBuilder query = new StringBuilder();
+			query.append(GET_CURRENT_LEVEL_AMOUNT_BY_ISIN);
+
+			String lastStr;
+			String normStr;
+
+			for (int i = 0; i < reqParam.size(); i++) {
+
+				if (i == reqParam.size() - 1) {
+					lastStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME= ?))";
+					query.append(lastStr);
+				} else {
+					normStr = "(ISIN = ? AND CURRENCY_CONFIG_NAME = ? AND CUSTODIAN_CONFIG_NAME= ?) OR ";
+					query.append(normStr);
+				}
+			}
+			String remainingStr = "AND (EFF_FROM_DATE <= TO_DATE(?, 'yyyy-mm-DD') AND (EFF_TO_DATE is null OR EFF_TO_DATE >= TO_DATE(?, 'yyyy-mm-DD')))  ORDER BY EFF_FROM_DATE desc LIMIT 1";
+			query.append(remainingStr);
+			
+			
+			List<AssetPriceVO> assetPriceVOs= jdbcTemplateObject.query(query.toString(), new PreparedStatementSetter() {
+				int cnt=0;
+				@Override
+				public void setValues(PreparedStatement preparedStatement) throws SQLException {
+					for(int i=0;i<reqParam.size();i++) {
+						
+						if(i==reqParam.size()-1) {
+							preparedStatement.setString(++cnt,reqParam.get(i).getIsin());
+							preparedStatement.setString(++cnt,reqParam.get(i).getCurrencyConfigName());
+							preparedStatement.setString(++cnt,reqParam.get(i).getCustodianConfigName());
+						}
+						else{
+							preparedStatement.setString(++cnt,reqParam.get(i).getIsin());
+							preparedStatement.setString(++cnt,reqParam.get(i).getCurrencyConfigName());
+							preparedStatement.setString(++cnt,reqParam.get(i).getCustodianConfigName());
+							
+						}
+					}
+					preparedStatement.setDate(++cnt,AssetUtil.DateFormater(computedDate));
+					preparedStatement.setDate(++cnt,AssetUtil.DateFormater(computedDate));
+				}
+			}, new AssetPriceRowMapper());
+			
+			return assetPriceVOs;
+		} catch (Exception e) {
+			log.fatal("Error occured while fetching Asset Price");
+			//e.printStackTrace();
+			throw e;
+		}
+	}
+
+	@Override
+	public BigDecimal getInitialLevelAmount(String tenantCode,BigDecimal assetId) {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomNamedJdbc(tenantCode,null);
+			return jdbcTemplate.queryForObject(GET_INITIAL_LEVEL_AMOUNT, new MapSqlParameterSource("assetId", assetId),
+					BigDecimal.class);
+		} catch (Exception e) {
+			log.fatal("Error occured while fetching Initial Level Amount");
+		//	e.printStackTrace();
+			return new BigDecimal(-1);
+		}
+	}
+
+	@Override
+	public List<UnderlyingAssetsVO> getUnderlyingAssetId(String tenantCode,BigDecimal assetId) {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomNamedJdbc(tenantCode,null);
+			return jdbcTemplate.query(GET_UNDERLYING_ASSET_ID, new MapSqlParameterSource("assetId", assetId),
+					new UnderlyingAssetRowMapper());
+		} catch (Exception e) {
+			log.fatal("Error occured while fetching Underlying Asset Id");
+		//	e.printStackTrace();
+			return null;
+		}
+	}
+
+	@CustomTransactional
+	@Override
+	public void setIsActive(String tenantCode,List<AssetVO> assetVOs) {
+		try {
+			jdbcTemplate=dataSourceManager.refreshCustomNamedJdbc(tenantCode,null);
+			String query = " ";
+			MapSqlParameterSource map = new MapSqlParameterSource();
+			for (int i = 0; i < assetVOs.size() - 1; i++) {
+				query += " PARENT_ASSET_ID = :assetId" + i + " OR";
+				map.addValue("assetId" + i, assetVOs.get(i).getId());
+			}
+			int size = assetVOs.size() - 1;
+			query += "  PARENT_ASSET_ID = :assetId" + size;
+			map.addValue("assetId" + size, assetVOs.get(size).getId());
+			jdbcTemplate.update(SET_ASSET_SP_UNDERLYING_IS_ACTIVE_VALUE + query, map);
+		} catch (Exception e) {
+			log.fatal("Error occured while setting up the active status of Structured Product Metrics");
+			e.printStackTrace();
+			throw e;
+		}
+	}
+}
